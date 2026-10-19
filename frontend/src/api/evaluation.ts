@@ -1,4 +1,4 @@
-import axios from 'axios'
+import { createHttp } from './http'
 
 /** 评测中心 API 封装 */
 
@@ -73,7 +73,7 @@ export interface EvalReportListResult {
   items: EvalReportSummary[]
 }
 
-const http = axios.create({
+const http = createHttp({
   baseURL: '/api/v1',
   timeout: 15000
 })

@@ -457,6 +457,21 @@
         }
       },
       "additionalProperties": false
+    },
+    "AuthSession": {
+      "type": "object",
+      "required": [
+        "role"
+      ],
+      "properties": {
+        "role": {
+          "enum": [
+            "admin",
+            "readonly"
+          ]
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

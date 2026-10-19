@@ -20,10 +20,12 @@ for (const failFirst of [false, true]) {
       if (url.origin === 'http://127.0.0.1:5175') await route.continue()
       else { unexpected.push(url.origin); await route.abort() }
     })
-    await page.route('**/api/v1/**', async route => {
+    await page.route('**/api/v*/**', async route => {
       const request = route.request()
       const path = new URL(request.url()).pathname
-      if (path === '/api/v1/generate' && request.method() === 'POST') {
+      if (path === '/api/v2/auth/session') {
+        await route.fulfill({ json: { data: { role: 'admin' }, meta: { request_id: 'fixture' } } })
+      } else if (path === '/api/v1/generate' && request.method() === 'POST') {
         requests.push(request.postDataJSON())
         if (failFirst && requests.length === 1) {
           await route.fulfill({ status: 503, json: { detail: '固定服务故障' } })
@@ -38,6 +40,8 @@ for (const failFirst of [false, true]) {
       }
     })
     await page.goto('/home')
+    await page.getByLabel('访问令牌').fill('fixture-admin-browser')
+    await page.getByRole('button', { name: '验证并进入' }).click()
     await expect(page.getByRole('heading', { name: '多智能体报告生成' })).toBeVisible()
     await page.getByRole('button', { name: '生成研究报告' }).click()
     await expect(page.getByText('请输入研究主题', { exact: true })).toBeVisible()

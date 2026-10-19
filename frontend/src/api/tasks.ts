@@ -1,4 +1,4 @@
-import axios from 'axios'
+import { createHttp } from './http'
 
 /** 任务摘要（列表项） */
 export interface TaskSummary {
@@ -92,7 +92,7 @@ export interface TaskReport {
   }
 }
 
-const http = axios.create({
+const http = createHttp({
   baseURL: '/api/v1',
   timeout: 15000
 })

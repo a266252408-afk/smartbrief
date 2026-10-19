@@ -1,4 +1,4 @@
-import axios from 'axios'
+import { createHttp } from './http'
 
 /** 工具调用记录 */
 export interface ToolCallRecord {
@@ -14,7 +14,7 @@ export interface ChatResult {
   tool_calls: ToolCallRecord[]
 }
 
-const http = axios.create({
+const http = createHttp({
   baseURL: '/api/v1',
   timeout: 60000 // 对话涉及多轮工具调用，放宽超时
 })

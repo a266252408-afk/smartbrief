@@ -4,10 +4,12 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes import router
+from api.security import authenticate, AuthSession
+from services.security import cors_origins
 from db import database
 from db import evaluation_repository
 from db import task_repository
@@ -73,14 +75,29 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# 开发环境放开跨域（后续可收紧）
+app.middleware("http")(authenticate)
+
+# CORS位于认证外层，白名单预检不需要凭证。
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=cors_origins(),
+    allow_credentials=False,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["Authorization", "Content-Type"],
 )
+
+@app.api_route("/healthz", methods=["GET", "HEAD"], include_in_schema=False)
+async def probe():
+    return {"status": "ok"}
+
+
+@app.get("/api/v2/auth/session")
+async def auth_session(request: Request):
+    from starlette.responses import JSONResponse
+    return JSONResponse({"data": AuthSession(role=request.state.principal.role).model_dump(),
+                         "meta": {"request_id": request.state.request_id}},
+                        headers={"Cache-Control": "no-store"})
+
 
 app.include_router(router)
 

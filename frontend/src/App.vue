@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
+import AuthPanel from './components/AuthPanel.vue'
+import { authRole, authNotice, clearSession } from './api/session'
 
 const route = useRoute()
 
@@ -20,7 +22,7 @@ const menus = [
     <header class="app-header">
       <h1>SmartBrief</h1>
       <span class="app-subtitle">多智能体报告生成平台</span>
-      <nav class="app-nav">
+      <nav v-if="authRole" class="app-nav">
         <router-link
           v-for="m in menus"
           :key="m.path"
@@ -31,9 +33,15 @@ const menus = [
           {{ m.label }}
         </router-link>
       </nav>
+      <span v-if="authRole">{{ authRole === 'admin' ? '管理员' : '只读访问' }}</span>
+      <el-button v-if="authRole" @click="clearSession()">退出认证</el-button>
     </header>
     <main class="app-main">
-      <router-view />
+      <template v-if="authRole">
+        <p v-if="authNotice" role="alert">{{ authNotice }}</p>
+        <router-view />
+      </template>
+      <AuthPanel v-else />
     </main>
   </div>
 </template>

@@ -63,3 +63,9 @@ Playwright 配置默认使用项目内 `.browser-cache`；浏览器安装和运�
 单测使用真实 Home 组件和 Element Plus，只替换 API 与路由边界；E2E 自动启动本地 Vite（127.0.0.1:5175，端口被占用会失败），运行真实 Chromium、真实页面/路由与明确离线 HTTP 夹具，拒绝未声明的 API 与外部请求，不启动付费后台工作流。后端真实 API/图/仓储集成独立执行，不用页面夹具代替。任务 T11/T13 再验证完整演示和最终交付。
 
 `test-results/`、`playwright-report/` 和浏览器缓存为忽略的本地产物；失败保留 trace。`npm run test:e2e` 不复用已有 Vite 服务，不需手动启动用户浏览器。测试缺包、缺浏览器、没有断言或依赖失败都不算通过。
+
+## 访问认证配置
+
+后端环境设置不同的 `SMARTBRIEF_ADMIN_TOKEN`、可选 `SMARTBRIEF_READONLY_TOKEN`（至少32字符、无空白），使用密码管理器或 `secrets.token_urlsafe(32)` 本地生成，勿提交真实值。`SMARTBRIEF_CORS_ORIGINS` 为逗号分隔的完整HTTP(S)来源，不允许通配符；修改后重启服务。默认允许本地5174前端。
+
+只有 GET/HEAD `/healthz` 匿名。其余入口（含文档/OpenAPI）需 `Authorization: Bearer <token>`；v2 `/api/v2/auth/session` 返回角色包，只读允许查询，不允许生成、修改、删除或执行。缺配置503、缺失/错误令牌401、角色不足403。浏览器令牌仅内存保存，401清空重新认证、403保留只读会话并提示。单所有者角色不代表多租户隔离。

@@ -30,6 +30,10 @@ def _rag_memory_test_isolation(tmp_path, monkeypatch):
     from db import database
     from skills import skills_manager
 
+    from tests.auth_support import ADMIN_TOKEN, READ_TOKEN
+    monkeypatch.setenv("SMARTBRIEF_ADMIN_TOKEN", ADMIN_TOKEN)
+    monkeypatch.setenv("SMARTBRIEF_READONLY_TOKEN", READ_TOKEN)
+
     # 所有测试默认隔离业务库、配置和技能目录；局部 fixture 可进一步覆盖。
     monkeypatch.setattr(database, "DB_PATH", tmp_path / "data.db")
     monkeypatch.setattr("mcp_client.mcp_client.CONFIG_PATH", tmp_path / "mcp_config.json")

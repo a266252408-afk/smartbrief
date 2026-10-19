@@ -4,6 +4,7 @@ import time
 
 import pytest
 from fastapi.testclient import TestClient
+from tests.auth_support import ADMIN_HEADERS
 
 from db import task_repository
 
@@ -34,7 +35,7 @@ def test_generate_real_graph_and_persisted_api_state(offline_services, invalid_p
         scripts["react_researcher"].outputs = ['{"action":"web_search","query":"固定资料"}', '{"action":"done"}']
         scripts["react_writer"].outputs = ["## 离线报告\n本文仅为测试夹具。"]
         scripts["reviewer"].outputs = ['{"passed":true,"comments":[]}']
-    with TestClient(app) as client:
+    with TestClient(app, headers=ADMIN_HEADERS) as client:
         task_repository.create_task("unrelated", "独立任务")
         response = client.post("/api/v1/generate", json={"topic": "离线集成验收"})
         assert response.status_code == 200

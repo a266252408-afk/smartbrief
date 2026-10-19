@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+from tests.auth_support import ADMIN_HEADERS
 
 from db import task_repository
 from db.database import init_db
@@ -49,7 +50,7 @@ def client(tmp_path, monkeypatch):
     init_db(tmp_path / "api_test.db")
     from main import app
 
-    with TestClient(app) as c:
+    with TestClient(app, headers=ADMIN_HEADERS) as c:
         yield c
 
 

@@ -1,4 +1,4 @@
-import axios from 'axios'
+import { createHttp } from './http'
 
 /** 知识库文档（列表项，按 (category, source) 聚合） */
 export interface KnowledgeDocument {
@@ -29,7 +29,7 @@ export interface MemorySearchHit {
   created_at: string
 }
 
-const http = axios.create({
+const http = createHttp({
   baseURL: '/api/v1',
   timeout: 20000
 })

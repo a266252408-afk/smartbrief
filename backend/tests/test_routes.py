@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+from tests.auth_support import ADMIN_HEADERS
 
 
 @pytest.fixture
@@ -12,7 +13,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr("tools.builtin_tools.CONFIG_PATH", tmp_path / "tool_config.json")
     from main import app
 
-    with TestClient(app) as c:
+    with TestClient(app, headers=ADMIN_HEADERS) as c:
         yield c
 
 

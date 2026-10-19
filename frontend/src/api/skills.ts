@@ -1,4 +1,4 @@
-import axios from 'axios'
+import { createHttp } from './http'
 
 /** 技能信息（列表 / 表单回显共用） */
 export interface SkillInfo {
@@ -45,7 +45,7 @@ export interface SkillRunOutput {
   metadata?: Record<string, unknown>
 }
 
-const http = axios.create({
+const http = createHttp({
   baseURL: '/api/v1',
   timeout: 15000
 })

@@ -1,6 +1,7 @@
 """评测 API 测试：/evaluation/run、/evaluation/reports(/id)、/tasks/{id}/report。"""
 import pytest
 from fastapi.testclient import TestClient
+from tests.auth_support import ADMIN_HEADERS
 
 from db import evaluation_repository, task_repository
 from db.database import init_db
@@ -16,7 +17,7 @@ def client(tmp_path, monkeypatch):
     init_db(tmp_path / "eval_api_test.db")
     from main import app
 
-    with TestClient(app) as c:
+    with TestClient(app, headers=ADMIN_HEADERS) as c:
         yield c
 
 
@@ -131,7 +132,7 @@ def test_lifespan_marks_running_evals_failed(tmp_path, monkeypatch):
     evaluation_repository.create("eval_stale", 10)  # 模拟上次进程中断遗留的评测
     from main import app
 
-    with TestClient(app):
+    with TestClient(app, headers=ADMIN_HEADERS):
         record = evaluation_repository.get("eval_stale")
         assert record["status"] == "failed"
         assert "服务中断" in record["error"]

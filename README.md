@@ -67,7 +67,9 @@ npm ci
 cd ..
 ```
 
-2. 将 `backend/.env.example` 复制为 `backend/.env`，填写接口配置：
+2. 将 `backend/.env.example` 复制为 `backend/.env`，填写接口配置与两个不同的至少32字符随机访问令牌。只有 `/healthz` 为匿名最小探针，管理员令牌未配置时其余入口拒绝访问；浏览器进入时输入管理员或只读令牌，凭证仅保存于页面内存。
+
+接口配置：
 
 ```dotenv
 OPENAI_BASE_URL=https://your-provider.example/v1
@@ -93,7 +95,7 @@ cd frontend
 npm run dev
 ```
 
-前端地址：`http://localhost:5174`；API 文档：`http://localhost:8002/docs`；健康检查：`http://localhost:8002/api/v1/health`。
+前端地址：`http://localhost:5174`；API 文档：`http://localhost:8002/docs`；匿名探针：`http://localhost:8002/healthz`；完整健康检查 `/api/v1/health` 与 API 文档均需 Bearer 令牌。
 
 容器化与服务器部署见 [部署说明](deploy/README.md)。
 

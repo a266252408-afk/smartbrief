@@ -1,4 +1,4 @@
-import axios from 'axios'
+import { createHttp } from './http'
 
 /** 内置工具信息 */
 export interface BuiltinToolInfo {
@@ -51,7 +51,7 @@ export interface ToolStat {
   failed: number
 }
 
-const http = axios.create({
+const http = createHttp({
   baseURL: '/api/v1',
   timeout: 10000
 })
