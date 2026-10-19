@@ -1,0 +1,542 @@
+<script setup lang="ts">
+/** 评测中心：运行评测 → 进度条 → 五维雷达图 + 指标卡 + 用例明细 + 历史对比 */
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
+import * as echarts from 'echarts'
+import {
+  runEvaluation,
+  fetchEvalReports,
+  fetchEvalReport,
+  deleteEvalReport,
+  type EvalReport,
+  type EvalReportSummary,
+  type EvalCaseResult
+} from '../api/evaluation'
+
+// ---------------- 状态 ----------------
+
+const running = ref(false)          // 当前是否有评测在执行（含后台）
+const starting = ref(false)         // 正在触发评测
+const reports = ref<Awaited<ReturnType<typeof fetchEvalReports>>['items']>([])
+const selectedId = ref('')          // 当前选中的评测 id
+const report = ref<EvalReport | null>(null)
+const loading = ref(false)
+const pollTimer = ref<number | null>(null)
+
+async function loadList() {
+  try {
+    const result = await fetchEvalReports({ page: 1, page_size: 20 })
+    reports.value = result.items
+    // 列表里有执行中的评测 → 自动选中并轮询
+    const active = result.items.find((r) => r.status === 'running')
+    if (active) {
+      running.value = true
+      select(active.eval_id)
+    } else if (result.items.length && !report.value) {
+      // 默认展示最近一次评测
+      select(result.items[0].eval_id)
+    }
+  } catch {
+    ElMessage.error('获取评测历史失败，请检查后端服务')
+  }
+}
+
+async function loadDetail(evalId: string) {
+  loading.value = true
+  try {
+    report.value = await fetchEvalReport(evalId)
+    running.value = report.value.status === 'running'
+    if (running.value) startPolling()
+    else stopPolling()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.detail || '获取评测详情失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+function select(evalId: string) {
+  selectedId.value = evalId
+  void loadDetail(evalId)
+}
+
+function onRowClick(row: { eval_id: string }) {
+  select(row.eval_id)
+}
+
+// ---------------- 删除历史评测 ----------------
+
+async function confirmDelete(row: EvalReportSummary) {
+  try {
+    await ElMessageBox.confirm(
+      `确定删除评测报告 ${row.eval_id}（${row.completed_cases}/${row.total_cases}）吗？该操作不可恢复。`,
+      '删除确认',
+      { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
+    )
+  } catch {
+    return
+  }
+  try {
+    await deleteEvalReport(row.eval_id)
+    ElMessage.success(`已删除评测报告 ${row.eval_id}`)
+    // 当前选中的正是被删除的评测 → 清空选中，列表刷新后自动展示最新一条
+    if (selectedId.value === row.eval_id) {
+      selectedId.value = ''
+      report.value = null
+      stopPolling()
+      running.value = false
+    }
+    await loadList()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.detail || '删除失败，请检查后端服务')
+  }
+}
+
+// ---------------- 轮询（执行中 2s 刷新） ----------------
+
+function startPolling() {
+  stopPolling()
+  pollTimer.value = window.setInterval(() => {
+    if (selectedId.value) void loadDetail(selectedId.value)
+  }, 2000)
+}
+
+function stopPolling() {
+  if (pollTimer.value !== null) {
+    window.clearInterval(pollTimer.value)
+    pollTimer.value = null
+  }
+}
+
+onMounted(() => {
+  loadList()
+})
+
+onBeforeUnmount(() => {
+  stopPolling()
+  radarChart.value?.dispose()
+})
+
+// ---------------- 运行评测 ----------------
+
+async function onRun() {
+  if (running.value || starting.value) return
+  starting.value = true
+  try {
+    const result = await runEvaluation()
+    ElMessage.success(`评测已启动：${result.eval_id}（共 ${result.total_cases} 个用例，约 5-10 分钟）`)
+    running.value = true
+    select(result.eval_id)
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.detail || '评测启动失败，请检查后端服务')
+  } finally {
+    starting.value = false
+  }
+}
+
+// ---------------- 派生数据 ----------------
+
+const summary = computed(() => report.value?.metrics?.summary)
+
+/** 指标展示卡（实测值 + 目标值 + 达标标签） */
+const metricCards = computed(() => {
+  const s = summary.value
+  if (!s) return []
+  const pct = (v: number) => `${(v * 100).toFixed(1)}%`
+  const target = report.value!.metrics.targets
+  const met = report.value!.metrics.met
+  return [
+    { key: 'success_rate', label: '任务成功率', value: pct(s.success_rate), target: pct(target.success_rate), met: met.success_rate },
+    { key: 'avg_duration_seconds', label: '平均执行耗时', value: `${s.avg_duration_seconds.toFixed(1)}s`, target: `${target.avg_duration_seconds.toFixed(1)}s`, met: met.avg_duration_seconds },
+    { key: 'p95_duration_seconds', label: 'P95 耗时', value: `${s.p95_duration_seconds.toFixed(1)}s`, target: '—', met: true },
+    { key: 'avg_react_loops', label: '平均 ReAct 循环', value: `${s.avg_react_loops.toFixed(1)} 次`, target: `${target.avg_react_loops.toFixed(1)} 次`, met: met.avg_react_loops },
+    { key: 'keyword_coverage_rate', label: '关键词覆盖率', value: pct(s.keyword_coverage_rate), target: pct(target.keyword_coverage_rate), met: met.keyword_coverage_rate },
+    { key: 'memory_hit_rate', label: '记忆命中率', value: pct(s.memory_hit_rate), target: pct(target.memory_hit_rate), met: met.memory_hit_rate }
+  ]
+})
+
+/** 雷达图数据：5 个维度统一归一化到 0~100（100 = 达到目标值口径） */
+const radarOption = computed(() => {
+  const s = summary.value
+  if (!s) return null
+  const durationScore = s.avg_duration_seconds > 0
+    ? Math.max(0, Math.min(100, (1 - s.avg_duration_seconds / 120) * 100))
+    : 0
+  const loopScore = s.avg_react_loops > 0
+    ? Math.max(0, Math.min(100, (1 - s.avg_react_loops / 8) * 100))
+    : 0
+  return {
+    tooltip: {},
+    radar: {
+      indicator: [
+        { name: '成功率', max: 100 },
+        { name: '关键词覆盖率', max: 100 },
+        { name: '记忆命中率', max: 100 },
+        { name: '耗时达标分', max: 100 },
+        { name: '循环达标分', max: 100 }
+      ],
+      radius: '65%'
+    },
+    series: [
+      {
+        type: 'radar',
+        data: [
+          {
+            value: [
+              +(s.success_rate * 100).toFixed(1),
+              +(s.keyword_coverage_rate * 100).toFixed(1),
+              +(s.memory_hit_rate * 100).toFixed(1),
+              +durationScore.toFixed(1),
+              +loopScore.toFixed(1)
+            ],
+            name: '五维指标',
+            areaStyle: { opacity: 0.25 }
+          }
+        ]
+      }
+    ]
+  }
+})
+
+const radarChart = ref<echarts.ECharts | null>(null)
+const radarEl = ref<HTMLElement>()
+
+watch(radarOption, async () => {
+  if (!radarOption.value) return
+  await nextTick()
+  if (!radarEl.value) return
+  radarChart.value ??= echarts.init(radarEl.value)
+  radarChart.value.setOption(radarOption.value)
+})
+
+/** Markdown 报告（report_md）渲染为富文本 */
+const reportMdHtml = computed(() => {
+  const md = report.value?.report_md ?? ''
+  if (!md) return ''
+  const raw = marked.parse(md, { async: false }) as string
+  return DOMPurify.sanitize(raw)
+})
+
+const showMd = ref(true)
+const showCases = ref(true)
+
+function caseStatusType(r: EvalCaseResult) {
+  if (r.success) return 'success' as const
+  return 'danger' as const
+}
+
+function caseStatusLabel(r: EvalCaseResult) {
+  if (r.success) return '成功'
+  return '失败'
+}
+
+function coveragePercent(v: number) {
+  return `${(v * 100).toFixed(1)}%`
+}
+
+function durationText(r: EvalCaseResult) {
+  return r.duration_seconds == null ? '—' : `${r.duration_seconds}s`
+}
+
+function durationType(r: EvalCaseResult) {
+  if (r.duration_seconds == null) return 'info' as const
+  return r.duration_seconds > 120 ? 'warning' as const : 'success' as const
+}
+
+const statusMeta = {
+  running: { label: '执行中', type: 'primary' as const },
+  completed: { label: '已完成', type: 'success' as const },
+  failed: { label: '失败', type: 'danger' as const }
+}
+
+function statusOf(status: string) {
+  return statusMeta[status as keyof typeof statusMeta] ?? { label: status, type: 'info' as const }
+}
+</script>
+
+<template>
+  <div class="evaluation-page">
+    <div class="eval-header">
+      <div>
+        <h2>评测中心</h2>
+        <p class="hint">
+          执行已配置的评测用例，统计成功率、耗时、行动次数、关键词覆盖率与记忆命中率。
+          默认单用例用于冒烟验证，指标目标不代表实测成绩
+        </p>
+      </div>
+      <el-button
+        type="primary"
+        size="large"
+        :loading="starting"
+        :disabled="running"
+        @click="onRun"
+      >
+        {{ running ? '评测执行中…' : '运行评测' }}
+      </el-button>
+    </div>
+
+    <!-- 历史评测列表 -->
+    <el-card shadow="never" class="eval-list-card">
+      <template #header>
+        <span class="card-title">历史评测</span>
+        <el-tag v-if="running" type="primary" size="small" effect="plain">执行中</el-tag>
+      </template>
+      <el-table :data="reports" size="small" highlight-current-row @row-click="onRowClick">
+        <el-table-column prop="eval_id" label="评测 ID" width="160">
+          <template #default="{ row }">
+            <code>{{ row.eval_id }}</code>
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="开始时间" width="180" />
+        <el-table-column label="状态" width="110">
+          <template #default="{ row }">
+            <el-tag :type="statusOf(row.status).type" size="small">{{ statusOf(row.status).label }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="进度" min-width="140">
+          <template #default="{ row }">
+            <span>{{ row.completed_cases }} / {{ row.total_cases }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="140">
+          <template #default="{ row }">
+            <el-button link type="primary" @click="select(row.eval_id)">查看</el-button>
+            <el-button
+              link
+              type="danger"
+              :disabled="row.status === 'running'"
+              @click="confirmDelete(row)"
+            >删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-if="!reports.length" description="暂无评测记录，点击「运行评测」开始" :image-size="70" />
+    </el-card>
+
+    <!-- 运行中进度 -->
+    <el-card v-if="running && report" shadow="never" class="eval-progress-card">
+      <template #header>
+        <span class="card-title">评测执行中</span>
+        <el-tag type="primary" size="small" effect="plain">每 2 秒自动刷新</el-tag>
+      </template>
+      <el-progress
+        :percentage="Math.round((report.completed_cases / report.total_cases) * 100)"
+        :status="'active'"
+        :stroke-width="14"
+        :text-inside="true"
+      />
+      <p class="hint progress-tip">
+        已完成 {{ report.completed_cases }} / {{ report.total_cases }} 个用例
+        （{{ report.eval_id }}，约 5-10 分钟）
+      </p>
+    </el-card>
+
+    <el-empty v-if="!report && !running" description="选择左侧历史评测查看结果" />
+
+    <!-- 评测结果 -->
+    <template v-if="report && !running">
+      <el-alert
+        v-if="report.status === 'failed'"
+        :title="`评测中断：${report.error || '未知错误'}`"
+        type="error"
+        show-icon
+        :closable="false"
+        class="eval-alert"
+      />
+
+      <!-- 五维指标卡 -->
+      <el-row :gutter="16" class="metric-row">
+        <el-col v-for="m in metricCards" :key="m.key" :span="4">
+          <el-card shadow="hover" class="metric-card">
+            <div class="metric-label">{{ m.label }}</div>
+            <div class="metric-value" :class="{ 'metric-bad': !m.met }">
+              {{ m.value }}
+            </div>
+            <div class="metric-target">
+              目标 {{ m.target }}
+              <el-tag :type="m.met ? 'success' : 'danger'" size="small" effect="plain">
+                {{ m.met ? '达标' : '未达标' }}
+              </el-tag>
+            </div>
+          </el-card>
+        </el-col>
+      </el-row>
+
+      <el-row :gutter="16">
+        <!-- 雷达图 -->
+        <el-col :span="10">
+          <el-card shadow="never">
+            <template #header>
+              <span class="card-title">五维指标雷达图</span>
+              <el-tag size="small" type="info" effect="plain">归一化 0~100</el-tag>
+            </template>
+            <div ref="radarEl" class="radar-chart" />
+          </el-card>
+        </el-col>
+
+        <!-- Markdown 报告 -->
+        <el-col :span="14">
+          <el-card shadow="never">
+            <template #header>
+              <div class="md-header">
+                <span class="card-title">Markdown 评测报告</span>
+                <el-switch v-model="showMd" size="small" active-text="显示" inactive-text="隐藏" />
+              </div>
+            </template>
+            <div v-if="showMd" class="md-content" v-html="reportMdHtml" />
+          </el-card>
+        </el-col>
+      </el-row>
+
+      <!-- 用例明细 -->
+      <el-card shadow="never" class="case-card">
+        <template #header>
+          <div class="md-header">
+            <span class="card-title">用例明细（{{ summary?.success_cases }}/{{ summary?.total_cases }} 成功）</span>
+            <el-switch v-model="showCases" size="small" active-text="显示" inactive-text="隐藏" />
+          </div>
+        </template>
+        <el-table v-if="showCases" :data="report.results" size="small" border>
+          <el-table-column prop="case_index" label="#" width="50" />
+          <el-table-column prop="topic" label="主题" min-width="180" />
+          <el-table-column label="状态" width="90">
+            <template #default="{ row }">
+              <el-tag :type="caseStatusType(row)" size="small">{{ caseStatusLabel(row) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="耗时" width="90">
+            <template #default="{ row }">
+              <el-tag :type="durationType(row)" size="small" effect="plain">{{ durationText(row) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="react_loops" label="ReAct 次数" width="90" />
+          <el-table-column label="关键词覆盖率" width="110">
+            <template #default="{ row }">
+              {{ coveragePercent(row.keyword_coverage) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="memory_hits" label="记忆命中" width="90" />
+          <el-table-column label="强制通过" width="90">
+            <template #default="{ row }">
+              <el-tag v-if="row.forced_pass" type="warning" size="small">⚠️ 是</el-tag>
+              <span v-else class="hint">—</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="task_id" label="任务 ID" min-width="130">
+            <template #default="{ row }">
+              <code>{{ row.task_id }}</code>
+            </template>
+          </el-table-column>
+          <el-table-column label="异常" min-width="140">
+            <template #default="{ row }">
+              <span v-if="row.error" class="error-text">{{ row.error }}</span>
+              <span v-else class="hint">—</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-card>
+    </template>
+  </div>
+</template>
+
+<style scoped>
+.evaluation-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.eval-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.eval-header h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+.hint {
+  color: #909399;
+  font-size: 13px;
+  line-height: 20px;
+  margin: 0;
+}
+.card-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-right: 8px;
+}
+.eval-list-card,
+.eval-progress-card,
+.eval-alert,
+.metric-row,
+.case-card {
+  margin-bottom: 16px;
+}
+.progress-tip {
+  margin-top: 10px;
+}
+.metric-card {
+  text-align: center;
+}
+.metric-label {
+  color: #909399;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.metric-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #303133;
+}
+.metric-bad {
+  color: #f56c6c;
+}
+.metric-target {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #909399;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.radar-chart {
+  height: 320px;
+}
+.md-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.md-content {
+  max-height: 320px;
+  overflow: auto;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #303133;
+  word-break: break-word;
+}
+.md-content h1 {
+  font-size: 18px;
+}
+.md-content h2 {
+  font-size: 16px;
+}
+.md-content table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 12px;
+}
+.md-content th,
+.md-content td {
+  border: 1px solid #e4e7ed;
+  padding: 5px 8px;
+}
+.error-text {
+  color: #f56c6c;
+  font-size: 12px;
+}
+</style>

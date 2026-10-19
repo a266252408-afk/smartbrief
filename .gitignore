@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+*.local
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 运行期数据 / 密钥
+backend/data.db
+backend/checkpoints.db
+backend/data/chroma_db/
+backend/data/uploads/
+backend/.env
+backend/tool_config.json
+backend/mcp_config.json
+backend/skill_config.json
+deploy/.env
+deploy/volumes/
+
+# 本地验证与调试产物
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.log
+*-output.txt
+probe_out.txt

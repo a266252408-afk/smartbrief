@@ -1,0 +1,154 @@
+"""短期记忆：LangGraph Checkpointer 封装（backend/checkpoints.db）。
+
+职责边界（与业务库分工，见 CLAUDE.md）：
+- `backend/data.db`        由 task_repository 显式写入**任务业务数据**；
+- `backend/checkpoints.db` 由 LangGraph 框架在每次图节点执行后**自动写入图运行
+  时状态快照**，task_id 同时作为 checkpoint 的 thread_id，二者一一对应。
+
+注意（langgraph-checkpoint-sqlite >= 3 的 API）：`from_conn_string()` 返回的不是
+Saver 实例而是连接生命周期管理器 —— 因此：
+- 执行工作流（要跨节点持久写快照）必须用 `async with open_checkpointer() as (cp, kind):`
+  把 compile + invoke 包在连接生命周期内（AsyncSqliteSaver）；
+- 轻量只读查询（has_checkpoint / list_snapshots）走同步 `SqliteSaver` 短暂连接。
+
+降级（保证缺依赖环境也能跑）：
+1. AsyncSqliteSaver（langgraph-checkpoint-sqlite，跨进程持久化 —— 后端重启后仍可续跑）
+2. MemorySaver（langgraph 自带，仅进程内；以单例复用，同一进程内仍可 resume）
+"""
+import logging
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
+
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+CHECKPOINT_DB = BACKEND_DIR / "checkpoints.db"     # 默认：backend/checkpoints.db
+
+# 降级路径的进程内 MemorySaver 单例（供 open_checkpointer 与只读查询共用，
+# 保证同一进程内"写快照 → 检测/恢复"使用同一实例）
+_memory_saver: Any = None
+
+
+def _get_memory_saver() -> Any:
+    global _memory_saver
+    if _memory_saver is None:
+        from langgraph.checkpoint.memory import MemorySaver
+
+        _memory_saver = MemorySaver()
+    return _memory_saver
+
+
+@asynccontextmanager
+async def open_checkpointer(
+    db_path: Optional[str] = None,
+) -> AsyncIterator[Tuple[Any, str]]:
+    """在连接生命周期内打开持久化 Checkpointer。
+
+    新版 langgraph-checkpoint-sqlite 要求 `async with from_conn_string(...)`
+    进入连接生命周期：期间图每次节点执行后自动向 SQLite 落快照，退出即关闭连接。
+    sqlite 依赖/文件不可用则降级为进程内 MemorySaver（kind="memory"）。
+
+    :param db_path: 覆盖默认 backend/checkpoints.db（测试隔离用）
+    :yield: (checkpointer, kind)，kind ∈ {"sqlite", "memory"}
+    """
+    path = Path(db_path or CHECKPOINT_DB)
+    cp: Any = None
+    kind = "memory"
+    opener: Any = None
+    try:
+        from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+
+        # 显式打开连接（真正连库发生在 opener.__aenter__，返回 saver 实例）；
+        # 失败即降级。注意：降级分支绝不能包住 yield —— body 抛出的异常若被
+        # except 吞掉并再次 yield，asynccontextmanager 会报
+        # "generator didn't stop after athrow()"。
+        opener = AsyncSqliteSaver.from_conn_string(str(path))
+        cp = await opener.__aenter__()
+        kind = "sqlite"
+    except Exception as exc:  # pragma: no cover - 依赖缺失/文件异常降级路径
+        logger.warning("SQLite Checkpointer 不可用（%s），降级为进程内 MemorySaver", exc)
+        cp = _get_memory_saver()
+        kind = "memory"
+    try:
+        yield cp, kind
+    finally:
+        # saver 实例无 __aexit__，连接生命周期归属 opener（async generator）
+        if opener is not None:
+            await opener.__aexit__(None, None, None)
+
+
+def _latest_on(cp: Any, task_id: str):
+    """取某任务（thread_id）的最新快照（async/同步 Saver 方法兼容）。"""
+    config = {"configurable": {"thread_id": task_id}}
+    aget = getattr(cp, "aget_tuple", None)
+    if aget is not None:
+        return aget(config)          # AsyncSqliteSaver / 新版 MemorySaver → await
+    return cp.get_tuple(config)      # 旧版同步 MemorySaver
+
+
+def has_checkpoint(task_id: str, db_path: Optional[str] = None) -> bool:
+    """（同步只读）指定任务（thread_id）是否存在可续跑的快照。"""
+    path = Path(db_path or CHECKPOINT_DB)
+    try:
+        from langgraph.checkpoint.sqlite import SqliteSaver
+
+        with SqliteSaver.from_conn_string(str(path)) as cp:
+            return cp.get_tuple({"configurable": {"thread_id": task_id}}) is not None
+    except Exception as exc:  # pragma: no cover - sqlite 打开失败降级 memory
+        logger.warning("SQLite 查询任务 %s 快照失败（%s），退回进程内 MemorySaver", task_id, exc)
+        return _get_memory_saver().get_tuple(
+            {"configurable": {"thread_id": task_id}}
+        ) is not None
+
+
+async def async_has_checkpoint(cp: Any, task_id: str) -> bool:
+    """在已打开的 Checkpointer（连接内）上查询是否有可续跑快照。"""
+    try:
+        latest = await _latest_on(cp, task_id)
+        return latest is not None
+    except Exception as exc:  # pragma: no cover - 依赖异常路径
+        logger.warning("查询任务 %s 快照失败：%s", task_id, exc)
+        return False
+
+
+def list_snapshots(task_id: str, db_path: Optional[str] = None) -> List[Dict]:
+    """（同步只读）列出某任务的 checkpoint 快照（供前端展示断点状态）。"""
+    path = Path(db_path or CHECKPOINT_DB)
+    snapshots: List[Dict] = []
+    try:
+        from langgraph.checkpoint.sqlite import SqliteSaver
+
+        with SqliteSaver.from_conn_string(str(path)) as cp:
+            configs = cp.list({"configurable": {"thread_id": task_id}})
+            # CheckpointTuple 形如 (config, checkpoint, metadata, parent_config, pending_writes)，
+            # 部分实现字段数不同，故用 *rest 兼容展开
+            for config, _checkpoint, meta, *_rest in configs:
+                cfg = config.get("configurable", {})
+                snapshots.append({
+                    "checkpoint_id": cfg.get("checkpoint_id"),
+                    "created_at": (meta or {}).get("created_at"),
+                    "step": (meta or {}).get("step", 0),
+                })
+    except Exception as exc:  # pragma: no cover - sqlite 打开失败降级 memory
+        logger.warning("SQLite 读取任务 %s 快照失败（%s），退回进程内 MemorySaver", task_id, exc)
+        try:
+            cp = _get_memory_saver()
+            for config, _checkpoint, meta, *_rest in cp.list(
+                {"configurable": {"thread_id": task_id}}
+            ):
+                cfg = config.get("configurable", {})
+                snapshots.append({
+                    "checkpoint_id": cfg.get("checkpoint_id"),
+                    "created_at": (meta or {}).get("created_at"),
+                    "step": (meta or {}).get("step", 0),
+                })
+        except Exception:  # pragma: no cover
+            pass
+    return snapshots
+
+
+def reset_checkpointer() -> None:
+    """清空进程内 MemorySaver 单例（测试隔离用：换临时库文件前调用）。"""
+    global _memory_saver
+    _memory_saver = None

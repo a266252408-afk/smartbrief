@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# =====================================================================
+# SmartBrief 一键启动脚本（Linux / Mac）
+#  - 后端 FastAPI（端口 8002）：后台启动（MCP Server 自动拉起）
+#  - 前端 Vite（端口 5174）：前台启动，Ctrl+C 可停止
+# 提示：首次运行前请先完成 backend/.env 配置与依赖安装
+#       pip install -r backend/requirements.txt
+#       cd frontend && npm install
+# =====================================================================
+set -e
+cd "$(dirname "$0")"
+
+echo "[SmartBrief] 启动后端（http://localhost:8002）..."
+(cd backend && uvicorn main:app --host 0.0.0.0 --port 8002) &
+
+# 前端（前台）退出后回收后台后端进程
+trap 'kill %1 2>/dev/null || true' EXIT
+
+echo "[SmartBrief] 启动前端（http://localhost:5174）..."
+cd frontend
+npm run dev

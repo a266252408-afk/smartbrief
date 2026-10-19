@@ -1,0 +1,57 @@
+# =====================================================================
+# SmartBrief 容器化编排（backend + frontend/nginx）
+# 用法（在 deploy/ 目录下）：
+#   docker compose build && docker compose up -d
+# 浏览器访问 http://localhost:8080（前端）；API 直连 http://localhost:8002
+# 环境变量：从 deploy/.env 读取（先 cp .env.example .env 并填入真实 Key）
+# =====================================================================
+
+services:
+  # ---------------- 后端：FastAPI + 多智能体引擎 ----------------
+  backend:
+    build:
+      context: ..            # 构建上下文 = 仓库根目录
+      dockerfile: deploy/backend/Dockerfile
+    image: smartbrief-backend:1.0
+    container_name: smartbrief-backend
+    # LLM / 嵌入配置统一从 .env 注入（镜像内不携带任何密钥）
+    env_file:
+      - .env
+    environment:
+      - SMARTBRIEF_HOST=0.0.0.0
+      - SMARTBRIEF_PORT=8002
+      # 可选：容器时区（默认 UTC；如显示“本地时间”期望用东八区则取消注释）
+      # - TZ=Asia/Shanghai
+    volumes:
+      # 卷持久化：ChromaDB 向量库（rag+memory）、上传文档、模板/术语 seed
+      - backend_data:/app/backend/data
+      # 说明：data.db / checkpoints.db / 三个 *_config.json 位于容器可写层，
+      #   docker compose restart 保留；删除并重建容器会重置，备份方案见 README。
+    ports:
+      - "8002:8002"          # 后端直连端口（前端统一走 nginx 8080 反代）
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8002/api/v1/health', timeout=3)\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s      # 首启需初始化 RAG seed / 拉起 MCP Server，留足时间
+
+  # ---------------- 前端：nginx 托管静态产物 + API 反代 ----------------
+  frontend:
+    build:
+      context: ..
+      dockerfile: deploy/frontend/Dockerfile
+    image: smartbrief-frontend:1.0
+    container_name: smartbrief-frontend
+    depends_on:
+      backend:
+        condition: service_healthy   # 后端健康后才启动，避免首屏 502
+    ports:
+      - "8080:80"            # 浏览器入口（如需改端口改左侧映射即可）
+    restart: unless-stopped
+
+volumes:
+  # 后端运行期数据卷（chroma_db / uploads / templates / terminologies.txt）
+  backend_data:
+    name: smartbrief_backend_data

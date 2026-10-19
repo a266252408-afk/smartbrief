@@ -1,0 +1,46 @@
+# =====================================================================
+# SmartBrief 云端/服务器运行编排（无 build，直接使用上传的镜像）
+# 适用场景：本地 docker save 打包镜像 → 上传云服务器 → docker load
+#           → docker compose -f docker-compose.prod.yml up -d
+# 用法（deploy/ 目录）：docker compose -f docker-compose.prod.yml up -d
+# =====================================================================
+
+services:
+  # ---------------- 后端：FastAPI + 多智能体引擎 ----------------
+  backend:
+    image: smartbrief-backend:1.0     # 由本地 docker save/load 提供，无需云端构建
+    container_name: smartbrief-backend
+    env_file:
+      - .env                          # 服务器上创建的 deploy/.env（LLM/嵌入 Key）
+    environment:
+      - SMARTBRIEF_HOST=0.0.0.0
+      - SMARTBRIEF_PORT=8002
+      # 可选：容器时区（默认 UTC）
+      # - TZ=Asia/Shanghai
+    volumes:
+      # 数据卷持久化（首次 up 自动创建）：ChromaDB 向量库、上传文档、模板/术语 seed
+      - backend_data:/app/backend/data
+    ports:
+      - "8002:8002"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8002/api/v1/health', timeout=3)\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  # ---------------- 前端：nginx 静态托管 + API 反代 ----------------
+  frontend:
+    image: smartbrief-frontend:1.0    # 本地打包上传
+    container_name: smartbrief-frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8080:80"                     # 云端安全组需放行该端口（或改 80）
+    restart: unless-stopped
+
+volumes:
+  backend_data:
+    name: smartbrief_backend_data
