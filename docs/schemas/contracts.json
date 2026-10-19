@@ -1,0 +1,462 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:smartbrief:construction:contracts:1",
+  "title": "SmartBrief 目标契约；尚未实现，应用于 /api/v2",
+  "description": "各模块开工先将本契约转为 Pydantic/TS 并验证；v1 使用兼容适配。",
+  "$defs": {
+    "Error": {
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "retryable",
+        "request_id"
+      ],
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "request_id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "TaskOutcome": {
+      "type": "object",
+      "required": [
+        "task_id",
+        "execution_status",
+        "quality_status",
+        "forced_output"
+      ],
+      "properties": {
+        "task_id": {
+          "type": "string"
+        },
+        "execution_status": {
+          "enum": [
+            "queued",
+            "running",
+            "paused",
+            "completed",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "quality_status": {
+          "enum": [
+            "pending",
+            "passed",
+            "rejected",
+            "unavailable",
+            "not_run",
+            "unknown"
+          ]
+        },
+        "forced_output": {
+          "type": "boolean"
+        },
+        "error_code": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Evidence": {
+      "type": "object",
+      "required": [
+        "source_id",
+        "task_id",
+        "kind",
+        "title",
+        "excerpt",
+        "retrieved_at"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string"
+        },
+        "task_id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "web",
+            "document"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "excerpt": {
+          "type": "string"
+        },
+        "retrieved_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^https?://"
+        },
+        "document_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "chunk_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "page": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "score": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "source_deleted": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "web"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "url"
+            ],
+            "properties": {
+              "url": {
+                "type": "string",
+                "pattern": "^https?://"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "document"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "document_id",
+              "chunk_id"
+            ],
+            "properties": {
+              "document_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "chunk_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "Citation": {
+      "type": "object",
+      "required": [
+        "source_id",
+        "claim",
+        "valid"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string"
+        },
+        "claim": {
+          "type": "string"
+        },
+        "valid": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "MemoryEntry": {
+      "type": "object",
+      "required": [
+        "memory_id",
+        "task_id",
+        "quality_status",
+        "verified",
+        "created_at"
+      ],
+      "properties": {
+        "memory_id": {
+          "type": "string"
+        },
+        "task_id": {
+          "type": "string"
+        },
+        "quality_status": {
+          "enum": [
+            "passed",
+            "unknown"
+          ]
+        },
+        "verified": {
+          "type": "boolean"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "prompt_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "ModelUsage": {
+      "type": "object",
+      "required": [
+        "task_id",
+        "agent",
+        "model",
+        "status",
+        "duration_ms",
+        "input_tokens",
+        "output_tokens",
+        "estimated_cost",
+        "currency",
+        "usage_known"
+      ],
+      "properties": {
+        "task_id": {
+          "type": "string"
+        },
+        "agent": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "success",
+            "failed",
+            "cancelled",
+            "budget_exceeded"
+          ]
+        },
+        "duration_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "input_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "estimated_cost": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "usage_known": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationResult": {
+      "type": "object",
+      "required": [
+        "case_id",
+        "execution_success",
+        "quality_passed",
+        "citation_valid_rate",
+        "failure_category"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string"
+        },
+        "execution_success": {
+          "type": "boolean"
+        },
+        "quality_passed": {
+          "type": "boolean"
+        },
+        "citation_valid_rate": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "failure_category": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "ResponseEnvelope": {
+      "type": "object",
+      "required": [
+        "data",
+        "meta"
+      ],
+      "properties": {
+        "data": {},
+        "meta": {
+          "type": "object",
+          "required": [
+            "request_id"
+          ],
+          "properties": {
+            "request_id": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "ErrorEnvelope": {
+      "type": "object",
+      "required": [
+        "error"
+      ],
+      "properties": {
+        "error": {
+          "$ref": "#/$defs/Error"
+        }
+      },
+      "additionalProperties": false
+    },
+    "TaskCreateRequest": {
+      "type": "object",
+      "required": [
+        "topic"
+      ],
+      "properties": {
+        "topic": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "document_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "maxItems": 20,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationRequest": {
+      "type": "object",
+      "required": [
+        "suite_version",
+        "feature_flags",
+        "mode"
+      ],
+      "properties": {
+        "suite_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mode": {
+          "enum": [
+            "offline",
+            "online"
+          ]
+        },
+        "feature_flags": {
+          "type": "object",
+          "required": [
+            "rag",
+            "memory",
+            "review"
+          ],
+          "properties": {
+            "rag": {
+              "type": "boolean"
+            },
+            "memory": {
+              "type": "boolean"
+            },
+            "review": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

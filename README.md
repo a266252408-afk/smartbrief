@@ -134,3 +134,7 @@ npm run build
 - Docker 默认数据卷主要覆盖 `backend/data/`；业务库、检查点和本地配置的持久化需按部署说明额外设置。
 
 代码来源与适配记录见 [来源说明](docs/ATTRIBUTION.md)。
+
+## 后续施工与跨会话接手
+
+按 [施工清单](docs/tasks/implementation.md) 从 T01 顺序执行；先读 [项目宪法](PROJECT_CONSTITUTION.md)、[AGENTS.md](AGENTS.md) 与 [交接记录](docs/HANDOFF.md)。每个功能测试通过后提交 Git 快照，全部完成后执行 T13 全量验收。目标功能尚未实现，真实状态见 [状态文件](docs/construction/state.json) 与 [施工日志](docs/dev-log.md)。
