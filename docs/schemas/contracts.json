@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:smartbrief:construction:contracts:1",
-  "title": "SmartBrief 目标契约；尚未实现，应用于 /api/v2",
+  "title": "SmartBrief公共契约；实现状态按任务标注",
   "description": "各模块开工先将本契约转为 Pydantic/TS 并验证；v1 使用兼容适配。",
   "$defs": {
     "Error": {
@@ -471,7 +471,8 @@
           ]
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "T02已实现，/api/v2/auth/session.data"
     },
     "UploadedDocument": {
       "type": "object",
@@ -510,7 +511,8 @@
           "minimum": 0
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "T02已实现，既有v1上传响应兼容新增字段"
     }
   }
 }

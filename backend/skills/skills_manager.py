@@ -20,7 +20,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from llm import client as llm_client
-from services.file_security import validate_archive
+from services.file_security import validate_archive, validate_component
 from services.execution_policy import python_enabled, scripts_enabled, require_python, require_scripts
 from skills import registry as _registry
 from skills.base_skill import BaseSkill, SkillInput, SkillOutput
@@ -385,6 +385,17 @@ class SkillsManager:
     def _pool_dir(self) -> Path:
         return self.pool_dir or SKILLS_POOL_DIR
 
+    def _safe_skill_dir(self, name: str) -> Path:
+        """所有技能目录操作都验证名称与实际根路径，不信任启动metadata。"""
+        if not NAME_RE.fullmatch(name):
+            raise ValueError("技能名不合法")
+        validate_component(name)
+        root = self._pool_dir().resolve()
+        target = root / name
+        if target.is_symlink() or not target.resolve().is_relative_to(root):
+            raise ValueError("技能目录越界或为符号链接")
+        return target
+
     # ---------------- 初始化 ----------------
 
     def init(self) -> None:
@@ -469,8 +480,10 @@ class SkillsManager:
             raise ValueError(f"技能已存在：{name}")
 
         body = (skill_md or "").strip() or DEFAULT_SKILL_BODY
-        skill_dir = self._pool_dir() / name
-        skill_dir.mkdir(parents=True, exist_ok=True)
+        skill_dir = self._safe_skill_dir(name)
+        if skill_dir.exists():
+            raise ValueError("技能目录已存在")
+        skill_dir.mkdir(parents=True, exist_ok=False)
         (skill_dir / "skill.md").write_text(
             _build_skill_md(name, display_name or name, description or "", category, version or "1.0.0", body),
             encoding="utf-8",
@@ -493,7 +506,7 @@ class SkillsManager:
         if category is not None and category not in VALID_CATEGORIES:
             raise ValueError(f"分类必须是 {'、'.join(VALID_CATEGORIES)} 之一")
 
-        skill_dir = self._pool_dir() / name
+        skill_dir = self._safe_skill_dir(name)
         md_file = skill_dir / "skill.md"
         if md_file.exists():
             meta, body = _parse_skill_md(md_file.read_text(encoding="utf-8"))
@@ -535,8 +548,9 @@ class SkillsManager:
             raise KeyError(f"技能不存在：{name}")
         if skill.builtin:
             raise ValueError(f"内置技能不可删除：{name}")
+        target = self._safe_skill_dir(name)
         _registry.registry.unregister(name)
-        shutil.rmtree(self._pool_dir() / name, ignore_errors=True)
+        shutil.rmtree(target, ignore_errors=True)
         _save_skill_config()  # 同步移除已删除技能的开关记录
 
     def set_enabled(self, name: str, enabled: bool) -> dict:
@@ -588,7 +602,7 @@ class SkillsManager:
             if _registry.registry.get(skill_name) is not None:
                 raise ValueError(f"技能已存在：{skill_name}")
 
-            target = self._pool_dir() / skill_name
+            target = self._safe_skill_dir(skill_name)
             if target.exists():
                 raise ValueError(f"技能目录已存在：{skill_name}")
             target.mkdir(parents=True, exist_ok=False)
@@ -637,7 +651,13 @@ class SkillsManager:
             md_file = skill_dir / "SKILL.md"
         if not md_file.exists():
             raise ValueError(f"技能目录缺少 skill.md：{skill_dir.name}")
+        if md_file.is_symlink():
+            raise ValueError("技能说明不能为符号链接")
         meta, body = _parse_skill_md(md_file.read_text(encoding="utf-8"))
+        name = str(meta.get("name") or "").strip()
+        if self._safe_skill_dir(name) != skill_dir.resolve():
+            raise ValueError("技能名称与所在目录不一致")
+        meta["name"] = name
         skill = self._load_skill_py(skill_dir, meta, body)
         if skill is None:
             # 传入 skill_dir：MarkdownSkill 会顺带扫描 references/ 与 scripts/ 资源
