@@ -43,4 +43,23 @@ T01-01 提供隔离源码副本运行入口，复制范围限 Git 跟踪的源�
 
 标准后端命令（backend/）：`python -m pytest tests/ -v`；静态检查：`python -m ruff check .`。额外从根目录运行 `python -m ruff check backend mcp_servers scripts` 覆盖独立服务与脚本。Windows 执行环境需允许本地命名管道，沙箱拒绝时必须记录失败并在允许本地 IPC 的环境重跑，不能跳过。
 
-守卫适用于本项目 Python 测试与 MCP 测试进程，不是通用操作系统网络沙箱。测试夹具不能作为在线模型效果成绩。T01-03 的前端断言与浏览器入口仍待施工。
+守卫适用于本项目 Python 测试与 MCP 测试进程，不是通用操作系统网络沙箱。测试夹具不能作为在线模型效果成绩。前端测试入口见下文。
+
+
+## 前端断言与真实浏览器
+
+在 frontend/ 先按锁运行 `npm ci --cache .npm-cache`，然后执行：
+
+```powershell
+npm run test:unit -- --run
+npm run build
+$env:PLAYWRIGHT_BROWSERS_PATH=(Join-Path (Get-Location) '.browser-cache')
+npx playwright install chromium
+npm run test:e2e
+```
+
+Playwright 配置默认使用项目内 `.browser-cache`；浏览器安装和运行路径须一致。Linux/macOS 对应设置 `PLAYWRIGHT_BROWSERS_PATH="$PWD/.browser-cache"` 后安装 Chromium，目标系统依赖需在该平台独立验证。本轮验证的是 Windows Chromium，不宣称其他平台已验收。
+
+单测使用真实 Home 组件和 Element Plus，只替换 API 与路由边界；E2E 自动启动本地 Vite（127.0.0.1:5175，端口被占用会失败），运行真实 Chromium、真实页面/路由与明确离线 HTTP 夹具，拒绝未声明的 API 与外部请求，不启动付费后台工作流。后端真实 API/图/仓储集成独立执行，不用页面夹具代替。任务 T11/T13 再验证完整演示和最终交付。
+
+`test-results/`、`playwright-report/` 和浏览器缓存为忽略的本地产物；失败保留 trace。`npm run test:e2e` 不复用已有 Vite 服务，不需手动启动用户浏览器。测试缺包、缺浏览器、没有断言或依赖失败都不算通过。

@@ -120,8 +120,12 @@ python -m pytest tests/ -v
 在 `frontend/` 执行：
 
 ```powershell
+npm run test:unit -- --run
 npm run build
+npm run test:e2e
 ```
+
+首次浏览器测试前按 [环境说明](docs/environment.md) 安装匹配的 Chromium。
 
 构建包含 TypeScript 类型检查。开发约定见 [CLAUDE.md](CLAUDE.md)。
 
