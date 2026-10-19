@@ -40,9 +40,10 @@ class ChromaVectorStore:
                 metadata={"hnsw:space": "cosine"},
             )
 
-    def _doc_id(self, content: str) -> str:
+    def _doc_id(self, content: str, document_id: str | None = None) -> str:
         """稳定 ID：对文本内容做 md5（跨进程一致，天然去重 + 支持幂等重建）。"""
-        return hashlib.md5(content.encode("utf-8")).hexdigest()
+        value = f"{document_id}\0{content}" if document_id else content
+        return hashlib.md5(value.encode("utf-8")).hexdigest()
 
     def add_documents(self, documents: List[Document],
                       embeddings: Optional[List[List[float]]] = None) -> List[str]:
@@ -56,7 +57,7 @@ class ChromaVectorStore:
 
         ids, texts, metadatas = [], [], []
         for i, doc in enumerate(documents):
-            ids.append(self._doc_id(doc.page_content))
+            ids.append(self._doc_id(doc.page_content, doc.metadata.get("document_id")))
             texts.append(doc.page_content)
             metadatas.append(doc.metadata)
 

@@ -20,6 +20,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from llm import client as llm_client
+from services.file_security import validate_archive
 from skills import registry as _registry
 from skills.base_skill import BaseSkill, SkillInput, SkillOutput
 from skills.builtin_skills import BUILTIN_SKILLS
@@ -529,37 +530,29 @@ class SkillsManager:
 
     def import_skill(self, data: bytes) -> dict:
         """导入 .zip 技能包：校验 → 解压 → 解析 skill.md → 注册。"""
-        if len(data) > MAX_ZIP_SIZE:
-            raise ValueError("技能包过大（上限 2MB）")
-        try:
-            zf = zipfile.ZipFile(io.BytesIO(data))
-        except zipfile.BadZipFile as exc:
-            raise ValueError("不是有效的 zip 技能包") from exc
-
-        entries = [info.filename.replace("\\", "/") for info in zf.infolist()]
+        infos = validate_archive(data, MAX_ZIP_SIZE)
+        zf = zipfile.ZipFile(io.BytesIO(data))
+        entries = [info.filename for info in infos]
         root = self._find_skill_root(entries)
         if root is None:
             raise ValueError("zip 包内未找到 skill.md（需位于根目录或唯一的顶层目录）")
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
-            total = 0
-            for info in zf.infolist():
-                name = info.filename.replace("\\", "/")
-                if name.startswith("/") or re.match(r"^[a-zA-Z]:", name) or ".." in Path(name).parts:
-                    raise ValueError("技能包包含非法路径，已拒绝导入")
+            for info in infos:
+                name = info.filename
                 if info.is_dir():
                     continue
-                total += info.file_size
-                if total > MAX_ZIP_SIZE:
-                    raise ValueError("技能包解压后体积过大")
+                if root and not name.startswith(root):
+                    raise ValueError("技能包包含顶层目录之外的文件")
                 rel = name[len(root):] if root else name
-                if not rel:
-                    continue
                 dest = tmp_path / rel
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                with zf.open(info) as src, open(dest, "wb") as out:
-                    out.write(src.read())
+                with zf.open(info) as src:
+                    content = src.read(MAX_ZIP_SIZE + 1)
+                if len(content) > MAX_ZIP_SIZE:
+                    raise ValueError("技能包解压后体积过大")
+                dest.write_bytes(content)
 
             # 兼容 Claude 技能包：SKILL.md 统一归一化为 skill.md 再持久化
             # （Windows 文件系统不区分大小写，不能依赖 exists() 判断，需按名称匹配）
@@ -579,17 +572,21 @@ class SkillsManager:
             target = self._pool_dir() / skill_name
             if target.exists():
                 raise ValueError(f"技能目录已存在：{skill_name}")
-            target.mkdir(parents=True, exist_ok=True)
-            for item in tmp_path.iterdir():
-                if item.is_dir():
-                    shutil.copytree(item, target / item.name)
-                else:
-                    shutil.copy2(item, target / item.name)
-
-            skill = self._load_skill_dir(target)
-            _registry.registry.register(skill)
-            _save_skill_config()  # 导入技能的开关状态统一同步到 skill_config.json
-            return skill.to_dict()
+            target.mkdir(parents=True, exist_ok=False)
+            try:
+                for item in tmp_path.iterdir():
+                    if item.is_dir():
+                        shutil.copytree(item, target / item.name)
+                    else:
+                        shutil.copy2(item, target / item.name)
+                skill = self._load_skill_dir(target)
+                _registry.registry.register(skill)
+                _save_skill_config()
+                return skill.to_dict()
+            except Exception:
+                _registry.registry.unregister(skill_name)
+                shutil.rmtree(target)
+                raise
 
     # ---------------- 执行 ----------------
 

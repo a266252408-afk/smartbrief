@@ -15,8 +15,9 @@ from graph import workflow
 from memory import long_term_memory
 from mcp_client.mcp_client import mcp_manager
 from rag import store as rag_store
-from skills.skills_manager import manager as skill_manager
+from skills.skills_manager import manager as skill_manager, MAX_ZIP_SIZE
 from tools import builtin_tools
+from services.file_security import MAX_DOCUMENT_BYTES
 
 router = APIRouter(prefix="/api/v1", tags=["chat"])
 
@@ -291,7 +292,7 @@ async def toggle_skill(name: str, req: SkillEnabledRequest):
 @router.post("/skills/import")
 async def import_skill(file: UploadFile = File(...)):
     """导入 .zip 技能包（自动解析 skill.md，校验路径安全与大小）。"""
-    data = await file.read()
+    data = await file.read(MAX_ZIP_SIZE + 1)
     try:
         return {"skill": skill_manager.import_skill(data)}
     except ValueError as exc:
@@ -458,7 +459,7 @@ async def upload_knowledge_document(
       4. ChromaVectorStore 用 bge-m3 向量化 + md5 稳定 ID 去重后入库
     上传后立即可在知识库列表/检索测试里看到效果（无需重启后端）。
     """
-    content = await file.read()
+    content = await file.read(MAX_DOCUMENT_BYTES + 1)
     if not content:
         raise HTTPException(status_code=400, detail="上传文件为空")
     filename = file.filename or "unnamed.txt"

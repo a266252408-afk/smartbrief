@@ -14,6 +14,8 @@
 返回空结果并记录 warning，保证智能体主流程不因 RAG 子系统故障而中断。
 """
 import logging
+from uuid import uuid4
+from services.file_security import validate_document
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -139,20 +141,30 @@ def ingest_file(file_bytes: bytes, filename: str, category: str = "upload",
 
     :return: {"source": filename, "added": chunk数, "chunks": n}
     """
+    ext = validate_document(file_bytes, filename, category)
     upload_dir = Path(persist_dir and str(Path(persist_dir).parent / "uploads") or UPLOADS_DIR)
     upload_dir.mkdir(parents=True, exist_ok=True)
-    target = upload_dir / filename
-    target.write_bytes(file_bytes)
-
-    docs = DocumentLoader().load(str(target))
-    chunks = RecursiveChunker().chunk(docs)
-    for chunk in chunks:
-        chunk.metadata["category"] = category
-        chunk.metadata["source"] = filename          # 以文件名作为用户可读 source（覆盖绝对路径）
-        chunk.metadata["uploaded_name"] = filename
-    store = get_store(persist_dir, RAG_COLLECTION)
-    added = store.add_documents(chunks)
-    return {"source": filename, "category": category, "added": len(added), "chunks": len(chunks)}
+    document_id = uuid4().hex
+    target = upload_dir / (document_id + ext)
+    created = False
+    try:
+        # UUID存储名与用户展示名分离，重复展示名不会覆盖旧文件。
+        with target.open("xb") as output:
+            created = True
+            output.write(file_bytes)
+        docs = DocumentLoader().load(str(target))
+        chunks = RecursiveChunker().chunk(docs)
+        for chunk in chunks:
+            chunk.metadata.update(category=category, source=filename, uploaded_name=filename,
+                                  display_name=filename, document_id=document_id)
+        store = get_store(persist_dir, RAG_COLLECTION)
+        added = store.add_documents(chunks)
+        return {"source": filename, "display_name": filename, "document_id": document_id,
+                "category": category, "added": len(added), "chunks": len(chunks)}
+    except Exception:
+        if created:
+            target.unlink(missing_ok=True)
+        raise
 
 
 def list_documents(persist_dir: Optional[str] = None) -> List[dict]:

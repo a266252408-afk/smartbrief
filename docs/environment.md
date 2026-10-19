@@ -69,3 +69,7 @@ Playwright 配置默认使用项目内 `.browser-cache`；浏览器安装和运�
 后端环境设置不同的 `SMARTBRIEF_ADMIN_TOKEN`、可选 `SMARTBRIEF_READONLY_TOKEN`（至少32字符、无空白），使用密码管理器或 `secrets.token_urlsafe(32)` 本地生成，勿提交真实值。`SMARTBRIEF_CORS_ORIGINS` 为逗号分隔的完整HTTP(S)来源，不允许通配符；修改后重启服务。默认允许本地5174前端。
 
 只有 GET/HEAD `/healthz` 匿名。其余入口（含文档/OpenAPI）需 `Authorization: Bearer <token>`；v2 `/api/v2/auth/session` 返回角色包，只读允许查询，不允许生成、修改、删除或执行。缺配置503、缺失/错误令牌401、角色不足403。浏览器令牌仅内存保存，401清空重新认证、403保留只读会话并提示。单所有者角色不代表多租户隔离。
+
+## 上传边界
+
+文档限10MiB，允许txt/md/docx/pdf/xlsx，拒绝跨目录名、驱动器、Windows保留名和控制字符；落盘使用服务端UUID，展示名/source兼容保留。新上传的document_id同步到chunk metadata，不同上传的相同文本不混用来源，旧索引不原地重写。技能ZIP压缩/解压均限2MiB、最多256条、压缩比上限1000，拒绝穿越、链接、重复路径和加密条目。禁用代码执行的完整边界由T02-03交付。

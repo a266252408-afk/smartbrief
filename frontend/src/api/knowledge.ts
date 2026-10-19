@@ -5,6 +5,9 @@ export interface KnowledgeDocument {
   /** template | terminology | upload */
   category: string
   source: string
+  /** 新上传文档标识；旧数据可能没有 */
+  document_id?: string
+  display_name?: string
   file_type: string
   chunk_count: number
   snippet: string
@@ -80,13 +83,13 @@ export async function deleteDocument(
 export async function uploadDocument(
   file: File,
   category = 'upload'
-): Promise<{ source: string; category: string; added: number; chunks: number }> {
+): Promise<{ source: string; document_id: string; display_name: string; category: string; added: number; chunks: number }> {
   const fd = new FormData()
   fd.append('file', file)
   fd.append('category', category)
   // 不手动设置 Content-Type：axios 对 FormData 自动带 boundary
   const { data } = await http.post('/knowledge/documents', fd)
-  return data as { source: string; category: string; added: number; chunks: number }
+  return data as { source: string; document_id: string; display_name: string; category: string; added: number; chunks: number }
 }
 
 /** RAG 检索测试（知识库内容） */

@@ -472,6 +472,45 @@
         }
       },
       "additionalProperties": false
+    },
+    "UploadedDocument": {
+      "type": "object",
+      "required": [
+        "source",
+        "document_id",
+        "display_name",
+        "category",
+        "added",
+        "chunks"
+      ],
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "document_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        },
+        "display_name": {
+          "type": "string"
+        },
+        "category": {
+          "enum": [
+            "upload",
+            "template",
+            "terminology"
+          ]
+        },
+        "added": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "chunks": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
     }
   }
 }
