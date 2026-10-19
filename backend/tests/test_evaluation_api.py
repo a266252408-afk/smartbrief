@@ -131,7 +131,7 @@ def test_lifespan_marks_running_evals_failed(tmp_path, monkeypatch):
     evaluation_repository.create("eval_stale", 10)  # 模拟上次进程中断遗留的评测
     from main import app
 
-    with TestClient(app) as c:
+    with TestClient(app):
         record = evaluation_repository.get("eval_stale")
         assert record["status"] == "failed"
         assert "服务中断" in record["error"]

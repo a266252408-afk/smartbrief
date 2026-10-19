@@ -18,7 +18,6 @@ import urllib.parse
 import urllib.request
 
 from mcp.server.fastmcp import FastMCP
-from mcp.types import TextContent
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "

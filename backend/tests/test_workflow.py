@@ -84,7 +84,6 @@ def test_run_task_full_flow_with_real_graph(repo_db):
     from graph.workflow import run_task
 
     from agents import planner, react_researcher, react_writer, reviewer, rewriter
-    from agents.scheduler import scheduler_node
 
     class FakeMessage:
         def __init__(self, content):
@@ -126,7 +125,7 @@ def test_run_task_reviewer_rejects_then_rewrites(repo_db):
     """A2A：Reviewer 第 1 次打回 → Rewriter 返工 → Reviewer 第 2 次通过。"""
     from graph.workflow import run_task
 
-    from agents import planner, react_researcher, react_writer, reviewer, rewriter
+    from agents import planner, react_writer, reviewer, rewriter
 
     class FakeMessage:
         def __init__(self, content):

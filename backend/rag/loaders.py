@@ -1,7 +1,7 @@
 """多格式文档加载器：统一解析为 Document。来源说明见 docs/ATTRIBUTION.md。"""
 import os
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List
 
 
 @dataclass

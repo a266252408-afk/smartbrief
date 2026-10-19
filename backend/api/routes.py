@@ -12,7 +12,6 @@ from db import evaluation_repository
 from db import task_repository
 from evaluation import runner as eval_runner
 from graph import workflow
-from memory import checkpointer as cp_mod
 from memory import long_term_memory
 from mcp_client.mcp_client import mcp_manager
 from rag import store as rag_store

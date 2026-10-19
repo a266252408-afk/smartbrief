@@ -1,5 +1,4 @@
 """SQLite 持久化层测试（db/database.py + db/task_repository.py）。"""
-import json
 
 import pytest
 

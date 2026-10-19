@@ -1,6 +1,4 @@
 """任务管理 API 测试（/generate、/tasks、/tasks/{id}/status）。"""
-import json
-import time
 from unittest.mock import AsyncMock, patch
 
 import pytest

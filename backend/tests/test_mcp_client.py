@@ -8,15 +8,6 @@ import pytest
 from mcp import types
 
 
-def _text(text: str) -> types.TextContent:
-    """构造带 type 的 TextContent。"""
-    return types.TextContent(type="text", text=text)
-
-
-def _tool(name: str, description: str = "", input_schema: dict | None = None) -> types.Tool:
-    """构造带 inputSchema 的 Tool。"""
-    return types.Tool(name=name, description=description, inputSchema=input_schema or {})
-
 from mcp_client.mcp_client import (
     BUILTIN_SERVER_ID,
     BaseConnection,
@@ -29,6 +20,17 @@ from mcp_client.mcp_client import (
     _to_openai_schema,
     _tool_to_dict,
 )
+
+def _text(text: str) -> types.TextContent:
+    """构造带 type 的 TextContent。"""
+    return types.TextContent(type="text", text=text)
+
+
+def _tool(name: str, description: str = "", input_schema: dict | None = None) -> types.Tool:
+    """构造带 inputSchema 的 Tool。"""
+    return types.Tool(name=name, description=description, inputSchema=input_schema or {})
+
+
 
 
 @pytest.fixture

@@ -452,7 +452,6 @@ def test_run_builtin_skill(manager, monkeypatch):
 
 def test_run_custom_markdown_skill_uses_llm(manager, monkeypatch):
     manager.create_skill(name="s1", display_name="技能", skill_md="# 指令")
-    from llm import client as llm_client
 
     async def fake_chat(messages, tools=None, tool_choice=None):
         return SimpleNamespace(
@@ -467,7 +466,6 @@ def test_run_custom_markdown_skill_uses_llm(manager, monkeypatch):
 
 def test_run_custom_markdown_skill_llm_error(manager, monkeypatch):
     manager.create_skill(name="s1", display_name="技能", skill_md="# 指令")
-    from llm import client as llm_client
 
     async def fail_chat(messages, tools=None, tool_choice=None):
         raise RuntimeError("网络错误")
@@ -614,7 +612,6 @@ def test_run_script_nonzero_exit(tmp_path):
 
 def test_scripts_execute_tool_loop(manager, monkeypatch):
     """带 scripts/ 的技能：execute 走工具循环（run_script → 回填 → 最终回答）。"""
-    from llm import client as llm_client
 
     skill_dir = _make_skill_dir(manager._pool_dir(), name="tool_skill", scripts={"calc.py": "print('42')"})
     skill = MarkdownSkill({"name": "tool_skill", "display_name": "工具技能"}, "# 用脚本算", skill_dir=skill_dir)
@@ -645,7 +642,6 @@ def test_scripts_execute_tool_loop(manager, monkeypatch):
 
 def test_scripts_execute_max_loop(manager, monkeypatch):
     """达到 SCRIPT_MAX_LOOP 上限仍未给最终回答 → 返回兜底提示。"""
-    from llm import client as llm_client
 
     skill_dir = _make_skill_dir(manager._pool_dir(), name="loop_skill", scripts={"a.py": "print('a')"})
     skill = MarkdownSkill({"name": "loop_skill", "display_name": "循环技能"}, "body", skill_dir=skill_dir)

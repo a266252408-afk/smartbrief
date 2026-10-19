@@ -2,7 +2,6 @@
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 
 from agents import planner, react_researcher, react_writer, scheduler
 

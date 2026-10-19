@@ -2,8 +2,8 @@
 import asyncio
 import json
 import sys
+from pathlib import Path
 
-import pytest
 from mcp import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
@@ -150,7 +150,7 @@ def test_stdio_connection_roundtrip():
     async def scenario():
         server_params = StdioServerParameters(
             command=sys.executable,
-            args=[str(wss.__file__)],
+            args=[str(Path(__file__).parent / "fixtures" / "mcp_server.py")],
             env=None,
         )
         async with stdio_client(server_params) as (read_stream, write_stream):
@@ -163,10 +163,12 @@ def test_stdio_connection_roundtrip():
                 )
                 data = json.loads(result.content[0].text)
                 assert data["query"] == "test"
-                assert data["source"] == "bing"
+                assert data["source"] == "fixture"
                 assert isinstance(data["results"], list)
-                assert len(data["results"]) <= 2
-                if "error" in data:
-                    assert data["results"] == []
+                assert len(data["results"]) == 2
+                failure = await session.call_tool("web_search", arguments={"query": "故障"})
+                failed = json.loads(failure.content[0].text)
+                assert failed["results"] == []
+                assert failed["error"] == "固定搜索故障"
 
     asyncio.run(scenario())
