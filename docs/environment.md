@@ -72,4 +72,10 @@ Playwright 配置默认使用项目内 `.browser-cache`；浏览器安装和运�
 
 ## 上传边界
 
-文档限10MiB，允许txt/md/docx/pdf/xlsx，拒绝跨目录名、驱动器、Windows保留名和控制字符；落盘使用服务端UUID，展示名/source兼容保留。新上传的document_id同步到chunk metadata，不同上传的相同文本不混用来源，旧索引不原地重写。技能ZIP压缩/解压均限2MiB、最多256条、压缩比上限1000，拒绝穿越、链接、重复路径和加密条目。禁用代码执行的完整边界由T02-03交付。
+文档限10MiB，允许txt/md/docx/pdf/xlsx，拒绝跨目录名、驱动器、Windows保留名和控制字符；落盘使用服务端UUID，展示名/source兼容保留。新上传的document_id同步到chunk metadata，不同上传的相同文本不混用来源，旧索引不原地重写。技能ZIP压缩/解压均限2MiB、最多256条、压缩比上限1000，拒绝穿越、链接、重复路径和加密条目。代码执行默认关闭，见下文。
+
+## 自定义代码信任开关
+
+`SMARTBRIEF_ALLOW_SKILL_PYTHON=false` 与 `SMARTBRIEF_ALLOW_SKILL_SCRIPTS=false` 为默认。管理员仅在信任代码时于后端环境显式设为1或true，不能通过技能metadata、提示或API请求context启用。Python禁用时不导入skill.py，保留Markdown能力；脚本禁用时不发现或注入工具，直接调用也拒绝。已加载Python和脚本在运行前重新检查开关。
+
+启用代表所有者信任本机代码，不是Python沙箱；仍限制脚本目录与参数传递、禁shell并保留超时，但受信任Python可拥有后端进程权限。前端没有给模型或只读角色开放启用此开关的接口。

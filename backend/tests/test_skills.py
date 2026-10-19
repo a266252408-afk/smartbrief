@@ -381,7 +381,8 @@ def test_import_skill_zip_with_top_folder(manager):
     assert (manager._pool_dir() / "zip_skill2" / "skill.md").exists()
 
 
-def test_import_skill_zip_with_skill_py(manager):
+def test_import_skill_zip_with_skill_py(manager, monkeypatch):
+    monkeypatch.setenv("SMARTBRIEF_ALLOW_SKILL_PYTHON", "1")
     md = "---\nname: py_skill\ndisplay_name: PY技能\ncategory: writing\n---\n\n正文"
     py = (
         "from skills.base_skill import BaseSkill, SkillInput, SkillOutput\n"
@@ -566,14 +567,16 @@ def test_markdown_skill_without_dir_no_resources(tmp_path):
     assert "【技能参考文档" not in skill._build_system()
 
 
-def test_markdown_skill_discover_scripts(tmp_path):
+def test_markdown_skill_discover_scripts(tmp_path, monkeypatch):
+    monkeypatch.setenv("SMARTBRIEF_ALLOW_SKILL_SCRIPTS", "1")
     """scripts/ 目录下的脚本名被扫描（白名单过滤）。"""
     skill_dir = _make_skill_dir(tmp_path, scripts={"tool.py": "print('ok')", "bad name.sh": "echo x"})
     skill = MarkdownSkill({"name": "s"}, "body", skill_dir=skill_dir)
     assert skill.scripts == ["tool.py"]  # "bad name.sh" 含空格，被白名单过滤
 
 
-def test_run_script_ok(tmp_path):
+def test_run_script_ok(tmp_path, monkeypatch):
+    monkeypatch.setenv("SMARTBRIEF_ALLOW_SKILL_SCRIPTS", "1")
     """run_script 正常执行：返回脚本 stdout。"""
     skill_dir = _make_skill_dir(tmp_path, scripts={"hello.py": "print('hello')"})
     skill = MarkdownSkill({"name": "s"}, "body", skill_dir=skill_dir)
@@ -581,7 +584,8 @@ def test_run_script_ok(tmp_path):
     assert out == "hello"
 
 
-def test_run_script_rejects_unregistered(tmp_path):
+def test_run_script_rejects_unregistered(tmp_path, monkeypatch):
+    monkeypatch.setenv("SMARTBRIEF_ALLOW_SKILL_SCRIPTS", "1")
     """白名单拒绝：未登记的脚本名直接报错。"""
     skill_dir = _make_skill_dir(tmp_path, scripts={"hello.py": "print('hello')"})
     skill = MarkdownSkill({"name": "s"}, "body", skill_dir=skill_dir)
@@ -592,6 +596,7 @@ def test_run_script_rejects_unregistered(tmp_path):
 
 
 def test_run_script_timeout(tmp_path, monkeypatch):
+    monkeypatch.setenv("SMARTBRIEF_ALLOW_SKILL_SCRIPTS", "1")
     """超时强杀：脚本执行超过 SCRIPT_TIMEOUT_SECONDS 被终止并报错。"""
     import skills.skills_manager as sm_mod
 
@@ -602,7 +607,8 @@ def test_run_script_timeout(tmp_path, monkeypatch):
         asyncio.run(skill._run_script("slow.py"))
 
 
-def test_run_script_nonzero_exit(tmp_path):
+def test_run_script_nonzero_exit(tmp_path, monkeypatch):
+    monkeypatch.setenv("SMARTBRIEF_ALLOW_SKILL_SCRIPTS", "1")
     """非零退出码：捕获 stderr 并报错。"""
     skill_dir = _make_skill_dir(tmp_path, scripts={"fail.py": "import sys; sys.exit(3)"})
     skill = MarkdownSkill({"name": "s"}, "body", skill_dir=skill_dir)
@@ -611,6 +617,7 @@ def test_run_script_nonzero_exit(tmp_path):
 
 
 def test_scripts_execute_tool_loop(manager, monkeypatch):
+    monkeypatch.setenv("SMARTBRIEF_ALLOW_SKILL_SCRIPTS", "1")
     """带 scripts/ 的技能：execute 走工具循环（run_script → 回填 → 最终回答）。"""
 
     skill_dir = _make_skill_dir(manager._pool_dir(), name="tool_skill", scripts={"calc.py": "print('42')"})
@@ -641,6 +648,7 @@ def test_scripts_execute_tool_loop(manager, monkeypatch):
 
 
 def test_scripts_execute_max_loop(manager, monkeypatch):
+    monkeypatch.setenv("SMARTBRIEF_ALLOW_SKILL_SCRIPTS", "1")
     """达到 SCRIPT_MAX_LOOP 上限仍未给最终回答 → 返回兜底提示。"""
 
     skill_dir = _make_skill_dir(manager._pool_dir(), name="loop_skill", scripts={"a.py": "print('a')"})

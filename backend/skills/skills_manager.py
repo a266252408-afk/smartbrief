@@ -21,6 +21,7 @@ from uuid import uuid4
 
 from llm import client as llm_client
 from services.file_security import validate_archive
+from services.execution_policy import python_enabled, scripts_enabled, require_python, require_scripts
 from skills import registry as _registry
 from skills.base_skill import BaseSkill, SkillInput, SkillOutput
 from skills.builtin_skills import BUILTIN_SKILLS
@@ -63,6 +64,18 @@ def _save_skill_config() -> None:
     )
 
 
+class GuardedPythonSkill(BaseSkill):
+    """已信任加载的Python实现也在每次执行前检查开关，防止缓存绕过。"""
+    def __init__(self, delegate):
+        self.delegate = delegate
+        for name in ("name", "display_name", "description", "category", "version", "builtin", "enabled", "skill_md"):
+            setattr(self, name, getattr(delegate, name))
+
+    async def execute(self, input: SkillInput) -> SkillOutput:
+        require_python()
+        return await self.delegate.execute(input)
+
+
 class MarkdownSkill(BaseSkill):
     """skill.md 驱动的自定义技能：无 skill.py 时由 LLM 按说明执行。
 
@@ -94,7 +107,7 @@ class MarkdownSkill(BaseSkill):
             for md_file in sorted(ref_dir.glob("*.md")):
                 self.references.append((md_file.name, _read_text_fallback(md_file)))
         scripts_dir = skill_dir / "scripts"
-        if scripts_dir.is_dir():
+        if scripts_enabled() and scripts_dir.is_dir():
             self.scripts = sorted(
                 p.name for p in scripts_dir.iterdir()
                 if p.is_file() and SCRIPT_NAME_RE.match(p.name)
@@ -112,6 +125,7 @@ class MarkdownSkill(BaseSkill):
 
     def _script_schema(self) -> dict:
         """run_script 工具的 OpenAI schema：script 参数用 enum 白名单限定脚本名。"""
+        require_scripts()
         return {
             "type": "function",
             "function": {
@@ -138,9 +152,13 @@ class MarkdownSkill(BaseSkill):
 
     async def _run_script(self, script: str, args: list[str] | None = None) -> str:
         """执行 scripts/ 下的脚本，返回 stdout（安全三防线：白名单 + 禁 shell + 超时强杀）。"""
+        require_scripts()
         if script not in self.scripts:
             raise ValueError(f"不允许执行未登记的脚本：{script}")
         script_path = self._skill_dir / "scripts" / script
+        script_root = self._skill_dir / "scripts"
+        if script_root.is_symlink() or script_path.is_symlink() or not script_path.resolve().is_relative_to(script_root.resolve()):
+            raise ValueError("脚本路径越界或为符号链接")
         if not script_path.is_file():
             raise ValueError(f"脚本不存在：{script}")
         # .py 脚本用当前解释器执行；其余按可执行文件直接运行（均为 argv 直传，禁 shell）
@@ -172,7 +190,7 @@ class MarkdownSkill(BaseSkill):
             {"role": "system", "content": system},
             {"role": "user", "content": input.query},
         ]
-        if not self.scripts:
+        if not self.scripts or not scripts_enabled():
             return await self._execute_plain(messages)
         return await self._execute_with_scripts(messages)
 
@@ -187,6 +205,7 @@ class MarkdownSkill(BaseSkill):
 
     async def _execute_with_scripts(self, messages: list) -> SkillOutput:
         """带 scripts/ 的技能：Function Calling 工具循环（run_script 调用闭环）。"""
+        require_scripts()
         tools = [self._script_schema()]
         script_calls: list = []
         try:
@@ -627,6 +646,8 @@ class SkillsManager:
 
     def _load_skill_py(self, skill_dir: Path, meta: dict, body: str) -> BaseSkill | None:
         """动态加载 skill.py（可选）：必须定义 BaseSkill 子类，以 skill.md 元数据为准。"""
+        if not python_enabled():
+            return None
         py_file = skill_dir / "skill.py"
         if not py_file.exists():
             return None
@@ -648,7 +669,7 @@ class SkillsManager:
                 instance.builtin = False  # 导入的技能一律按自定义管理
                 instance.enabled = str(meta.get("enabled", "true")).strip().lower() != "false"
                 instance.skill_md = body
-                return instance
+                return GuardedPythonSkill(instance)
         raise ValueError("skill.py 未定义 BaseSkill 子类")
 
 
