@@ -1,19 +1,12 @@
 @echo off
-REM =====================================================================
-REM SmartBrief one-click launcher (Windows)
-REM - Backend FastAPI (port 8002): starts in a separate window.
-REM   The built-in MCP Server is auto-started by the backend.
-REM - Frontend Vite (port 5174): starts in the foreground, Ctrl+C to stop.
-REM Prerequisites:
-REM   - configure backend/.env (OPENAI_* / EMBEDDING_*)
-REM   - pip install -r backend/requirements.txt
-REM   - cd frontend && npm install
-REM =====================================================================
+REM 使用项目虚拟环境启动后端；先按 docs/environment.md 安装锁定依赖。
 cd /d "%~dp0"
-
+if not exist ".venv\Scripts\python.exe" (
+  echo [SmartBrief] Missing .venv. Follow docs/environment.md first.
+  exit /b 1
+)
 echo [SmartBrief] Starting backend (http://localhost:8002) ...
-start "SmartBrief-Backend" cmd /k "cd /d backend && uvicorn main:app --host 0.0.0.0 --port 8002"
-
+start "SmartBrief-Backend" /min cmd /k "cd /d backend && ..\.venv\Scripts\python.exe -m uvicorn main:app --host 0.0.0.0 --port 8002"
 echo [SmartBrief] Starting frontend (http://localhost:5174) ...
 cd frontend
 call npm run dev

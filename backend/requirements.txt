@@ -1,6 +1,6 @@
 # SmartBrief 后端依赖
 # 覆盖LangGraph 多智能体编排 + A2A 审核循环 + RAG 知识库 / 短期-长期记忆
-# 要求 Python 3.10+
+# 已验证 Python 3.11.9；本文件为输入，安装使用 requirements.lock。
 
 fastapi>=0.115.0             # Web 框架
 uvicorn[standard]>=0.32.0    # ASGI 服务器（[standard] 附带热重载 watchfiles）

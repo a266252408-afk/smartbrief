@@ -35,3 +35,7 @@ htmlcov/
 *.log
 *-output.txt
 probe_out.txt
+
+# 项目内安装缓存与隔离验证副本
+.npm-cache/
+.validation/

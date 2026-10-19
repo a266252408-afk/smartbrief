@@ -31,7 +31,7 @@ Planner → Scheduler → Reviewer → 完成
 MCP 搜索   RAG / 长期记忆  SQLite 业务库与检查点
 ```
 
-后端使用 Python 3.10+、FastAPI、OpenAI 兼容接口 SDK、LangGraph、ChromaDB 与 SQLite；前端使用 Vue 3、Vite、TypeScript、Element Plus、ECharts、marked 与 DOMPurify。
+后端使用 Python 3.11、FastAPI、OpenAI 兼容接口 SDK、LangGraph、ChromaDB 与 SQLite；前端使用 Vue 3、Vite、TypeScript、Element Plus、ECharts、marked 与 DOMPurify。
 
 ## 目录
 
@@ -54,14 +54,16 @@ docs/             架构、评测及来源说明
 
 ## 本地运行
 
-准备 Python 3.10+、Node.js 与 npm。后端使用 8002 端口，前端使用 5174 端口。
+已验证安装环境为 Python 3.11.9、Node.js 24.18.0、npm 11.17.0。详细锁定与重建方法见 [环境说明](docs/environment.md)。后端使用 8002 端口，前端使用 5174 端口。
 
 1. 安装依赖：
 
 ```powershell
-python -m pip install -r backend/requirements.txt
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --require-hashes -r backend/requirements-dev.lock
+.\.venv\Scripts\Activate.ps1
 cd frontend
-npm install
+npm ci
 cd ..
 ```
 
@@ -113,7 +115,7 @@ npm run dev
 python -m pytest tests/ -v
 ```
 
-测试使用 pytest，可按需安装 `pytest`、`pytest-cov`。部分测试会启动本地 MCP 子进程；完整在线链路另需可用的模型、嵌入接口与网络。
+测试依赖已包含在开发锁文件中。部分测试会启动本地 MCP 子进程；完整在线链路另需可用的模型、嵌入接口与网络。
 
 在 `frontend/` 执行：
 
