@@ -2,7 +2,7 @@
 
 ## 当前基线与命令前置
 
-T00 已对现有代码新跑后端 342 个测试、所统计范围覆盖率 93%，前端类型检查与生产构建通过；记录见 verification/T00.json。标准环境仍待 T01 固化，不把临时验证环境当交付环境。
+T00 已对现有代码新跑后端 342 个测试、所统计范围覆盖率 93%，前端类型检查与生产构建通过；记录见 verification/T00.json。T01 已固化项目 .venv 和锁文件，安装与匹配 Chromium 说明见 [环境说明](environment.md)；不把 T00 临时环境当交付环境。
 
 后端命令从 backend/ 执行；前端从 frontend/ 执行；治理检查从根目录执行。T01 后使用项目 .venv 内的 Python（Windows：..\.venv\Scripts\python.exe，Linux/macOS：../.venv/bin/python），或者激活环境再使用 python。依赖安装命令以 T01 实际生成的锁文件为准。
 
