@@ -30,6 +30,7 @@ deploy/volumes/
 # 本地验证与调试产物
 .pytest_cache/
 .coverage
+.coverage.*
 coverage.xml
 htmlcov/
 *.log
