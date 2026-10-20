@@ -31,12 +31,12 @@ def test_metric_denominators_do_not_confuse_quality_with_completion():
 
 
 @pytest.mark.parametrize('review,expected', [('{"passed":true,"comments":[]}',True),('bad json',False),('{"passed":false,"comments":["证据不足"]}',False)])
-def test_runner_through_real_graph_and_repository(tmp_path, monkeypatch, offline_services, review, expected):
+def test_runner_through_real_graph_and_repository(tmp_path, monkeypatch, offline_evidence, review, expected):
     from agents import planner, react_writer, reviewer, rewriter
     from tests.fakes import ScriptedLLM
     database.init_db(tmp_path/'real-eval.db')
-    plan='[{"id":1,"agent":"writer","task":"报告","depends_on":[]}]'
-    for module, outputs in [(planner,[plan]),(react_writer,['## 报告']), (reviewer,[review]*3),(rewriter,['## 修改报告']*2)]:
+    plan='[{"id":1,"agent":"researcher","task":"搜资料","depends_on":[]},{"id":2,"agent":"writer","task":"报告","depends_on":[1]}]'
+    for module, outputs in [(planner,[plan]),(react_writer,['## 报告[S1]']), (reviewer,[review]*3),(rewriter,['## 修改报告[S1]']*2)]:
         monkeypatch.setattr(module,'chat',ScriptedLLM(outputs).chat)
     result=asyncio.run(runner._run_single_case({'topic':'主题','keywords':['报告']},1))
     assert result['execution_success'] is True

@@ -89,3 +89,14 @@ def offline_services(monkeypatch, fake_embeddings):
     monkeypatch.setattr(store, "_embeddings", fake_embeddings)
     monkeypatch.setattr(long_term_memory, "_MEMORY_ENABLED", False)
     return scripts
+
+
+@pytest.fixture
+def offline_evidence(offline_services, monkeypatch):
+    """为需要质量通过的旧场景提供明确可追溯的外部搜索夹具。"""
+    from unittest.mock import AsyncMock
+    from agents import react_researcher
+    from tests.fakes import fixture_search
+    monkeypatch.setattr(react_researcher.mcp_manager, "call_tool", AsyncMock(return_value=fixture_search("资料")))
+    offline_services["react_researcher"].outputs = ['{"action":"web_search","query":"资料"}', '{"action":"done"}']
+    return offline_services

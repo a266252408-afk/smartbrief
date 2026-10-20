@@ -1,6 +1,7 @@
 """严格审核节点：质量拒绝与运行结束分别表达。"""
 from llm.client import chat
 from services.report_quality import parse_review, usable_draft
+from services.citations import check_citations
 
 REVIEW_STEP_ID = 0
 
@@ -38,17 +39,23 @@ async def reviewer_node(state: dict) -> dict:
                 "forced_pass": False, "forced_output": False,
                 "error_code": state.get("error_code") or "DRAFT_UNAVAILABLE",
                 "error": "报告写作失败", "react_logs": logs}
+    check = check_citations(state.get("task_id", ""), draft, state.get("evidence", []), state.get("required_citations", []))
+    required = sorted(set(state.get("required_citations", [])) | {c["source_id"] for c in check["citations"] if c["valid"]})
+    common = {"citations": check["citations"], "citation_errors": check["errors"], "required_citations": required}
+    if not state.get("evidence") and "数据待补充：暂无可追溯来源" not in draft:
+        draft += "\n\n> 数据待补充：暂无可追溯来源。"
+        common["draft_content"] = draft
     logs.extend([
         {"type": "Thought", "content": f"开始审核草稿（第 {round_no} 次审核）", "step_id": 0},
-        {"type": "Action", "content": "llm_gen(query=按 3 条标准评审报告草稿)", "step_id": 0},
+        {"type": "Action", "content": "llm_gen(query=按 3 条标准评审报告草稿)" if check["valid"] else "citation_check（确定性来源映射检查）", "step_id": 0},
     ])
     try:
-        review = await _review(draft)
+        review = await _review(draft) if check["valid"] else {"passed": False, "comments": check["errors"]}
     except Exception:
         comments = ["审核调用失败或返回结构无效，质量不可用"]
         history.append({"round": round_no, "passed": None, "comments": comments, "quality_status": "unavailable"})
         logs.append({"type": "Observation", "content": comments[0], "step_id": 0})
-        return {"passed": False, "quality_status": "unavailable", "forced_pass": False,
+        return common | {"passed": False, "quality_status": "unavailable", "forced_pass": False,
                 "forced_output": False, "error_code": "REVIEW_UNAVAILABLE", "review_comments": comments,
                 "review_history": history, "react_logs": logs}
     passed, comments = review["passed"], review["comments"]
@@ -61,8 +68,8 @@ async def reviewer_node(state: dict) -> dict:
     if forced:
         text += "；已达循环上限，保留拒绝结果并强制输出警告"
     logs.append({"type": "Observation", "content": text, "step_id": 0})
-    result = {"passed": passed, "forced_pass": forced, "forced_output": forced,
-              "quality_status": quality, "error_code": None if passed else "REVIEW_REJECTED",
+    result = common | {"passed": passed, "forced_pass": forced, "forced_output": forced,
+              "quality_status": quality, "error_code": None if passed else "CITATION_INVALID" if not check["valid"] else "REVIEW_REJECTED",
               "review_comments": comments, "review_history": history,
               "iteration": iteration, "react_logs": logs}
     if forced:

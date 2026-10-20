@@ -64,6 +64,7 @@ async def scheduler_node(state: dict) -> dict:
     completed: List[int] = list(state.get("completed_steps", []))   # 已完成步骤（会逐步累加）
     logs: List[Dict] = list(state.get("react_logs", []))            # 日志流（原地追加）
     research_data: Dict = dict(state.get("research_data", {}))      # 研究数据（逐步填充）
+    evidence = list(state.get("evidence", []))
     drafts: List[str] = []                                          # writer 步骤产出的章节（暂存）
 
     # 逐轮派发：每轮取所有就绪步骤；线性版串行执行（当前串行执行）
@@ -99,10 +100,11 @@ async def scheduler_node(state: dict) -> dict:
                         "error": f"timeout>{AGENT_STEP_TIMEOUT_SECONDS}s",
                     }
             else:
+                evidence = normalize_evidence(state.get("task_id", ""), research_data, evidence)
                 # 撰写步骤：带研究数据生成章节草稿（整稿生成耗时更长，用独立放宽后的超时）
                 try:
                     section = await asyncio.wait_for(
-                        react_writer_run(step.get("task", ""), step_id, logs, research_data),
+                        react_writer_run(step.get("task", ""), step_id, logs, research_data, evidence=evidence),
                         timeout=WRITER_STEP_TIMEOUT_SECONDS,
                     )
                     drafts.append(section)            # 章节暂存，最后统一拼接
@@ -126,7 +128,7 @@ async def scheduler_node(state: dict) -> dict:
     return {
         "completed_steps": completed,             # 已完成步骤 id 列表
         "research_data": research_data,           # 各步骤研究结果（供前端/Writer 引用）
-        "evidence": normalize_evidence(state.get("task_id", ""), research_data, state.get("evidence", [])),
+        "evidence": normalize_evidence(state.get("task_id", ""), research_data, evidence),
         "draft_content": draft_content,           # 拼接后的报告草稿
         "current_step_index": len(completed),     # 进度 = 已完成步骤数
         "react_logs": logs,                       # 日志流

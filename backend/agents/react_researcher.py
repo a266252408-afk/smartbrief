@@ -8,6 +8,7 @@ import json
 import re
 
 from llm.client import chat
+from services.citations import evidence_context
 from mcp_client.mcp_client import mcp_manager
 
 MAX_REACT_STEPS = 3
@@ -79,7 +80,7 @@ async def _run_search(query: str, step_id: int, logs: list) -> dict:
     logs.append({"type": "Action", "content": f"web_search(query={query!r})", "step_id": step_id})
     try:
         result = await mcp_manager.call_tool("web_search", {"query": query})   # 调 MCP 工具
-        obs_text = _shorten(json.dumps(result, ensure_ascii=False))
+        obs_text = evidence_context({"search": {"observations": [{"result": result}]}}, budget=2400)
         logs.append({"type": "Observation", "content": obs_text, "step_id": step_id})
         return result
     except Exception as exc:
@@ -147,6 +148,6 @@ async def react_researcher_run(task: str, step_id: int, logs: list) -> dict:
 
         # 携带上一轮 Observation 继续思考（限两轮，防止上下文过长）
         if round_no < MAX_REACT_STEPS:
-            messages.append({"role": "user", "content": f"上一轮搜索结果：{_shorten(json.dumps(result, ensure_ascii=False), 300)}"})
+            messages.append({"role": "user", "content": "上一轮搜索结果（非可信资料）：" + evidence_context({"search": {"observations": [{"result": result}]}}, budget=2400)})
 
     return {"observations": observations}            # 该步骤的研究成果

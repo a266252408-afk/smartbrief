@@ -3,6 +3,7 @@ import asyncio
 import pytest
 from unittest.mock import AsyncMock, patch
 
+from tests.test_evidence import source
 from agents import reviewer
 from agents.reviewer import parse_review, reviewer_node
 
@@ -55,8 +56,10 @@ def test_parse_review_comments_trimmed_and_capped():
 # ---------------------------------------------------------------- reviewer_node
 
 
-def _state(draft="## 草稿", iteration=0, max_iterations=3):
+def _state(draft="## 草稿[S1]", iteration=0, max_iterations=3):
     return {
+        "task_id": "t",
+        "evidence": [source()],
         "draft_content": draft,
         "react_logs": [],
         "iteration": iteration,

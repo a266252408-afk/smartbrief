@@ -634,6 +634,8 @@ async def task_report(task_id: str):
         "title": task.get("topic", ""),
         "content_markdown": content,
         "sources": task.get("evidence", []),
+        "citations": task.get("citations", []),
+        "citation_errors": task.get("citation_errors", []),
         "charts": [],  # 当前未生成独立图表，保留响应字段供后续扩展。
         "executive_summary": {
             "total_time": total_time,

@@ -17,13 +17,15 @@ from tests.fakes import ScriptedLLM
     ('{"passed":false,"comments":["缺数据"]}', '## 有效草稿', RuntimeError('rewrite failure'), 'failed', 'not_run', False),
     ('{"passed":false,"comments":["缺数据"]}', '## 有效草稿', '', 'failed', 'not_run', False),
 ])
-def test_real_graph_outcomes(tmp_path, monkeypatch, offline_services, review, writer, rewrite, execution, quality, forced):
+def test_real_graph_outcomes(tmp_path, monkeypatch, offline_evidence, review, writer, rewrite, execution, quality, forced):
     from agents import planner, react_writer, reviewer, rewriter
     from graph import workflow
     from unittest.mock import AsyncMock
     database.init_db(tmp_path / 'outcome.db')
     repo.create_task('t', '主题')
-    plan = '[{"id":1,"agent":"writer","task":"写报告","depends_on":[]}]'
+    plan = '[{"id":1,"agent":"researcher","task":"搜资料","depends_on":[]},{"id":2,"agent":"writer","task":"写报告","depends_on":[1]}]'
+    writer = writer + '[S1]' if isinstance(writer,str) and writer.strip() else writer
+    rewrite = rewrite + '[S1]' if isinstance(rewrite,str) and rewrite.strip() else rewrite
     for module, responses in [(planner,[plan]),(react_writer,[writer]),(reviewer,[review]*3),(rewriter,[rewrite]*2)]:
         monkeypatch.setattr(module,'chat',ScriptedLLM(responses).chat)
     remember = AsyncMock()

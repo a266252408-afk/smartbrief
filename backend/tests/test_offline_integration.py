@@ -33,7 +33,7 @@ def test_generate_real_graph_and_persisted_api_state(offline_services, invalid_p
             {"id": 2, "agent": "writer", "task": "离线撰写", "depends_on": [1]}
         ])]
         scripts["react_researcher"].outputs = ['{"action":"web_search","query":"固定资料"}', '{"action":"done"}']
-        scripts["react_writer"].outputs = ["## 离线报告\n本文仅为测试夹具。"]
+        scripts["react_writer"].outputs = ["## 离线报告\n本文仅为测试夹具。[S1]"]
         scripts["reviewer"].outputs = ['{"passed":true,"comments":[]}']
     with TestClient(app, headers=ADMIN_HEADERS) as client:
         task_repository.create_task("unrelated", "独立任务")
@@ -50,7 +50,7 @@ def test_generate_real_graph_and_persisted_api_state(offline_services, invalid_p
             assert not persisted["final_report"]
         else:
             assert data["status"] == "completed"
-            assert data["final_report"] == persisted["final_report"] == "## 离线报告\n本文仅为测试夹具。"
+            assert data["final_report"] == persisted["final_report"] == "## 离线报告\n本文仅为测试夹具。[S1]"
             assert len(data["plan"]) == 2
             assert persisted["research_data"]["step_1"]["observations"][0]["result"]["source"] == "fixture"
             assert any(row["log_type"] == "Action" for row in task_repository.get_logs(task_id))

@@ -257,6 +257,7 @@ def test_react_writer_llm_error():
 def test_react_writer_summarize_research():
     research = {"step_1": {"observations": [{"query": "q", "result": {"a": 1}}]}}
     summary = react_writer._summarize_research(research)
-    assert "q" in summary
+    assert "step_1" in summary
+    assert "数据待补充" in summary  # 缺URL的旧原始字段不能提升为证据
     assert "（暂无研究数据）" not in summary
     assert "（暂无研究数据）" in react_writer._summarize_research({})

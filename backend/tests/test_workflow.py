@@ -99,8 +99,8 @@ def test_run_task_full_flow_with_real_graph(repo_db):
     with (
         patch.object(planner, "chat", new=AsyncMock(return_value=FakeResp(plan_json))),
         patch.object(react_researcher, "chat", new=AsyncMock(return_value=FakeResp('{"action": "web_search", "query": "手机"}'))),
-        patch.object(react_researcher.mcp_manager, "call_tool", new=AsyncMock(return_value={"summary": "市场100亿"})),
-        patch.object(react_writer, "chat", new=AsyncMock(return_value=FakeResp("## 报告\n手机市场100亿"))),
+        patch.object(react_researcher.mcp_manager, "call_tool", new=AsyncMock(return_value={"results":[{"title":"测试来源","snippet":"市场100亿","url":"https://example.invalid/a"}]})),
+        patch.object(react_writer, "chat", new=AsyncMock(return_value=FakeResp("## 报告\n手机市场100亿[S1]"))),
         # Reviewer 一次通过，不触发 Rewriter
         patch.object(reviewer, "chat", new=AsyncMock(return_value=FakeResp('{"passed": true, "comments": []}'))),
         patch.object(rewriter, "chat", new=AsyncMock(return_value=FakeResp("## 修改稿"))),
@@ -121,7 +121,7 @@ def test_run_task_full_flow_with_real_graph(repo_db):
 # ---------------------------------------------------------------- A2A 条件循环
 
 
-def test_run_task_reviewer_rejects_then_rewrites(repo_db):
+def test_run_task_reviewer_rejects_then_rewrites(repo_db, offline_evidence):
     """A2A：Reviewer 第 1 次打回 → Rewriter 返工 → Reviewer 第 2 次通过。"""
     from graph.workflow import run_task
 
@@ -135,11 +135,11 @@ def test_run_task_reviewer_rejects_then_rewrites(repo_db):
         def __init__(self, content):
             self.choices = [type("C", (), {"message": FakeMessage(content)})()]
 
-    plan_json = '[{"id": 1, "agent": "writer", "task": "写报告", "depends_on": []}]'
+    plan_json = '[{"id":1,"agent":"researcher","task":"搜资料","depends_on":[]},{"id":2,"agent":"writer","task":"写报告","depends_on":[1]}]'
     task_repository.create_task("t_a2a_1", "储能市场")
     with (
         patch.object(planner, "chat", new=AsyncMock(return_value=FakeResp(plan_json))),
-        patch.object(react_writer, "chat", new=AsyncMock(return_value=FakeResp("## 初稿\n只有一句话"))),
+        patch.object(react_writer, "chat", new=AsyncMock(return_value=FakeResp("## 初稿\n只有一句话[S1]"))),
         # Reviewer 第一次打回、第二次通过
         patch.object(
             reviewer, "chat",
@@ -148,7 +148,7 @@ def test_run_task_reviewer_rejects_then_rewrites(repo_db):
                 FakeResp('{"passed": true, "comments": []}'),
             ]),
         ),
-        patch.object(rewriter, "chat", new=AsyncMock(return_value=FakeResp("## 修改稿\n包含 2 个数据点与来源"))),
+        patch.object(rewriter, "chat", new=AsyncMock(return_value=FakeResp("## 修改稿\n包含 2 个数据点与来源[S1]"))),
     ):
         final = run(run_task("t_a2a_1", "储能市场"))
     assert final["passed"] is True
@@ -162,7 +162,7 @@ def test_run_task_reviewer_rejects_then_rewrites(repo_db):
     assert any("修改稿" in c for c in contents)           # 返工日志存在
 
 
-def test_run_task_reviewer_force_pass_after_max_iterations(repo_db):
+def test_run_task_reviewer_force_pass_after_max_iterations(repo_db, offline_evidence):
     """A2A：Reviewer 连续不通过 → 达上限强制输出 + 草稿标记警告。"""
     from graph.workflow import run_task
 
@@ -176,17 +176,17 @@ def test_run_task_reviewer_force_pass_after_max_iterations(repo_db):
         def __init__(self, content):
             self.choices = [type("C", (), {"message": FakeMessage(content)})()]
 
-    plan_json = '[{"id": 1, "agent": "writer", "task": "写报告", "depends_on": []}]'
+    plan_json = '[{"id":1,"agent":"researcher","task":"搜资料","depends_on":[]},{"id":2,"agent":"writer","task":"写报告","depends_on":[1]}]'
     task_repository.create_task("t_a2a_2", "手机市场")
     with (
         patch.object(planner, "chat", new=AsyncMock(return_value=FakeResp(plan_json))),
-        patch.object(react_writer, "chat", new=AsyncMock(return_value=FakeResp("## 初稿\n数据不足"))),
+        patch.object(react_writer, "chat", new=AsyncMock(return_value=FakeResp("## 初稿\n数据不足[S1]"))),
         # 三次审核都不通过（第 3 次触发强制输出，上限 3）
         patch.object(
             reviewer, "chat",
             new=AsyncMock(return_value=FakeResp('{"passed": false, "comments": ["始终缺数据"]}')),
         ),
-        patch.object(rewriter, "chat", new=AsyncMock(return_value=FakeResp("## 改了一版\n还是不够"))),
+        patch.object(rewriter, "chat", new=AsyncMock(return_value=FakeResp("## 改了一版\n还是不够[S1]"))),
     ):
         final = run(run_task("t_a2a_2", "手机市场"))
     assert final["passed"] is False                      # 强制输出仍未通过
@@ -248,7 +248,7 @@ def test_scheduler_skips_timeout_writer_step():
 
     from agents import scheduler as scheduler_mod
 
-    async def hang_writer(task, step_id, logs, research_data):
+    async def hang_writer(task, step_id, logs, research_data, evidence=None):
         await asyncio.sleep(10)
         return "## 章节"
 

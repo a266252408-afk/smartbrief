@@ -11,14 +11,15 @@ from typing import Any
 from db.database import get_connection
 from services.task_outcome import TaskOutcome
 from services.evidence import validate_sources
+from services.citations import Citation
 
 _JSON_FIELDS = ("plan", "completed_steps", "research_data", "review_comments",
-                "review_history", "memory_hits", "evidence")
+                "review_history", "memory_hits", "evidence", "citations", "citation_errors")
 # 允许更新的字段白名单：防止调用方误传脏字段（如 task_id / created_at）
 _ALLOWED_UPDATE = {"status", "topic", "plan", "current_step_index", "completed_steps",
                    "research_data", "draft_content", "final_report", "error",
                    "review_comments", "review_history", "iteration", "max_iterations",
-                   "passed", "forced_pass", "memory_hits", "evidence",
+                   "passed", "forced_pass", "memory_hits", "evidence", "citations", "citation_errors",
                    "execution_status", "quality_status", "forced_output", "error_code"}
 
 
@@ -70,6 +71,8 @@ def _row_to_task(row) -> dict | None:
     task["review_comments"] = _loads(task.get("review_comments"), [])   # JSON -> list
     task["review_history"] = _loads(task.get("review_history"), [])     # JSON -> list（各轮审核记录）
     task["memory_hits"] = _loads(task.get("memory_hits"), [])           # JSON -> list（长期记忆命中）
+    task["citations"] = _loads(task.get("citations"), [])
+    task["citation_errors"] = _loads(task.get("citation_errors"), [])
     task["evidence"] = _loads(task.get("evidence"), [])
     if "forced_output" in task:
         task["forced_output"] = bool(task["forced_output"])
@@ -111,6 +114,8 @@ def update_task(task_id: str, **fields) -> None:
     TaskOutcome(task_id=task_id, **({"execution_status": "running", "quality_status": "pending", "forced_output": False} | outcome_fields))
     if "evidence" in updates:
         updates["evidence"] = validate_sources(task_id, updates["evidence"])
+    if "citations" in updates:
+        updates["citations"] = [Citation.model_validate(c).model_dump() for c in updates["citations"]]
     sets = []
     params: list = []
     for key, value in updates.items():

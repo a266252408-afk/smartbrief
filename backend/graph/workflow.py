@@ -59,6 +59,9 @@ def _initial_state(task_id: str, topic: str) -> AgentState:
     """
     return {
         "evidence": [],
+        "citations": [],
+        "citation_errors": [],
+        "required_citations": [],
         "task_id": task_id,           # 任务 id（也是后续 checkpoint 的 thread_id）
         "execution_status": "running",
         "quality_status": "pending",
@@ -167,6 +170,8 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
             completed_steps=final.get("completed_steps", []),
             research_data=final.get("research_data", {}),
             evidence=final.get("evidence", []),
+            citations=final.get("citations", []),
+            citation_errors=final.get("citation_errors", []),
             draft_content=final.get("draft_content", ""),
             final_report=final_report,
             # A2A 审核循环结果

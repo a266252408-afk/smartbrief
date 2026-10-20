@@ -26,6 +26,13 @@ export interface Evidence {
   source_deleted: boolean
 }
 
+export interface Citation {
+  source_id: string
+  claim: string
+  valid: boolean
+  reason: string | null
+}
+
 /** 任务摘要（列表项） */
 export interface TaskSummary extends TaskOutcome {
   task_id: string
@@ -72,6 +79,8 @@ export interface MemoryHit {
 /** 任务详情（status 接口返回） */
 export interface TaskStatus extends TaskSummary {
   evidence?: Evidence[]
+  citations?: Citation[]
+  citation_errors?: string[]
   research_data: Record<string, unknown>
   draft_content: string
   final_report: string | null
@@ -106,6 +115,8 @@ export interface GenerateResult {
 /** 任务报告（「报告展示」页数据源） */
 export interface TaskReport extends TaskOutcome {
   sources?: Evidence[]
+  citations?: Citation[]
+  citation_errors?: string[]
   task_id: string
   title: string
   content_markdown: string
