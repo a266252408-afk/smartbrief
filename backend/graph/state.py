@@ -20,6 +20,7 @@ class AgentState(TypedDict):
     6. 长期记忆命中：memory_hits
     """
     # ---------- 1. 任务信息 ----------
+    evidence: List[Dict]      # 服务端任务内来源映射
     task_id: str              # 任务唯一 id（由 API 层生成，形如 task_ab12cd34）
     execution_status: ExecutionStatus
     quality_status: QualityStatus

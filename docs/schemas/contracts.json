@@ -85,10 +85,12 @@
       ],
       "properties": {
         "source_id": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^S[1-9][0-9]*$"
         },
         "task_id": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "kind": {
           "enum": [
@@ -97,10 +99,14 @@
           ]
         },
         "title": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
         },
         "excerpt": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
         },
         "retrieved_at": {
           "type": "string",
@@ -189,7 +195,8 @@
           }
         }
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "T04-01已实现：任务内服务端编号，web URL限定无凭证HTTP(S)，不从历史报告反推来源。"
     },
     "Citation": {
       "type": "object",

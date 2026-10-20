@@ -4,6 +4,7 @@ from starlette.responses import JSONResponse
 from api.routes import task_status, task_report
 from api.security import ApiError
 from services.task_outcome import TaskOutcome
+from services.task_sources import get_sources
 
 router = APIRouter(prefix="/api/v2/tasks")
 
@@ -27,3 +28,14 @@ async def detail(request: Request, task_id: str):
 @router.get("/{task_id}/report")
 async def report(request: Request, task_id: str):
     return await _read(request, task_id, True)
+
+
+@router.get("/{task_id}/sources")
+async def sources(request: Request, task_id: str):
+    try:
+        data = get_sources(task_id)
+    except ValueError:
+        return JSONResponse({"error": ApiError(code="SOURCES_INVALID", message="来源记录损坏，暂不可用", retryable=False, request_id=request.state.request_id).model_dump()}, status_code=500)
+    if data is None:
+        return JSONResponse({"error": ApiError(code="TASK_NOT_FOUND", message="任务不存在", retryable=False, request_id=request.state.request_id).model_dump()}, status_code=404)
+    return {"data": data, "meta": {"request_id": request.state.request_id}}

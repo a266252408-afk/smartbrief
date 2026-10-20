@@ -10,6 +10,22 @@ export interface TaskOutcome {
   error_code: string | null
 }
 
+/** 服务端分配编号的任务来源；外部文字始终为非可信资料。 */
+export interface Evidence {
+  source_id: string
+  task_id: string
+  kind: 'web' | 'document'
+  title: string
+  excerpt: string
+  retrieved_at: string
+  url: string | null
+  document_id?: string | null
+  chunk_id?: string | null
+  page?: number | null
+  score?: number | null
+  source_deleted: boolean
+}
+
 /** 任务摘要（列表项） */
 export interface TaskSummary extends TaskOutcome {
   task_id: string
@@ -55,6 +71,7 @@ export interface MemoryHit {
 
 /** 任务详情（status 接口返回） */
 export interface TaskStatus extends TaskSummary {
+  evidence?: Evidence[]
   research_data: Record<string, unknown>
   draft_content: string
   final_report: string | null
@@ -88,6 +105,7 @@ export interface GenerateResult {
 
 /** 任务报告（「报告展示」页数据源） */
 export interface TaskReport extends TaskOutcome {
+  sources?: Evidence[]
   task_id: string
   title: string
   content_markdown: string

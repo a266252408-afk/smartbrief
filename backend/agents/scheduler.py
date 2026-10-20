@@ -4,6 +4,8 @@
 ReAct Researcher / ReAct Writer 执行，并更新完成状态与数据。
 （当前按依赖顺序串行派发；多 Agent 审核返工的条件循环已由workflow.py 层的条件边实现。）
 """
+from services.evidence import normalize_evidence
+
 import asyncio
 from typing import List, Dict
 
@@ -124,6 +126,7 @@ async def scheduler_node(state: dict) -> dict:
     return {
         "completed_steps": completed,             # 已完成步骤 id 列表
         "research_data": research_data,           # 各步骤研究结果（供前端/Writer 引用）
+        "evidence": normalize_evidence(state.get("task_id", ""), research_data, state.get("evidence", [])),
         "draft_content": draft_content,           # 拼接后的报告草稿
         "current_step_index": len(completed),     # 进度 = 已完成步骤数
         "react_logs": logs,                       # 日志流

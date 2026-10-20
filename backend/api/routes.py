@@ -633,6 +633,7 @@ async def task_report(task_id: str):
         "error_code": task["error_code"],
         "title": task.get("topic", ""),
         "content_markdown": content,
+        "sources": task.get("evidence", []),
         "charts": [],  # 当前未生成独立图表，保留响应字段供后续扩展。
         "executive_summary": {
             "total_time": total_time,

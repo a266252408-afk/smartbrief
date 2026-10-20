@@ -10,6 +10,7 @@
 - 调用必应（Bing）HTML 搜索接口；无结果时返回空列表，网络失败时返回错误。
 - 工具返回 JSON 字符串，由 Client 解析为 dict。
 """
+from datetime import datetime, timezone
 import base64
 import html
 import json
@@ -73,7 +74,8 @@ def _web_search(query: str, num_results: int = 5) -> dict:
         with urllib.request.urlopen(req, timeout=8) as resp:
             page = resp.read().decode("utf-8", errors="ignore")
         results = _parse_bing(page)[:num_results]
-        return {"source": "bing", "query": query, "results": results}
+        return {"source": "bing", "query": query, "results": results,
+                "retrieved_at": datetime.now(timezone.utc).isoformat()}
     except Exception as exc:
         return {"source": "bing", "query": query, "results": [], "error": f"联网搜索失败：{exc}"}
 

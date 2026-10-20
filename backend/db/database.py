@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     max_iterations      INTEGER DEFAULT 3,   -- A2A 循环上限（达上限强制通过；仅供前端展示，值由 workflow.run_task 落库）
     passed              INTEGER,       -- 最近一次审核是否通过（0/1/NULL 未审核；强制通过时亦为 1，原始判定见 review_history）
     forced_pass         INTEGER DEFAULT 0,   -- 是否因达循环上限被强制通过（0/1）
+    evidence            TEXT NOT NULL DEFAULT '[]',  -- 任务内来源，不反推历史证据
     memory_hits         TEXT,          -- JSON 数组（本次任务的长期记忆命中 [{"topic","score",...}]）
     created_at          TEXT DEFAULT (datetime('now','localtime')),  -- 创建时间
     updated_at          TEXT DEFAULT (datetime('now','localtime'))   -- 最后更新时间
@@ -87,6 +88,7 @@ _MIGRATIONS = [
     "ALTER TABLE tasks ADD COLUMN passed INTEGER",
     "ALTER TABLE tasks ADD COLUMN forced_pass INTEGER DEFAULT 0",
     "ALTER TABLE tasks ADD COLUMN memory_hits TEXT",
+    "ALTER TABLE tasks ADD COLUMN evidence TEXT NOT NULL DEFAULT '[]'",
 ]
 
 

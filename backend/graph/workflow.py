@@ -58,6 +58,7 @@ def _initial_state(task_id: str, topic: str) -> AgentState:
     日志为空、数据为空 —— 跑完图之后这些字段会被节点逐步填充。
     """
     return {
+        "evidence": [],
         "task_id": task_id,           # 任务 id（也是后续 checkpoint 的 thread_id）
         "execution_status": "running",
         "quality_status": "pending",
@@ -165,6 +166,7 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
             current_step_index=final.get("current_step_index", 0),
             completed_steps=final.get("completed_steps", []),
             research_data=final.get("research_data", {}),
+            evidence=final.get("evidence", []),
             draft_content=final.get("draft_content", ""),
             final_report=final_report,
             # A2A 审核循环结果
