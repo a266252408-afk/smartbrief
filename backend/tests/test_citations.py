@@ -47,6 +47,8 @@ def test_long_evidence_summary_preserves_ids_and_complete_json():
 @pytest.mark.parametrize('body,evidence', [
     ('只有代码：`[S1]`',[source()]),
     ('```\n正文[S1]\n```',[source()]),
+    ('~~~\n正文[S1]\n~~~',[source()]),
+    ('```\n正文[S1]',[source()]),
     ('[S1]',[source()]),
     ('[S1]。',[source()]),
     ('[S1](javascript:alert(1))',[source()]),
@@ -132,3 +134,12 @@ def test_no_sources_cannot_become_quality_pass(tmp_path, offline_services):
     assert '数据待补充' in task['final_report']
     assert task['citation_errors']
     assert not offline_services['reviewer'].calls
+
+
+@pytest.mark.parametrize('extra,valid', [('增长20%。',False),('增长20%，数据待补充。',True),('## 2026年概览',True),('1. 建议继续研究',True)])
+def test_uncited_numeric_paragraphs_need_source_or_missing_data_mark(extra,valid):
+    from services.citations import check_citations
+    result=check_citations('t','已有声明[S1]。\n\n'+extra,[source()])
+    assert result['valid'] is valid
+    if not valid:
+        assert any('数据待补充' in e for e in result['errors'])

@@ -45,6 +45,9 @@ async def reviewer_node(state: dict) -> dict:
     if not state.get("evidence") and "数据待补充：暂无可追溯来源" not in draft:
         draft += "\n\n> 数据待补充：暂无可追溯来源。"
         common["draft_content"] = draft
+    elif not check["valid"] and "数据待补充：引用检查未通过" not in draft:
+        draft += "\n\n> 数据待补充：引用检查未通过，详见审核意见。"
+        common["draft_content"] = draft
     logs.extend([
         {"type": "Thought", "content": f"开始审核草稿（第 {round_no} 次审核）", "step_id": 0},
         {"type": "Action", "content": "llm_gen(query=按 3 条标准评审报告草稿)" if check["valid"] else "citation_check（确定性来源映射检查）", "step_id": 0},

@@ -3,8 +3,8 @@ import QualityBadge from '../components/QualityBadge.vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
+import { renderReport, escapeHtml } from '../utils/report'
+import '../styles/report.css'
 import html2pdf from 'html2pdf.js'
 import { fetchTaskStatus, resumeTask, type TaskStatus, type ReactLog, type ReviewRound } from '../api/tasks'
 
@@ -252,15 +252,14 @@ const reportEl = ref<HTMLElement>()
 const reportHtml = computed(() => {
   const md = detail.value?.draft_content ?? ''
   if (!md) return ''
-  const raw = marked.parse(md, { async: false }) as string
-  return DOMPurify.sanitize(raw)
+  return renderReport(md, detail.value?.evidence, taskId, detail.value?.citations, detail.value?.quality_status)
 })
 
 /** 导出 Word：生成 .doc（HTML 兼容格式，Word 可直接打开） */
 function exportWord() {
   const html = `<!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
-<head><meta charset="utf-8"><title>${detail.value?.topic ?? '报告'}</title></head>
+<head><meta charset="utf-8"><title>${escapeHtml(detail.value?.topic ?? '报告')}</title></head>
 <body>${reportHtml.value}</body></html>`
   const blob = new Blob(['\ufeff', html], { type: 'application/msword' })
   const url = URL.createObjectURL(blob)

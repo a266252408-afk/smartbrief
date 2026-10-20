@@ -4,8 +4,8 @@ import QualityBadge from '../components/QualityBadge.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
+import { renderReport, escapeHtml } from '../utils/report'
+import '../styles/report.css'
 import html2pdf from 'html2pdf.js'
 import { fetchTaskReport, type TaskReport } from '../api/tasks'
 
@@ -40,8 +40,7 @@ onMounted(load)
 const reportHtml = computed(() => {
   const md = report.value?.content_markdown ?? ''
   if (!md) return ''
-  const raw = marked.parse(md, { async: false }) as string
-  return DOMPurify.sanitize(raw)
+  return renderReport(md, report.value?.sources, taskId, report.value?.citations, report.value?.quality_status)
 })
 
 /** 执行摘要卡（耗时可能为空 → 显示 —） */
@@ -87,7 +86,7 @@ async function exportPdf() {
 function exportWord() {
   const html = `<!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
-<head><meta charset="utf-8"><title>${report.value?.title ?? '报告'}</title></head>
+<head><meta charset="utf-8"><title>${escapeHtml(report.value?.title ?? '报告')}</title></head>
 <body>${reportHtml.value}</body></html>`
   const blob = new Blob(['\ufeff', html], { type: 'application/msword' })
   const url = URL.createObjectURL(blob)

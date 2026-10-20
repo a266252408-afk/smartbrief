@@ -4,7 +4,7 @@ import re
 from pydantic import BaseModel, ConfigDict, StrictBool
 from services.evidence import normalize_evidence, validate_sources
 
-REFERENCE = re.compile(r"\[(S[0-9]+)\](?!\s*\()")
+REFERENCE = re.compile(r"\[(S[0-9]+)\](?![ \t]*\()")
 
 
 class Citation(BaseModel):
@@ -21,8 +21,9 @@ def reference_ids(body: str) -> set[str]:
 
 def _prose(body: str) -> str:
     body = re.sub(r"<!--.*?-->|<(script|style|pre|code)\b[^>]*>.*?</\1>", "", body or "", flags=re.DOTALL | re.IGNORECASE)
-    body = re.sub(r"```.*?```", "", body, flags=re.DOTALL)
-    return re.sub(r"`[^`]*`", "", body)
+    body = re.sub(r"```.*?```|~~~.*?~~~", "", body, flags=re.DOTALL)
+    body = re.sub(r"(?ms)^[ \t]*(?:```|~~~).*\Z", "", body)
+    return re.sub(r"(`+).*?\1", "", body, flags=re.DOTALL)
 
 
 def check_citations(task_id: str, body: str, sources: list, required=()) -> dict:
@@ -39,6 +40,9 @@ def check_citations(task_id: str, body: str, sources: list, required=()) -> dict
         errors.append("正文缺少[S编号]引用，数据待补充")
     for paragraph in re.split(r"\n\s*\n", _prose(body)):
         claim = REFERENCE.sub("", paragraph).strip().strip("#>* -")[:2000]
+        factual = re.sub(r"(?m)^\s*#{1,6} .*?$|^\s*[0-9]+[.)、]\s*", "", REFERENCE.sub("", paragraph))
+        if re.search(r"[0-9]", factual) and not REFERENCE.search(paragraph) and "待补充" not in paragraph:
+            errors.append("含数字的声明段落缺少来源引用，数据待补充")
         for source_id in REFERENCE.findall(paragraph):
             if (source_id, claim) in seen:
                 continue

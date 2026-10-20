@@ -91,6 +91,18 @@ def test_repository_api_and_task_isolation(tmp_path):
         invalid=client.get('/api/v2/tasks/other/sources')
         assert invalid.status_code==500
         assert invalid.json()['error']['code']=='SOURCES_INVALID'
+        from services.citations import check_citations
+        body='声明[S1]'
+        citations=check_citations('t',body,evidence)['citations']
+        repo.update_task('t',status='completed',final_report=body,citations=citations,citation_errors=[])
+        for path in ('/api/v1/tasks/t/report','/api/v2/tasks/t/report'):
+            response=client.get(path)
+            assert response.status_code==200
+            report=response.json()['data'] if '/v2/' in path else response.json()
+            assert report['sources']==evidence
+            assert report['citations']==citations
+            assert report['citation_errors']==[]
+
 
 
 def test_legacy_backup_restore_and_evidence_migration(tmp_path):
