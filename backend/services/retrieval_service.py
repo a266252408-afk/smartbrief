@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import math
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
-from services.evidence import Evidence
+from services.evidence import Evidence, validate_sources
 
 DocumentId = Annotated[str, StringConstraints(pattern=r"^[a-f0-9]{32}$")]
 
@@ -41,6 +41,7 @@ class RetrievalRecord(DocumentSelection):
             raise ValueError("检索证据归属不一致")
         if (self.status == "matched") != bool(self.evidence):
             raise ValueError("检索状态与证据不一致")
+        validate_sources(self.task_id, [e.model_dump() for e in self.evidence])
         return self
 
 
@@ -103,4 +104,21 @@ def get_retrievals(task_id: str) -> dict | None:
     records = [RetrievalRecord.model_validate(r).model_dump() for r in task.get("retrievals", [])]
     if any(r["task_id"] != task_id for r in records):
         raise ValueError("检索记录跨任务")
+    for record in records:
+        record["evidence"] = refresh_document_sources(record["evidence"])
     return {"task_id": task_id, "document_ids": task["document_ids"], "retrievals": records}
+
+
+def refresh_document_sources(sources: list[dict]) -> list[dict]:
+    """保留历史片段，仅刷新索引是否存在；索引故障不冒充来源删除。"""
+    ids = list({s["document_id"] for s in sources if s["kind"] == "document"})
+    if not ids:
+        return sources
+    from rag import store
+    try:
+        items = store.get_store().get_documents(where={"$and": [{"category": "upload"}, {"document_id": {"$in": ids}}]})
+    except Exception as exc:
+        raise ValueError("文档索引暂不可用") from exc
+    active = {(item["metadata"].get("document_id"), item["id"]) for item in items}
+    return [dict(s, source_deleted=s["source_deleted"] or (s["document_id"], s["chunk_id"]) not in active)
+            if s["kind"] == "document" else s for s in sources]

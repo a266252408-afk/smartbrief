@@ -358,6 +358,8 @@ async def task_status(task_id: str):
     task = task_repository.get_task(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail=f"任务不存在：{task_id}")
+    from services.task_sources import get_sources
+    task["evidence"] = get_sources(task_id)["sources"]
     task["react_logs"] = task_repository.get_logs(task_id)
     return task
 
@@ -623,6 +625,7 @@ async def task_report(task_id: str):
         raise HTTPException(status_code=404, detail=f"任务不存在：{task_id}")
     if task["status"] != "completed":
         raise HTTPException(status_code=404, detail="任务尚未完成，暂无可用报告")
+    from services.task_sources import get_sources
     content = task.get("final_report") or task.get("draft_content") or ""
     logs = task_repository.get_logs(task_id)
     react_loops = sum(1 for log in logs if log.get("log_type") == "Action")
@@ -637,7 +640,7 @@ async def task_report(task_id: str):
         "error_code": task["error_code"],
         "title": task.get("topic", ""),
         "content_markdown": content,
-        "sources": task.get("evidence", []),
+        "sources": get_sources(task_id)["sources"],
         "citations": task.get("citations", []),
         "citation_errors": task.get("citation_errors", []),
         "charts": [],  # 当前未生成独立图表，保留响应字段供后续扩展。

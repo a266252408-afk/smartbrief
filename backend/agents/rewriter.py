@@ -11,7 +11,9 @@ A2A 协同的一环：Reviewer 写 `review_comments` → Rewriter 读草稿 + �
 修复说明（防止内容跑题）：Rewriter 的 Prompt 必须携带**研究主题**与**可引用研究数据**。
 否则当草稿只是占位符时，LLM 会在无主题约束下自由发挥，产出与任务无关的"臆想报告"。
 """
+import asyncio
 from llm.client import chat
+from services.retrieval_service import refresh_document_sources
 from services.report_quality import usable_draft
 from services.citations import check_citations
 from agents.react_writer import _summarize_research   # 复用：研究数据 → Markdown 摘要
@@ -36,6 +38,8 @@ async def rewriter_node(state: dict) -> dict:
     :param state: AgentState（读 draft_content / review_comments / react_logs）
     :return: state 增量（draft_content 覆盖为修改稿 + react_logs 追加返工日志）
     """
+    state = dict(state)
+    state["evidence"] = await asyncio.to_thread(refresh_document_sources, state.get("evidence", []))
     draft = state.get("draft_content") or ""
     comments = state.get("review_comments", [])
     topic = state.get("topic") or "（未知主题）"          # 研究主题（防止改写跑题的核心锚点）

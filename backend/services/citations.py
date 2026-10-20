@@ -75,7 +75,9 @@ def evidence_context(research_data: dict, sources=None, budget=12000) -> str:
     while len(json.dumps(context, ensure_ascii=False)) > budget:
         context["steps"].pop()
     for source in sources:
-        item = {k: source.get(k) for k in ("source_id", "title", "url", "excerpt", "retrieved_at")}
+        if source.get("source_deleted"):
+            continue
+        item = {k: source.get(k) for k in ("source_id", "kind", "title", "url", "document_id", "chunk_id", "page", "score", "source_deleted", "excerpt", "retrieved_at")}
         item["title"] = item["title"][:120]
         item["excerpt"] = item["excerpt"][:600]
         candidate = context | {"sources": context["sources"] + [item]}

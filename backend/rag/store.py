@@ -258,3 +258,15 @@ def search_rag_terms(query: str, k: int = 3, threshold: float = 0.35,
     """
     hits = search_rag(query, k=k, category="terminology", persist_dir=persist_dir)
     return [h["content"] for h in hits if h.get("score", 0) >= threshold]
+
+
+def delete_document_by_id(document_id: str, persist_dir: Optional[str] = None) -> int:
+    """按服务端文档ID删除上传索引，同名资料相互独立。"""
+    from services.retrieval_service import DocumentSelection
+    DocumentSelection(document_ids=[document_id])
+    store = get_store(persist_dir, RAG_COLLECTION)
+    items = store.get_documents(where={"$and": [{"category": "upload"}, {"document_id": document_id}]})
+    ids = [item["id"] for item in items]
+    if ids:
+        store.delete_by_ids(ids)
+    return len(ids)

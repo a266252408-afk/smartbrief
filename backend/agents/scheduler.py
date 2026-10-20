@@ -5,6 +5,7 @@ ReAct Researcher / ReAct Writer 执行，并更新完成状态与数据。
 （当前按依赖顺序串行派发；多 Agent 审核返工的条件循环已由workflow.py 层的条件边实现。）
 """
 from services.evidence import normalize_evidence
+from services.retrieval_service import refresh_document_sources
 
 import asyncio
 from typing import List, Dict
@@ -100,6 +101,7 @@ async def scheduler_node(state: dict) -> dict:
                         "error": f"timeout>{AGENT_STEP_TIMEOUT_SECONDS}s",
                     }
             else:
+                evidence = await asyncio.to_thread(refresh_document_sources, evidence)
                 evidence = normalize_evidence(state.get("task_id", ""), research_data, evidence)
                 # 撰写步骤：带研究数据生成章节草稿（整稿生成耗时更长，用独立放宽后的超时）
                 try:

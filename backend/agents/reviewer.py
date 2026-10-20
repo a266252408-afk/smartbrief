@@ -1,5 +1,7 @@
 """严格审核节点：质量拒绝与运行结束分别表达。"""
+import asyncio
 from llm.client import chat
+from services.retrieval_service import refresh_document_sources
 from services.report_quality import parse_review, usable_draft
 from services.citations import check_citations
 
@@ -39,9 +41,10 @@ async def reviewer_node(state: dict) -> dict:
                 "forced_pass": False, "forced_output": False,
                 "error_code": state.get("error_code") or "DRAFT_UNAVAILABLE",
                 "error": "报告写作失败", "react_logs": logs}
-    check = check_citations(state.get("task_id", ""), draft, state.get("evidence", []), state.get("required_citations", []))
+    evidence = await asyncio.to_thread(refresh_document_sources, state.get("evidence", []))
+    check = check_citations(state.get("task_id", ""), draft, evidence, state.get("required_citations", []))
     required = sorted(set(state.get("required_citations", [])) | {c["source_id"] for c in check["citations"] if c["valid"]})
-    common = {"citations": check["citations"], "citation_errors": check["errors"], "required_citations": required}
+    common = {"evidence": evidence, "citations": check["citations"], "citation_errors": check["errors"], "required_citations": required}
     if not state.get("evidence") and "数据待补充：暂无可追溯来源" not in draft:
         draft += "\n\n> 数据待补充：暂无可追溯来源。"
         common["draft_content"] = draft

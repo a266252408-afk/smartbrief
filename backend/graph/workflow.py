@@ -148,10 +148,6 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
         from services.retrieval_service import retrieve_documents
         task = task_repository.get_task(task_id)
         initial["document_ids"] = (task or {}).get("document_ids", [])
-        if initial["document_ids"] and not resume:
-            record = await asyncio.to_thread(retrieve_documents, topic, initial["document_ids"], task_id=task_id)
-            initial["retrievals"] = [record]
-            task_repository.update_task(task_id, retrievals=[record])
         # 短期记忆 Checkpointer：以 async with 进入 SqliteSaver 连接生命周期
         # （新版 langgraph-checkpoint-sqlite 的 API），compile + invoke 全程持有连接，
         # 图每次节点执行后自动向 checkpoints.db 落快照（缺依赖时降级 MemorySaver）。
@@ -162,6 +158,11 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
                 # 断点续跑：不传 input，LangGraph 从最近快照继续未完成的节点
                 final = await graph.ainvoke(None, config)
             else:
+                if initial["document_ids"]:
+                    record = await asyncio.to_thread(retrieve_documents, topic, initial["document_ids"], task_id=task_id)
+                    initial["retrievals"] = [record]
+                    initial["evidence"] = record["evidence"]
+                    task_repository.update_task(task_id, retrievals=[record], evidence=record["evidence"])
                 final = await graph.ainvoke(initial, config)          # 新任务从头跑
         failed = final.get("execution_status") == "failed" or not usable_draft(final.get("draft_content"))
         final_report = None if failed else final["draft_content"]

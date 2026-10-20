@@ -7,6 +7,7 @@ from services.task_outcome import TaskOutcome
 from services.task_sources import get_sources
 
 router = APIRouter(prefix="/api/v2/tasks")
+knowledge_router = APIRouter(prefix="/api/v2/knowledge")
 
 
 async def _read(request: Request, task_id: str, report: bool):
@@ -51,3 +52,16 @@ async def retrievals(request: Request, task_id: str):
     if data is None:
         return JSONResponse({"error": ApiError(code="TASK_NOT_FOUND", message="任务不存在", retryable=False, request_id=request.state.request_id).model_dump()}, status_code=404)
     return {"data": data, "meta": {"request_id": request.state.request_id}}
+
+
+@knowledge_router.delete("/documents/{document_id}")
+async def delete_document(request: Request, document_id: str):
+    from rag.store import delete_document_by_id
+    import asyncio
+    try:
+        deleted = await asyncio.to_thread(delete_document_by_id, document_id)
+    except ValueError:
+        return JSONResponse({"error": ApiError(code="INVALID_DOCUMENT_ID", message="文档ID无效", retryable=False, request_id=request.state.request_id).model_dump()}, status_code=422)
+    except Exception:
+        return JSONResponse({"error": ApiError(code="DOCUMENT_INDEX_FAILED", message="文档索引暂不可用", retryable=True, request_id=request.state.request_id).model_dump()}, status_code=503)
+    return {"data": {"deleted": deleted}, "meta": {"request_id": request.state.request_id}}
