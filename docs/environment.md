@@ -66,7 +66,7 @@ Playwright 配置默认使用项目内 `.browser-cache`；浏览器安装和运�
 
 ## 访问认证配置
 
-后端环境设置不同的 `SMARTBRIEF_ADMIN_TOKEN`、可选 `SMARTBRIEF_READONLY_TOKEN`（至少32字符、无空白），使用密码管理器或 `secrets.token_urlsafe(32)` 本地生成，勿提交真实值。`SMARTBRIEF_CORS_ORIGINS` 为逗号分隔的完整HTTP(S)来源，不允许通配符；修改后重启服务。默认允许本地5174前端。
+后端环境设置不同的 `SMARTBRIEF_ADMIN_TOKEN`、可选 `SMARTBRIEF_READONLY_TOKEN`（无强制位数要求、非空且无空白），直接使用配置值精确匹配，勿提交真实值。`SMARTBRIEF_CORS_ORIGINS` 为逗号分隔的完整HTTP(S)来源，不允许通配符；修改后重启服务。默认允许本地5174前端。
 
 只有 GET/HEAD `/healthz` 匿名。其余入口（含文档/OpenAPI）需 `Authorization: Bearer <token>`；v2 `/api/v2/auth/session` 返回角色包，只读允许查询，不允许生成、修改、删除或执行。缺配置503、缺失/错误令牌401、角色不足403。浏览器令牌仅内存保存，401清空重新认证、403保留只读会话并提示。单所有者角色不代表多租户隔离。
 

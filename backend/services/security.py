@@ -16,7 +16,8 @@ class AccessDenied(Exception):
 
 
 def _valid(token):
-    return 32 <= len(token) <= 4096 and not any(c.isspace() for c in token)
+    # 用户配置决定令牌值，不施加长度策略；空配置和Bearer空白格式仍拒绝。
+    return bool(token) and not any(c.isspace() for c in token)
 
 
 def authorize(header: str | None, method: str, path: str) -> Principal:

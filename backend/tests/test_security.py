@@ -49,7 +49,7 @@ def test_public_probe_is_minimal(security_client):
     assert security_client.post("/healthz").status_code == 401
 
 
-@pytest.mark.parametrize("admin,reader", [("",READ_TOKEN),("short",READ_TOKEN),(ADMIN_TOKEN,ADMIN_TOKEN),(" " + ADMIN_TOKEN,READ_TOKEN)])
+@pytest.mark.parametrize("admin,reader", [("",READ_TOKEN),(" ",READ_TOKEN),(ADMIN_TOKEN,ADMIN_TOKEN),(" " + ADMIN_TOKEN,READ_TOKEN)])
 def test_bad_configuration_fails_closed(security_client, monkeypatch, admin, reader):
     monkeypatch.setenv("SMARTBRIEF_ADMIN_TOKEN", admin)
     monkeypatch.setenv("SMARTBRIEF_READONLY_TOKEN", reader)
@@ -99,3 +99,23 @@ def test_readonly_query_and_head(security_client):
     assert security_client.head("/api/v1/tools",headers=READ_HEADERS).status_code != 403
     # 请求体校验422证明只读查询已通过认证，不触发实际嵌入。
     assert security_client.post("/api/v1/knowledge/search",headers=READ_HEADERS,json={}).status_code==422
+
+
+@pytest.mark.parametrize("length", [1, 6, 31, 4097])
+def test_configured_token_has_no_application_length_requirement(security_client, monkeypatch, length):
+    token = "a" * length
+    monkeypatch.setenv("SMARTBRIEF_ADMIN_TOKEN", token)
+    response = security_client.get("/api/v2/auth/session", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+    assert response.json()["data"]["role"] == "admin"
+    assert token not in response.json()["data"].values()
+    assert security_client.get("/api/v2/auth/session", headers={"Authorization": "Bearer wrong-value"}).status_code == 401
+    assert security_client.get("/api/v2/auth/session").status_code == 401
+
+
+def test_short_readonly_token_keeps_role_boundaries(security_client, monkeypatch):
+    monkeypatch.setenv("SMARTBRIEF_ADMIN_TOKEN", "fixture-admin")
+    monkeypatch.setenv("SMARTBRIEF_READONLY_TOKEN", "r")
+    headers = {"Authorization": "Bearer r"}
+    assert security_client.get("/api/v2/auth/session", headers=headers).json()["data"]["role"] == "readonly"
+    assert security_client.post("/api/v1/generate", headers=headers, json={"topic": "测试"}).status_code == 403
