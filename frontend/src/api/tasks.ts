@@ -116,6 +116,8 @@ export interface GenerateResult {
 
 /** 任务报告（「报告展示」页数据源） */
 export interface TaskReport extends TaskOutcome {
+  document_ids?: string[]
+  retrievals?: RetrievalRecord[]
   sources?: Evidence[]
   citations?: Citation[]
   citation_errors?: string[]
@@ -140,8 +142,8 @@ const http = createHttp({
 })
 
 /** 提交研究任务（返回 task_id，立即返回） */
-export async function submitTask(topic: string): Promise<GenerateResult> {
-  const { data } = await http.post('/generate', { topic })
+export async function submitTask(topic: string, documentIds: string[] = []): Promise<GenerateResult> {
+  const { data } = await http.post('/generate', documentIds.length ? { topic, document_ids: documentIds } : { topic })
   return data as GenerateResult
 }
 

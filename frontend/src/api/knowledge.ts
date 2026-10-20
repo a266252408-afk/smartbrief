@@ -32,6 +32,8 @@ export interface MemorySearchHit {
   created_at: string
 }
 
+const v2http = createHttp({ baseURL: '/api/v2', timeout: 20000 })
+
 const http = createHttp({
   baseURL: '/api/v1',
   timeout: 20000
@@ -60,8 +62,13 @@ export interface DocumentDetail {
 /** 获取知识库文档详情（按 category + source） */
 export async function fetchDocumentDetail(
   source: string,
-  category: string
+  category: string,
+  documentId?: string
 ): Promise<DocumentDetail> {
+  if (documentId && category === 'upload') {
+    const { data } = await v2http.get(`/knowledge/documents/${encodeURIComponent(documentId)}`)
+    return data.data as DocumentDetail
+  }
   const { data } = await http.get('/knowledge/document', {
     params: { source, category }
   })
@@ -71,8 +78,13 @@ export async function fetchDocumentDetail(
 /** 删除知识库文档（按 category + source） */
 export async function deleteDocument(
   source: string,
-  category: string
+  category: string,
+  documentId?: string
 ): Promise<{ deleted: number }> {
+  if (documentId && category === 'upload') {
+    const { data } = await v2http.delete(`/knowledge/documents/${encodeURIComponent(documentId)}`)
+    return data.data as { deleted: number }
+  }
   const { data } = await http.delete('/knowledge/document', {
     params: { source, category }
   })

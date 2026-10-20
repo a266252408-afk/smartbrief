@@ -270,3 +270,13 @@ def delete_document_by_id(document_id: str, persist_dir: Optional[str] = None) -
     if ids:
         store.delete_by_ids(ids)
     return len(ids)
+
+
+def get_document_by_id(document_id: str) -> dict | None:
+    """文档详情门面，API不直接组装索引过滤和文档数据。"""
+    from services.retrieval_service import DocumentSelection
+    DocumentSelection(document_ids=[document_id])
+    items = get_store().get_documents(where={"$and": [{"category": "upload"}, {"document_id": document_id}]})
+    if not items:
+        return None
+    return {"document_id": document_id, "source": items[0]["metadata"].get("source", ""), "category": "upload", "chunks": items}

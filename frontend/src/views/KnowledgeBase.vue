@@ -124,7 +124,7 @@ async function openDetail(row: KnowledgeDocument) {
   detailVisible.value = true
   detailLoading.value = true
   try {
-    detailData.value = await fetchDocumentDetail(row.source, row.category)
+    detailData.value = await fetchDocumentDetail(row.source, row.category, row.document_id)
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.detail || '读取文档详情失败')
     detailVisible.value = false
@@ -137,7 +137,7 @@ async function openDetail(row: KnowledgeDocument) {
 
 async function handleDelete(row: KnowledgeDocument) {
   try {
-    const result = await deleteDocument(row.source, row.category)
+    const result = await deleteDocument(row.source, row.category, row.document_id)
     ElMessage.success(`已删除 ${result.deleted} 个 chunk`)
     await load()
   } catch (e: any) {
@@ -147,7 +147,7 @@ async function handleDelete(row: KnowledgeDocument) {
 
 function confirmDelete(row: KnowledgeDocument) {
   ElMessageBox.confirm(
-    `确定要删除「${row.source}」吗？（分类：${categoryOf(row.category).label}）`,
+    `确定要删除「${row.source}」吗？（分类：${categoryOf(row.category).label}，标识：${row.document_id?.slice(0, 8) || '旧资料'}）`,
     '删除确认',
     { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' }
   ).then(() => handleDelete(row)).catch(() => {})
@@ -328,6 +328,7 @@ function scoreType(score: number) {
             </template>
           </el-table-column>
           <el-table-column prop="source" label="文档来源" min-width="200" show-overflow-tooltip />
+          <el-table-column prop="document_id" label="文档标识" min-width="240" show-overflow-tooltip />
           <el-table-column prop="file_type" label="类型" width="120" />
           <el-table-column prop="chunk_count" label="分块数" width="90" />
           <el-table-column prop="snippet" label="内容摘要（首块）" min-width="260" show-overflow-tooltip />

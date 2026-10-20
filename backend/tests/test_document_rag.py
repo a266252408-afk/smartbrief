@@ -238,3 +238,24 @@ def test_deleted_source_cannot_pass_and_index_failure_not_deletion(documents, mo
     review.assert_not_awaited()
     from services.citations import evidence_context
     assert "137" not in evidence_context({}, response["evidence"])
+
+
+def test_v2_document_detail_identity_and_errors(documents, monkeypatch):
+    from main import app
+    from fastapi.testclient import TestClient
+    from tests.auth_support import ADMIN_HEADERS, READ_HEADERS
+    a, b = documents
+    with TestClient(app, headers=ADMIN_HEADERS) as client:
+        path = "/api/v2/knowledge/documents/"
+        body = client.get(path + a["document_id"], headers=READ_HEADERS).json()["data"]
+        assert len(body["chunks"]) == 1 and "137" in body["chunks"][0]["content"]
+        assert body["chunks"][0]["metadata"]["document_id"] != b["document_id"]
+        assert client.get(path + "bad").status_code == 422
+        assert client.get(path + "0" * 32).status_code == 404
+        assert client.get(path + a["document_id"], headers={"Authorization": ""}).status_code == 401
+        monkeypatch.setattr(store.get_store(), "get_documents", Mock(side_effect=RuntimeError("secret")))
+        for method in [client.get, client.delete]:
+            response = method(path + a["document_id"])
+            assert response.status_code == 503
+            assert response.json()["error"]["code"] == "DOCUMENT_INDEX_FAILED"
+            assert "secret" not in response.text

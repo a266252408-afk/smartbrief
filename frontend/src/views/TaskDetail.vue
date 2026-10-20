@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import RetrievalPanel from '../components/RetrievalPanel.vue'
 import QualityBadge from '../components/QualityBadge.vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -401,6 +402,8 @@ async function exportPdf() {
         </div>
       </div>
     </el-card>
+
+    <RetrievalPanel v-if="detail" :records="detail.retrievals" :document-ids="detail.document_ids" />
 
     <el-row v-if="detail" :gutter="16">
       <!-- 左：Plan 步骤看板 -->

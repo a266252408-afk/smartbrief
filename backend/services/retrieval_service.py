@@ -101,6 +101,9 @@ def get_retrievals(task_id: str) -> dict | None:
     task = task_repository.get_task(task_id)
     if task is None:
         return None
+    DocumentSelection(document_ids=task["document_ids"])
+    if not isinstance(task.get("retrievals"), list):
+        raise ValueError("检索记录必须为数组")
     records = [RetrievalRecord.model_validate(r).model_dump() for r in task.get("retrievals", [])]
     if any(r["task_id"] != task_id for r in records):
         raise ValueError("检索记录跨任务")
@@ -117,8 +120,8 @@ def refresh_document_sources(sources: list[dict]) -> list[dict]:
     from rag import store
     try:
         items = store.get_store().get_documents(where={"$and": [{"category": "upload"}, {"document_id": {"$in": ids}}]})
-    except Exception as exc:
-        raise ValueError("文档索引暂不可用") from exc
+    except Exception:
+        raise ValueError("文档索引暂不可用") from None
     active = {(item["metadata"].get("document_id"), item["id"]) for item in items}
     return [dict(s, source_deleted=s["source_deleted"] or (s["document_id"], s["chunk_id"]) not in active)
             if s["kind"] == "document" else s for s in sources]

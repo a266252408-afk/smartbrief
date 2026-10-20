@@ -42,7 +42,9 @@ export function renderReport(markdown: string, sources: Evidence[] = [], taskId:
     const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>` : '<span>链接不可用</span>'
     return `<article class="source-card" id="source-${s.source_id}"><h4>[${s.source_id}] ${escapeHtml(s.title)}</h4>` +
       `${active(s.source_id) ? '' : '<p class="citation-invalid">来源无效或已失效</p>'}` +
-      `<p>原始URL：${link}</p><blockquote>${escapeHtml(s.excerpt)}</blockquote>` +
+      (s.kind === 'document' ? `<p>文档：${escapeHtml(s.document_id)} · 片段：${escapeHtml(s.chunk_id)} · 页码：${escapeHtml(s.page ?? '不可获得')} · 相似度：${escapeHtml(s.score ?? '未知')}</p>` : `<p>原始URL：${link}</p>`) +
+      (s.source_deleted ? '<p class="citation-invalid">来源已删除，保留历史证据片段</p>' : '') +
+      `<blockquote>${escapeHtml(s.excerpt)}</blockquote>` +
       `<p>收集时间：${escapeHtml(s.retrieved_at)}</p></article>`
   }).join('')
   const appendix = `<section class="source-appendix"><h3>来源与证据片段</h3><p>引用检查仅验证来源映射，不代表事实已核实。</p>${cards || '<p>暂无可追溯来源，数据待补充。</p>'}</section>`

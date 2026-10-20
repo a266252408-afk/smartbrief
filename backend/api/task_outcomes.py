@@ -65,3 +65,21 @@ async def delete_document(request: Request, document_id: str):
     except Exception:
         return JSONResponse({"error": ApiError(code="DOCUMENT_INDEX_FAILED", message="文档索引暂不可用", retryable=True, request_id=request.state.request_id).model_dump()}, status_code=503)
     return {"data": {"deleted": deleted}, "meta": {"request_id": request.state.request_id}}
+
+
+@knowledge_router.get("/documents/{document_id}")
+async def document_detail(request: Request, document_id: str):
+    from services.retrieval_service import DocumentSelection
+    from rag import store
+    import asyncio
+    try:
+        DocumentSelection(document_ids=[document_id])
+    except ValueError:
+        return JSONResponse({"error": ApiError(code="INVALID_DOCUMENT_ID", message="文档ID无效", retryable=False, request_id=request.state.request_id).model_dump()}, status_code=422)
+    try:
+        data = await asyncio.to_thread(store.get_document_by_id, document_id)
+    except Exception:
+        return JSONResponse({"error": ApiError(code="DOCUMENT_INDEX_FAILED", message="文档索引暂不可用", retryable=True, request_id=request.state.request_id).model_dump()}, status_code=503)
+    if data is None:
+        return JSONResponse({"error": ApiError(code="DOCUMENT_NOT_FOUND", message="文档不存在", retryable=False, request_id=request.state.request_id).model_dump()}, status_code=404)
+    return {"data": data, "meta": {"request_id": request.state.request_id}}

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import RetrievalPanel from '../components/RetrievalPanel.vue'
 /** 报告展示页：Markdown 渲染 + 图表图片 + 执行摘要 */
 import QualityBadge from '../components/QualityBadge.vue'
 import { computed, onMounted, ref } from 'vue'
@@ -138,6 +139,8 @@ function exportWord() {
           <img :src="chart.image_base64" alt="" />
         </div>
       </el-card>
+
+    <RetrievalPanel v-if="report" :records="report.retrievals" :document-ids="report.document_ids" />
 
       <!-- Markdown 报告 -->
       <el-card shadow="never" class="report-card">

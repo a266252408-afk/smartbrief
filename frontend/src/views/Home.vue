@@ -3,10 +3,26 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { submitTask } from '../api/tasks'
+import { fetchDocuments, type KnowledgeDocument } from '../api/knowledge'
 
 const router = useRouter()
 const topic = ref('')
 const submitting = ref(false)
+const documentIds = ref<string[]>([])
+const documents = ref<KnowledgeDocument[]>([])
+const documentsLoading = ref(false)
+const documentsError = ref('')
+
+async function loadDocuments(open: boolean) {
+  if (!open || documentsLoading.value) return
+  documentsLoading.value = true
+  documentsError.value = ''
+  try {
+    documents.value = (await fetchDocuments()).filter(d => d.category === 'upload' && /^[a-f0-9]{32}$/.test(d.document_id ?? ''))
+  } catch {
+    documentsError.value = '资料列表读取失败，请重新打开选择框重试'
+  } finally { documentsLoading.value = false }
+}
 
 async function onSubmit() {
   const value = topic.value.trim()
@@ -17,7 +33,7 @@ async function onSubmit() {
   if (submitting.value) return
   submitting.value = true
   try {
-    const result = await submitTask(value)
+    const result = documentIds.value.length ? await submitTask(value, documentIds.value) : await submitTask(value)
     ElMessage.success(`任务已提交：${result.task_id}`)
     router.push(`/tasks/${result.task_id}`)
   } catch (e: any) {
@@ -48,6 +64,14 @@ async function onSubmit() {
         placeholder="例如：智能手表市场分析、便携式储能电源北美市场研究…"
         @keydown.enter.exact.prevent="onSubmit"
       />
+      <p class="hint">选择上传文档作为事实资料（可选，最多 20 份）。模板用于规划，术语用于定义；旧资料缺少标识时需重新上传。</p>
+      <el-select v-model="documentIds" multiple :multiple-limit="20" filterable clearable
+        aria-label="选择上传文档" placeholder="选择上传文档" style="width: 100%"
+        :loading="documentsLoading" @visible-change="loadDocuments">
+        <el-option v-for="doc in documents" :key="doc.document_id" :value="doc.document_id!"
+          :label="`${doc.display_name || doc.source} · ${doc.document_id?.slice(0, 8)}`" />
+      </el-select>
+      <p v-if="documentsError" role="alert">{{ documentsError }}</p>
       <div class="submit-actions">
         <el-button type="primary" size="large" :loading="submitting" @click="onSubmit">
           生成研究报告
