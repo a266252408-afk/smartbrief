@@ -117,6 +117,10 @@ def test_retrieval_api_permissions_and_corruption(documents):
             conn.execute("UPDATE tasks SET retrievals='broken' WHERE task_id='t'")
         response = client.get("/api/v2/tasks/t/retrievals")
         assert response.status_code == 500 and response.json()["error"]["code"] == "RETRIEVALS_INVALID"
+        task_repository.update_task("t", status="completed", final_report="旧报告")
+        for endpoint in ["/api/v2/tasks/t", "/api/v2/tasks/t/report"]:
+            error = client.get(endpoint)
+            assert error.status_code == 500 and error.json()["error"]["code"] == "TASK_DATA_INVALID"
 
 
 def test_old_database_migration_idempotent(tmp_path):
