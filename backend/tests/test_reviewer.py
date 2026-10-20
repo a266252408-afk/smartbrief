@@ -1,5 +1,6 @@
 """Reviewer Agent 测试（agents/reviewer.py，A2A 审核）。"""
 import asyncio
+import pytest
 from unittest.mock import AsyncMock, patch
 
 from agents import reviewer
@@ -34,13 +35,15 @@ def test_parse_review_with_code_fence():
 
 def test_parse_review_with_extra_text():
     content = '审核结果如下：{"passed": true, "comments": []} 完毕'
-    assert parse_review(content)["passed"] is True
+    with pytest.raises(ValueError):
+        parse_review(content)
 
 
 def test_parse_review_broken_falls_back_pass():
-    """彻底解析失败 → 放行（不阻塞整个流程）。"""
-    assert parse_review("完全不是 JSON") == {"passed": True, "comments": []}
-    assert parse_review("") == {"passed": True, "comments": []}
+    """彻底解析失败必须拒绝解析。"""
+    for raw in ("完全不是 JSON", ""):
+        with pytest.raises(ValueError):
+            parse_review(raw)
 
 
 def test_parse_review_comments_trimmed_and_capped():
@@ -88,17 +91,19 @@ def test_reviewer_node_rejected():
 
 
 def test_reviewer_node_force_pass_after_max():
-    """已达循环上限仍不通过 → 强制通过 + 草稿追加警告标记。
+    """已达循环上限仍不通过 → 强制输出 + 草稿追加警告标记。
 
     语义：默认上限 3 次 → 前 2 次打回（iteration 1→2），
-    第 3 次（iteration=2 进入）仍不通过才强制通过（iteration → 3）。
+    第 3 次（iteration=2 进入）仍不通过才强制输出（iteration → 3）。
     """
     with patch.object(
         reviewer, "chat",
         new=AsyncMock(return_value=FakeResp('{"passed": false, "comments": ["仍缺数据"]}')),
     ):
         out = run(reviewer_node(_state(iteration=2, max_iterations=3)))
-    assert out["passed"] is True
+    assert out["passed"] is False
+    assert out["quality_status"] == "rejected"
+    assert out["forced_output"] is True
     assert out["forced_pass"] is True
     assert out["iteration"] == 3
     assert "⚠️" in out["draft_content"]               # 警告标记追加到草稿末尾
@@ -106,7 +111,7 @@ def test_reviewer_node_force_pass_after_max():
 
 
 def test_reviewer_node_default_max_is_three():
-    """未显式传 max_iterations 时默认上限为 3：前 2 次打回，第 3 次才强制通过。"""
+    """未显式传 max_iterations 时默认上限为 3：前 2 次打回，第 3 次才强制输出。"""
     from unittest.mock import AsyncMock as _AsyncMock
 
     with patch.object(
@@ -128,15 +133,18 @@ def test_reviewer_node_default_max_is_three():
         new=_AsyncMock(return_value=FakeResp('{"passed": false, "comments": ["不行"]}')),
     ):
         third = run(reviewer_node(third_state))
-    assert third["passed"] is True
+    assert third["passed"] is False
+    assert third["quality_status"] == "rejected"
     assert third["forced_pass"] is True
     assert third["iteration"] == 3
     assert len(third["review_history"]) == 3
 
 
 def test_reviewer_node_llm_error_passes():
-    """LLM 审核调用失败 → 放行（不阻塞流程），意见记录失败原因。"""
+    """LLM 审核调用失败 → 质量不可用，意见记录失败原因。"""
     with patch.object(reviewer, "chat", new=AsyncMock(side_effect=RuntimeError("网络错误"))):
         out = run(reviewer_node(_state()))
-    assert out["passed"] is True
+    assert out["passed"] is False
+    assert out["quality_status"] == "unavailable"
+    assert out["review_history"][-1]["passed"] is None
     assert out["review_comments"][0].startswith("审核调用失败")

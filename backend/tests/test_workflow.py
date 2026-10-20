@@ -163,7 +163,7 @@ def test_run_task_reviewer_rejects_then_rewrites(repo_db):
 
 
 def test_run_task_reviewer_force_pass_after_max_iterations(repo_db):
-    """A2A：Reviewer 连续不通过 → 达上限强制通过 + 草稿标记警告。"""
+    """A2A：Reviewer 连续不通过 → 达上限强制输出 + 草稿标记警告。"""
     from graph.workflow import run_task
 
     from agents import planner, react_writer, reviewer, rewriter
@@ -181,7 +181,7 @@ def test_run_task_reviewer_force_pass_after_max_iterations(repo_db):
     with (
         patch.object(planner, "chat", new=AsyncMock(return_value=FakeResp(plan_json))),
         patch.object(react_writer, "chat", new=AsyncMock(return_value=FakeResp("## 初稿\n数据不足"))),
-        # 三次审核都不通过（第 3 次触发强制通过，上限 3）
+        # 三次审核都不通过（第 3 次触发强制输出，上限 3）
         patch.object(
             reviewer, "chat",
             new=AsyncMock(return_value=FakeResp('{"passed": false, "comments": ["始终缺数据"]}')),
@@ -189,7 +189,9 @@ def test_run_task_reviewer_force_pass_after_max_iterations(repo_db):
         patch.object(rewriter, "chat", new=AsyncMock(return_value=FakeResp("## 改了一版\n还是不够"))),
     ):
         final = run(run_task("t_a2a_2", "手机市场"))
-    assert final["passed"] is True                       # 强制通过
+    assert final["passed"] is False                      # 强制输出仍未通过
+    assert final["quality_status"] == "rejected"
+    assert final["forced_output"] is True
     assert final["forced_pass"] is True                  # 标记强制
     assert final["iteration"] == 3                       # 循环 3 次后退出
     assert len(final["review_history"]) == 3             # 三轮审核记录按轮保留

@@ -1,36 +1,4 @@
-"""LangGraph 工作流（线性 / A2A 条件循环 / ）。
-
-```text
-START → Planner → Scheduler → Reviewer ─passed→ END
-                                   │
-                                not passed
-                                   ↓
-                              (iteration < max ?)
-                               ┌───┴───┐
-                            yes        no(强制通过→END) ①
-                               ↓
-                            Rewriter ──循环回 Reviewer──┐
-                                                       │
-                                                       └────►
-```
-> ① 图中"已达上限强制通过"实为 **reviewer_node 内部完成**：不通过且
-> `iteration += 1` 后 `>= max_iterations` 时，它直接返回 `passed=True +
-> forced_pass=True` 并给草稿追加 ⚠️ 警告；条件边 route_after_review 只负责
-> 二选一（passed / rewrite），不额外判断循环上限。
-
-- Planner：根据 Topic 生成 Plan（步骤列表 + 依赖）；先检索长期记忆作 Few-shot
-- Scheduler：按依赖派发所有步骤给 ReAct Researcher / ReAct Writer 执行
-- Reviewer：审核草稿，输出 passed + review_comments（每轮追加 review_history）
-- Rewriter：按审核意见覆盖式修改草稿。循环上限 `max_iterations = 3`
-  （**最多返工 2 次**，第 3 次审核仍不过才强制通过）
-
-（Checkpointer）：`build_graph(checkpointer=...)` 编译时挂载
-SqliteSaver（backend/checkpoints.db），task_id 作 thread_id；`run_task(resume=True)`
-从最近一个图节点快照继续执行（后端重启后仍可恢复）。
-
-持久化时机：图执行**完毕后**（run_task 内）把最终状态与 ReAct 日志统一写回 SQLite；
-前端通过 /tasks/{task_id}/status 轮询任务完成后，即可查看完整的 Plan、A2A 循环与日志流。
-"""
+"""真实工作流：审核通过、审核不可用、拒绝达上限或写作失败时结束。"""
 import asyncio
 import logging
 
@@ -42,6 +10,7 @@ from agents.reviewer import reviewer_node
 from agents.scheduler import scheduler_node
 from db import task_repository
 from graph.state import AgentState
+from services.report_quality import usable_draft
 from memory import checkpointer as cp_mod
 from memory import long_term_memory
 
@@ -49,12 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 def route_after_review(state: dict) -> str:
-    """Reviewer 之后的**条件边**路由：通过 → END；不通过 → Rewriter 返工。
+    """终止不意味着质量通过；保留旧路由键以兼容图结构。"""
+    terminal = state.get("quality_status") in {"passed", "unavailable", "not_run"} or state.get("forced_output") or state.get("execution_status") == "failed"
+    return "passed" if terminal or state.get("passed") is True else "rewrite"
 
-    强制通过已在 reviewer_node 内部处理（不通过且达上限时返回 passed=True），
-    所以这里只需要判断 passed 一个字段，逻辑保持单一。
-    """
-    return "passed" if state.get("passed") else "rewrite"
 
 
 def build_graph(checkpointer=None):
@@ -109,9 +76,9 @@ def _initial_state(task_id: str, topic: str) -> AgentState:
         "review_comments": [],        # 初始无审核意见
         "review_history": [],         # 初始无各轮审核记录
         "iteration": 0,               # 初始循环次数 0
-        "max_iterations": 3,          # 循环上限 3 次（最多返工 2 次，第 3 次仍不过则强制通过）
+        "max_iterations": 3,          # 循环上限 3 次（最多返工 2 次，第 3 次仍不过则强制输出）
         "passed": None,               # 尚未审核
-        "forced_pass": False,         # 未强制通过
+        "forced_pass": False,         # 未强制输出
         # 长期记忆命中：Planner 检索历史报告后填充
         "memory_hits": [],            # 初始无命中
     }
@@ -170,6 +137,7 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
     :return: 最终 AgentState（dict）
     """
     initial = _initial_state(task_id, topic)
+    final = {}
     try:
         # 短期记忆 Checkpointer：以 async with 进入 SqliteSaver 连接生命周期
         # （新版 langgraph-checkpoint-sqlite 的 API），compile + invoke 全程持有连接，
@@ -182,11 +150,14 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
                 final = await graph.ainvoke(None, config)
             else:
                 final = await graph.ainvoke(initial, config)          # 新任务从头跑
-        final_report = final.get("draft_content") or "（报告草稿为空）"
+        failed = final.get("execution_status") == "failed" or not usable_draft(final.get("draft_content"))
+        final_report = None if failed else final["draft_content"]
+        final.update(execution_status="failed" if failed else "completed",
+                     quality_status="not_run" if failed else final.get("quality_status", "unknown"))
         await _persist_logs(task_id, final.get("react_logs", []))   # 日志落库
         task_repository.update_task(                  # 最终状态落库
             task_id,
-            status="completed",
+            status=final["execution_status"],
             quality_status=final.get("quality_status", "unknown"),
             forced_output=bool(final.get("forced_output", final.get("forced_pass"))),
             error_code=final.get("error_code"),
@@ -206,10 +177,14 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
             # 长期记忆命中
             memory_hits=final.get("memory_hits", []),
         )
-        # 成功 → 写入长期记忆（供后续相似任务 Few-shot）
-        await _remember_task(task_id, topic, final_report)
+        # 仅审核通过的报告准入新记忆；旧记忆治理留T06。
+        if failed:
+            raise RuntimeError(final.get("error") or "未生成有效报告")
+        if final["quality_status"] == "passed":
+            await _remember_task(task_id, topic, final_report)
         return final
     except Exception as exc:
         logger.exception("任务 %s 执行失败", task_id)
-        task_repository.update_task(task_id, status="failed", error=str(exc))  # 失败也落库，前端可展示
+        task_repository.update_task(task_id, status="failed", quality_status="not_run", passed=False,
+                                    forced_output=False, error_code=final.get("error_code") or "TASK_EXECUTION_FAILED", error=str(exc))  # 失败也落库，前端可展示
         raise

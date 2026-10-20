@@ -12,6 +12,7 @@ A2A 协同的一环：Reviewer 写 `review_comments` → Rewriter 读草稿 + �
 否则当草稿只是占位符时，LLM 会在无主题约束下自由发挥，产出与任务无关的"臆想报告"。
 """
 from llm.client import chat
+from services.report_quality import usable_draft
 from agents.react_writer import _summarize_research   # 复用：研究数据 → Markdown 摘要
 
 # 返工日志统一归类到 step_id=0（A2A 阶段无 Plan 步骤）
@@ -60,12 +61,15 @@ async def rewriter_node(state: dict) -> dict:
     try:
         resp = await chat(messages)
         new_draft = (resp.choices[0].message.content or "").strip()
-    except Exception as exc:
+        if not usable_draft(new_draft):
+            raise ValueError("返工未生成可用正文")
+    except Exception:
         # LLM 失败：保留原草稿（不恶化），记录 Observation
         logs.append(
-            {"type": "Observation", "content": f"Rewriter 调用失败：{exc}，保留原草稿", "step_id": REWRITE_STEP_ID}
+            {"type": "Observation", "content": "Rewriter 调用失败，保留原草稿并标记任务失败", "step_id": REWRITE_STEP_ID}
         )
-        return {"draft_content": draft, "react_logs": logs}
+        return {"draft_content": draft, "react_logs": logs, "execution_status": "failed",
+                "quality_status": "not_run", "passed": False, "error_code": "REWRITE_FAILED", "error": "报告返工失败"}
 
     logs.append(
         {
