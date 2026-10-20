@@ -70,7 +70,8 @@
           ]
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "T03已实现：执行与审核质量独立；v2任务/报告data与v1新增字段，forced_output不代表通过。"
     },
     "Evidence": {
       "type": "object",

@@ -36,7 +36,8 @@ export interface ReactLog {
 /** 单轮审核记录（review_history 元素） */
 export interface ReviewRound {
   round: number
-  passed: boolean
+  passed: boolean | null
+  quality_status?: QualityStatus
   comments: string[]
 }
 

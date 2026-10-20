@@ -1,5 +1,6 @@
 <script setup lang="ts">
 /** 报告中心：已生成报告的列表页 —— 查看（跳转报告展示页）/ 删除 */
+import QualityBadge from '../components/QualityBadge.vue'
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -20,7 +21,7 @@ const query = reactive({
 async function load() {
   loading.value = true
   try {
-    // 报告中心数据源 = 所有已完成（成功生成最终报告）的任务
+    // 报告中心数据源 = 所有执行完成的任务，独立展示质量
     const result = await fetchTasks({
       page: query.page,
       page_size: query.page_size,
@@ -100,7 +101,7 @@ onMounted(load)
     <div class="reports-header">
       <div>
         <h2>报告中心</h2>
-        <p class="hint">全部已生成的市场调研简报（成功完成的任务），支持搜索、排序、查看与删除</p>
+        <p class="hint">全部已生成的市场调研简报（质量状态单独标注），支持搜索、排序、查看与删除</p>
       </div>
       <div class="header-actions">
         <!-- 按主题搜索：回车或点击搜索触发，清空后自动恢复全量 -->
@@ -137,6 +138,9 @@ onMounted(load)
           <template #default="{ row }">
             <code>{{ row.task_id }}</code>
           </template>
+        </el-table-column>
+        <el-table-column label="报告质量" min-width="170">
+          <template #default="{ row }"><QualityBadge :quality="row.quality_status" :forced="row.forced_output" /></template>
         </el-table-column>
         <el-table-column prop="created_at" label="生成时间" width="180" />
         <el-table-column label="报告耗时" width="120">

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import QualityBadge from '../components/QualityBadge.vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -66,11 +67,11 @@ onBeforeUnmount(stopPolling)
 const isRunning = computed(() => detail.value?.status === 'running')
 
 /** 状态标签（含paused：服务中断后由后端启动扫描自动标记） */
-const statusInfo = computed<{ label: string; type: 'primary' | 'warning' | 'success' | 'danger' }>(() => {
+const statusInfo = computed<{ label: string; type: 'primary' | 'warning' | 'success' | 'danger' | 'info' }>(() => {
   const s = detail.value?.status
   if (s === 'running') return { label: '执行中', type: 'primary' }
   if (s === 'paused') return { label: '已暂停', type: 'warning' }
-  if (s === 'completed') return { label: '已完成', type: 'success' }
+  if (s === 'completed') return { label: '执行完成', type: 'info' }
   return { label: '失败', type: 'danger' }
 })
 
@@ -194,22 +195,8 @@ const iterationText = computed(() => {
   return it >= max ? `已达上限 ${it}/${max}` : `第 ${it} 次（上限 ${max}）`
 })
 
-/** 审核状态标签：通过 / 强制通过 / 审核中 */
-const reviewStatus = computed(() => {
-  if (detail.value?.forced_pass) return { label: '强制通过', type: 'warning' as const }
-  if (detail.value?.passed) return { label: '审核通过', type: 'success' as const }
-  return { label: '审核中', type: 'primary' as const }
-})
-
-/** 是否有 A2A 审核记录（有意见 / 已循环 / 已出结果才展示区块） */
-const showReviewPanel = computed(
-  () =>
-    reviewRounds.value.length > 0 ||
-    (detail.value?.iteration ?? 0) > 0 ||
-    reviewComments.value.length > 0 ||
-    !!detail.value?.passed ||
-    !!detail.value?.forced_pass
-)
+/** 审核状态与执行状态独立，旧passed字段不作为质量判据。 */
+const showReviewPanel = computed(() => !!detail.value)
 
 // ---------------- 断点续跑 ----------------
 
@@ -317,6 +304,7 @@ async function exportPdf() {
           <el-tag v-if="detail" :type="statusInfo.type" size="small" class="status-tag">
             {{ statusInfo.label }}
           </el-tag>
+          <QualityBadge v-if="detail" :quality="detail.quality_status" :forced="detail.forced_output" />
           <span v-if="detail?.error" class="error-text">{{ detail.error }}</span>
         </p>
       </div>
@@ -334,21 +322,21 @@ async function exportPdf() {
 
     <el-empty v-if="notFound" description="任务不存在或已被删除" />
 
-    <!-- A2A 审核循环：循环次数 + 审核状态 + 意见气泡 + 强制通过警告 -->
+    <!-- A2A 审核循环：循环次数 + 审核状态 + 意见气泡 + 强制输出警告 -->
     <el-card v-if="detail && showReviewPanel" shadow="never" class="review-card">
       <template #header>
         <div class="review-header">
           <span class="card-title">A2A 审核循环</span>
           <div class="review-tags">
             <el-tag size="small" effect="plain">循环：{{ iterationText }}</el-tag>
-            <el-tag :type="reviewStatus.type" size="small">{{ reviewStatus.label }}</el-tag>
+            <QualityBadge :quality="detail.quality_status" :forced="detail.forced_output" />
           </div>
         </div>
       </template>
       <el-alert
-        v-if="detail.forced_pass"
+        v-if="detail.forced_output"
         title="已达循环上限，草稿已强制输出"
-        description="部分章节未通过审核，系统已自动放行，并在草稿末尾追加了警告标记。"
+        description="部分章节未通过审核，质量仍为未通过，并在草稿末尾追加了警告标记。"
         type="warning"
         show-icon
         :closable="false"
@@ -360,11 +348,11 @@ async function exportPdf() {
             <span class="review-bubble-icon">审</span>
             <span class="review-round-title">第 {{ round.round }} 次审核</span>
             <el-tag
-              :type="round.passed ? 'success' : 'danger'"
+              :type="(!detail.quality_status || detail.quality_status === 'unknown') ? 'info' : round.passed === true ? 'success' : round.passed === null ? 'warning' : 'danger'"
               size="small"
               effect="plain"
             >
-              {{ round.passed ? '通过' : '打回返工' }}
+              {{ (!detail.quality_status || detail.quality_status === 'unknown') ? '历史记录（质量未知）' : round.passed === true ? '通过' : round.passed === null ? '审核不可用' : '未通过' }}
             </el-tag>
           </div>
           <div v-if="round.comments?.length" class="review-bubbles">
@@ -443,12 +431,12 @@ async function exportPdf() {
             <el-step
               v-if="detail && showReviewPanel"
               title="A2A 审核循环"
-              :status="reviewStatus.label === '审核中' ? 'process' : 'success'"
+              :status="detail.quality_status === 'passed' ? 'success' : detail.quality_status === 'pending' ? 'process' : 'error'"
             >
               <template #description>
                 <div class="step-desc">
                   <p>{{ iterationText }}</p>
-                  <el-tag :type="reviewStatus.type" size="small">{{ reviewStatus.label }}</el-tag>
+                  <QualityBadge :quality="detail.quality_status" :forced="detail.forced_output" />
                 </div>
               </template>
             </el-step>

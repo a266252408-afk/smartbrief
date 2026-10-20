@@ -148,7 +148,8 @@ const metricCards = computed(() => {
   const target = report.value!.metrics.targets
   const met = report.value!.metrics.met
   return [
-    { key: 'success_rate', label: '任务成功率', value: pct(s.success_rate), target: pct(target.success_rate), met: met.success_rate },
+    ...(s.metric_version === 2 ? [{ key: 'execution_success_rate', label: '执行完成率', value: pct(s.execution_success_rate ?? 0), target: '独立展示', met: true }] : []),
+    { key: 'success_rate', label: s.metric_version === 2 ? '质量通过率' : '旧版执行成功率', value: pct(s.success_rate), target: pct(target.success_rate), met: met.success_rate },
     { key: 'avg_duration_seconds', label: '平均执行耗时', value: `${s.avg_duration_seconds.toFixed(1)}s`, target: `${target.avg_duration_seconds.toFixed(1)}s`, met: met.avg_duration_seconds },
     { key: 'p95_duration_seconds', label: 'P95 耗时', value: `${s.p95_duration_seconds.toFixed(1)}s`, target: '—', met: true },
     { key: 'avg_react_loops', label: '平均 ReAct 循环', value: `${s.avg_react_loops.toFixed(1)} 次`, target: `${target.avg_react_loops.toFixed(1)} 次`, met: met.avg_react_loops },
@@ -171,7 +172,7 @@ const radarOption = computed(() => {
     tooltip: {},
     radar: {
       indicator: [
-        { name: '成功率', max: 100 },
+        { name: s.metric_version === 2 ? '质量通过率' : '旧版执行成功率', max: 100 },
         { name: '关键词覆盖率', max: 100 },
         { name: '记忆命中率', max: 100 },
         { name: '耗时达标分', max: 100 },
@@ -223,13 +224,15 @@ const showMd = ref(true)
 const showCases = ref(true)
 
 function caseStatusType(r: EvalCaseResult) {
-  if (r.success) return 'success' as const
+  if (r.quality_passed === true && !r.forced_output) return 'success' as const
+  if (r.quality_passed === undefined) return 'info' as const
   return 'danger' as const
 }
 
 function caseStatusLabel(r: EvalCaseResult) {
-  if (r.success) return '成功'
-  return '失败'
+  if (r.quality_passed === undefined) return r.success ? '旧版执行完成（质量未知）' : '旧版执行失败'
+  if (r.quality_passed && !r.forced_output) return '质量通过'
+  return r.execution_success ? '执行完成，质量未通过' : '执行失败'
 }
 
 function coveragePercent(v: number) {
@@ -262,7 +265,7 @@ function statusOf(status: string) {
       <div>
         <h2>评测中心</h2>
         <p class="hint">
-          执行已配置的评测用例，统计成功率、耗时、行动次数、关键词覆盖率与记忆命中率。
+          执行已配置的评测用例，分别统计执行完成率与质量通过率、耗时、行动次数、关键词覆盖率与记忆命中率。
           默认单用例用于冒烟验证，指标目标不代表实测成绩
         </p>
       </div>
@@ -394,7 +397,7 @@ function statusOf(status: string) {
       <el-card shadow="never" class="case-card">
         <template #header>
           <div class="md-header">
-            <span class="card-title">用例明细（{{ summary?.success_cases }}/{{ summary?.total_cases }} 成功）</span>
+            <span class="card-title">用例明细（{{ summary?.success_cases }}/{{ summary?.total_cases }} {{ summary?.metric_version === 2 ? '质量通过' : '旧版执行成功' }}）</span>
             <el-switch v-model="showCases" size="small" active-text="显示" inactive-text="隐藏" />
           </div>
         </template>

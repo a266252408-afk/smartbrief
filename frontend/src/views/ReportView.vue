@@ -1,5 +1,6 @@
 <script setup lang="ts">
 /** 报告展示页：Markdown 渲染 + 图表图片 + 执行摘要 */
+import QualityBadge from '../components/QualityBadge.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -105,7 +106,9 @@ function exportWord() {
       <div>
         <el-button link @click="router.push('/reports')">← 返回报告中心</el-button>
         <h2 class="report-title">{{ report?.title || '报告展示' }}</h2>
-        <p class="hint"><code>{{ taskId }}</code></p>
+        <p class="hint"><code>{{ taskId }}</code>
+          <QualityBadge v-if="report" :quality="report.quality_status" :forced="report.forced_output" />
+        </p>
       </div>
       <div v-if="report" class="report-actions">
         <el-button size="small" @click="exportWord">导出 Word</el-button>

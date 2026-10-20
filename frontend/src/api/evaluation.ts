@@ -9,6 +9,11 @@ export interface EvalCaseResult {
   keywords: string[]
   task_id: string
   success: boolean
+  execution_success?: boolean
+  quality_passed?: boolean
+  quality_status?: string
+  forced_output?: boolean
+  failure_category?: string | null
   /** 耗时（秒）；失败用例为 null */
   duration_seconds: number | null
   /** ReAct 循环次数 = Action 日志条数 */
@@ -17,7 +22,7 @@ export interface EvalCaseResult {
   keyword_coverage: number
   /** 长期记忆命中条数 */
   memory_hits: number
-  /** 是否因达循环上限被强制通过 */
+  /** 是否因达循环上限被强制输出 */
   forced_pass: boolean
   error: string | null
 }
@@ -25,6 +30,9 @@ export interface EvalCaseResult {
 /** 评测指标汇总（实测值 + 目标值 + 达标判定） */
 export interface EvalMetrics {
   summary: {
+    metric_version?: number
+    execution_success_rate?: number
+    execution_success_cases?: number
     total_cases: number
     success_cases: number
     failed_cases: number

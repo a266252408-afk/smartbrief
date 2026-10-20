@@ -47,12 +47,19 @@ async def _run_single_case(case: dict, case_index: int) -> dict:
         task = task_repository.get_task(task_id)
         logs = task_repository.get_logs(task_id)
         report_text = (task or {}).get("final_report") or ""
+        execution_success = bool(task and task.get("execution_status") == "completed")
+        quality_passed = execution_success and task.get("quality_status") == "passed" and not task.get("forced_output")
         return {
             "case_index": case_index,
             "topic": case["topic"],
             "keywords": case["keywords"],
             "task_id": task_id,
-            "success": True,
+            "success": quality_passed,
+            "execution_success": execution_success,
+            "quality_passed": quality_passed,
+            "quality_status": (task or {}).get("quality_status", "unknown"),
+            "forced_output": bool((task or {}).get("forced_output")),
+            "failure_category": None if quality_passed else (task or {}).get("error_code") or "QUALITY_NOT_PASSED",
             "duration_seconds": round(duration, 2),
             "react_loops": metrics.count_react_actions(logs),
             "keyword_coverage": metrics.compute_keyword_coverage(report_text, case["keywords"]),
@@ -68,6 +75,11 @@ async def _run_single_case(case: dict, case_index: int) -> dict:
             "keywords": case["keywords"],
             "task_id": task_id,
             "success": False,
+            "execution_success": False,
+            "quality_passed": False,
+            "quality_status": "not_run",
+            "forced_output": False,
+            "failure_category": "TASK_EXECUTION_FAILED",
             "duration_seconds": None,
             "react_loops": 0,
             "keyword_coverage": 0.0,

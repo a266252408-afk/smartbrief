@@ -28,7 +28,7 @@ TARGETS = {
 
 # 指标目标值的展示文案
 TARGET_LABELS = {
-    "success_rate": "任务成功率",
+    "success_rate": "质量通过率",
     "avg_duration_seconds": "平均执行耗时（秒）",
     "avg_react_loops": "平均 ReAct 循环次数",
     "keyword_coverage_rate": "关键词覆盖率",
@@ -92,16 +92,20 @@ def compute_metrics(results: list[dict]) -> dict:
         targets 为目标值，met 为逐项是否达标（前端雷达图与状态标签数据源）
     """
     total = len(results)
-    success = [r for r in results if r.get("success")]
+    success = [r for r in results if r.get("execution_success") is True and r.get("quality_passed") is True and not r.get("forced_output")]
+    executed = [r for r in results if r.get("execution_success") is True]
     success_rate = _rate(len(success), total)
     # 平均耗时仅统计成功用例，避免失败路径的提前结束影响结果。
-    durations = [r["duration_seconds"] for r in success if r.get("duration_seconds") is not None]
+    durations = [r["duration_seconds"] for r in executed if r.get("duration_seconds") is not None]
     avg_duration = _avg(durations)
     p95_duration = compute_p95(durations)
     loops = _avg([r.get("react_loops", 0) for r in results])
     coverage = _avg([r.get("keyword_coverage", 0.0) for r in results])
     memory_hit_rate = _rate(sum(1 for r in results if r.get("memory_hits", 0) > 0), total)
     summary = {
+        "metric_version": 2,
+        "execution_success_cases": len(executed),
+        "execution_success_rate": _rate(len(executed), total),
         "total_cases": total,
         "success_cases": len(success),
         "failed_cases": total - len(success),
@@ -135,7 +139,9 @@ def build_markdown(eval_id: str, results: list[dict], metrics_data: dict) -> str
         "",
         f"- 评测 ID：`{eval_id}`",
         f"- 生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-        f"- 用例数：{summary['total_cases']}（成功 {summary['success_cases']} / 失败 {summary['failed_cases']}）",
+        f"- 用例数：{summary['total_cases']}（质量通过 {summary['success_cases']} / 未通过或未知 {summary['failed_cases']}）",
+        "",
+        f"- 执行完成率：{summary['execution_success_rate'] * 100:.1f}%（独立于质量通过率）",
         "",
         "## 一、指标总览",
         "",
@@ -160,7 +166,7 @@ def build_markdown(eval_id: str, results: list[dict], metrics_data: dict) -> str
     for r in results:
         lines.append(
             f"| {r.get('case_index', '-')} | {r.get('topic', '-')} | "
-            f"{'✅ 成功' if r.get('success') else '❌ 失败'} | "
+            f"{'✅ 质量通过' if r.get('quality_passed') is True and r.get('execution_success') is True and not r.get('forced_output') else '❌ 质量未通过或未知'} | "
             f"{r.get('duration_seconds', '-')} | {r.get('react_loops', '-')} | "
             f"{r.get('keyword_coverage', 0) * 100:.1f}% | {r.get('memory_hits', 0)} |"
         )

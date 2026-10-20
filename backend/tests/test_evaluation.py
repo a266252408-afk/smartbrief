@@ -48,9 +48,9 @@ def test_compute_p95():
 
 def test_compute_metrics_and_targets():
     results = [
-        {"success": True, "duration_seconds": 50.0, "react_loops": 5, "keyword_coverage": 0.8, "memory_hits": 1},
-        {"success": True, "duration_seconds": 70.0, "react_loops": 4, "keyword_coverage": 0.6, "memory_hits": 0},
-        {"success": False, "duration_seconds": None, "react_loops": 0, "keyword_coverage": 0.0, "memory_hits": 0},
+        {"success": True, "execution_success": True, "quality_passed": True, "duration_seconds": 50.0, "react_loops": 5, "keyword_coverage": 0.8, "memory_hits": 1},
+        {"success": True, "execution_success": True, "quality_passed": True, "duration_seconds": 70.0, "react_loops": 4, "keyword_coverage": 0.6, "memory_hits": 0},
+        {"success": False, "execution_success": False, "quality_passed": False, "duration_seconds": None, "react_loops": 0, "keyword_coverage": 0.0, "memory_hits": 0},
     ]
     data = metrics.compute_metrics(results)
     summary = data["summary"]
@@ -183,13 +183,15 @@ def reset_runner_lock():
     runner._running = False
 
 
-def test_run_single_case_success(runner_db):
+def test_run_single_case_without_persisted_completion_is_not_success(runner_db):
     async def fake_run_task(task_id, topic, resume=False):
         pass  # 不写任何状态 → get_task 仍为 running，final_report 为空
 
     with patch.object(runner.workflow, "run_task", new=fake_run_task):
         result = asyncio.run(runner._run_single_case(runner.TEST_CASES[0], 1))
-    assert result["success"] is True
+    assert result["success"] is False
+    assert result["execution_success"] is False
+    assert result["quality_passed"] is False
     assert result["case_index"] == 1
     assert result["topic"] == runner.TEST_CASES[0]["topic"]
     assert isinstance(result["duration_seconds"], float)
@@ -216,7 +218,7 @@ def test_start_evaluation_and_execute(runner_db):
 
     async def fake_workflow(task_id, topic, resume=False):
         task_repository.update_task(
-            task_id, status="completed", final_report="# 市场报告\n市场规模 2026 年增长 12%",
+            task_id, status="completed", quality_status="passed", final_report="# 市场报告\n市场规模 2026 年增长 12%",
             memory_hits=[],
         )
         for i in range(3):
