@@ -280,3 +280,15 @@ def get_document_by_id(document_id: str) -> dict | None:
     if not items:
         return None
     return {"document_id": document_id, "source": items[0]["metadata"].get("source", ""), "category": "upload", "chunks": items}
+
+
+def search_template_structure(query: str) -> list[str]:
+    """模板仅提供规划标题，不向下游报告提供事实正文。"""
+    import re
+    index = get_store()
+    if not index.count({"category": "template"}):
+        return []
+    hits = index.similarity_search(index.embeddings.embed_query(query), k=1, where={"category": "template"})
+    if not hits or hits[0][1] < 0.35:
+        return []
+    return [line[:120] for line in re.findall(r"(?m)^#{1,6}\s+[^\n]+", hits[0][0].page_content)[:10]]
