@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import MemoryManager from '../components/MemoryManager.vue'
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { UploadFile } from 'element-plus'
@@ -411,6 +412,7 @@ function scoreType(score: number) {
         </div>
 
         <div class="search-block memory-block">
+          <MemoryManager />
           <h3 class="search-title">长期记忆检索（Planner 参考的历史报告）</h3>
           <div class="search-bar">
             <el-input

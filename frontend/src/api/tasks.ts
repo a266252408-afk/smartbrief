@@ -35,6 +35,7 @@ export interface Citation {
 
 /** 任务摘要（列表项） */
 export interface TaskSummary extends TaskOutcome {
+  regenerated_from?: string | null
   task_id: string
   topic: string
   /** running 执行中 / paused 已暂停（服务中断遗留）/ completed 已完成 / failed 失败 */
@@ -120,6 +121,7 @@ export interface GenerateResult {
 
 /** 任务报告（「报告展示」页数据源） */
 export interface TaskReport extends TaskOutcome {
+  regenerated_from?: string | null
   document_ids?: string[]
   retrievals?: RetrievalRecord[]
   sources?: Evidence[]
@@ -198,4 +200,11 @@ export interface RetrievalRecord {
   status: 'not_selected' | 'matched' | 'no_hits' | 'below_threshold' | 'budget_excluded' | 'documents_missing' | 'embedding_failed' | 'index_failed'
   evidence: Evidence[]
   error_code: string | null
+}
+
+/** 生成新任务并保留原任务溯源。 */
+export async function regenerateTask(taskId: string): Promise<GenerateResult & { regenerated_from: string }> {
+  const client = createHttp({ baseURL: '/api/v2', timeout: 15000 })
+  const { data } = await client.post(`/tasks/${encodeURIComponent(taskId)}/regenerate`)
+  return data.data
 }

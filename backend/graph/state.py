@@ -23,6 +23,7 @@ class AgentState(TypedDict):
     citations: List[Dict]
     citation_errors: List[str]
     required_citations: List[str]  # 图内返工保留要求，由检查点保存
+    regenerated_from: str | None
     document_ids: List[str]
     retrievals: List[Dict]
     evidence: List[Dict]      # 服务端任务内来源映射

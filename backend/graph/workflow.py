@@ -58,6 +58,7 @@ def _initial_state(task_id: str, topic: str) -> AgentState:
     日志为空、数据为空 —— 跑完图之后这些字段会被节点逐步填充。
     """
     return {
+        "regenerated_from": None,
         "document_ids": [],
         "retrievals": [],
         "evidence": [],
@@ -148,6 +149,7 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
         from services.retrieval_service import retrieve_documents
         task = task_repository.get_task(task_id)
         initial["document_ids"] = (task or {}).get("document_ids", [])
+        initial["regenerated_from"] = (task or {}).get("regenerated_from")
         # 短期记忆 Checkpointer：以 async with 进入 SqliteSaver 连接生命周期
         # （新版 langgraph-checkpoint-sqlite 的 API），compile + invoke 全程持有连接，
         # 图每次节点执行后自动向 checkpoints.db 落快照（缺依赖时降级 MemorySaver）。

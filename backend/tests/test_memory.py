@@ -84,8 +84,9 @@ def test_remember_duplicate_skipped():
 
 def test_remember_embedding_failure_tolerated(monkeypatch):
     """嵌入不可用（无 Key）→ 记忆写入失败仅返回 False，不抛异常。"""
+    approved_report("主题", "正文[S1]", "embedding-failure")
     monkeypatch.setattr(rag_store, "_embeddings", None)
-    assert long_term_memory.remember("主题", "正文") is False
+    assert long_term_memory.remember("主题", "正文[S1]", task_id="embedding-failure") is False
 
 
 def test_search_memory_proxy():

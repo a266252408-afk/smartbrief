@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS memory_entries (
 -- 任务主表：一个 task_id 对应一条任务记录
 CREATE TABLE IF NOT EXISTS tasks (
     task_id             TEXT PRIMARY KEY,   -- 任务唯一 id（API 层生成，形如 task_ab12cd34）
-    topic               TEXT NOT NULL,      -- 用户提交的研究主题
+    topic               TEXT NOT NULL,
+    regenerated_from    TEXT,      -- 用户提交的研究主题
     status              TEXT NOT NULL DEFAULT 'running',  -- running | paused（服务中断）| completed | failed
     execution_status    TEXT NOT NULL DEFAULT 'running',
     quality_status      TEXT NOT NULL DEFAULT 'pending',
@@ -91,6 +92,7 @@ CREATE TABLE IF NOT EXISTS evaluation_reports (
 # 注意：加列必须同步修改 _SCHEMA、task_repository 的 _JSON_FIELDS/_ALLOWED_UPDATE、
 # workflow.run_task 落库与前端类型，五处缺一不可（见 CLAUDE.md 约定 12）。
 _MIGRATIONS = [
+    "ALTER TABLE tasks ADD COLUMN regenerated_from TEXT",
     "ALTER TABLE tasks ADD COLUMN document_ids TEXT NOT NULL DEFAULT '[]'",
     "ALTER TABLE tasks ADD COLUMN retrievals TEXT NOT NULL DEFAULT '[]'",
     "ALTER TABLE tasks ADD COLUMN review_comments TEXT",

@@ -36,3 +36,15 @@ def transition(memory_id: str, status: str, reason: str | None = None) -> bool:
         entry = MemoryEntry.model_validate(data)
         conn.execute("UPDATE memory_entries SET data=? WHERE memory_id=?", (entry.model_dump_json(), memory_id))
     return True
+
+
+def invalidate_task(task_id, conn):
+    """与原任务删除共用事务；保留审计账本，防止旧向量复活。"""
+    rows = conn.execute("SELECT data FROM memory_entries WHERE json_extract(data,'$.task_id')=?", (task_id,)).fetchall()
+    for row in rows:
+        data = json.loads(row[0])
+        if data["status"] == "deleted":
+            continue
+        data.update(status="invalid", verified=False, invalid_reason="task_deleted")
+        entry = MemoryEntry.model_validate(data)
+        conn.execute("UPDATE memory_entries SET data=? WHERE memory_id=?", (entry.model_dump_json(),entry.memory_id))

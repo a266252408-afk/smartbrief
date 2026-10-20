@@ -134,3 +134,36 @@ export async function searchMemory(
   const { data } = await http.get('/memory/search', { params: { q: query, k } })
   return data as { query: string; hits: MemorySearchHit[] }
 }
+
+/** 记忆来源与准入状态；历史未验证记录不得作为可信召回。 */
+export interface MemoryEntry {
+  memory_id: string
+  task_id: string
+  topic: string
+  quality_status: 'passed' | 'unknown'
+  verified: boolean
+  status: 'active' | 'unverified' | 'unavailable' | 'invalid' | 'deleted'
+  report_hash: string | null
+  index_hash?: string | null
+  model_name: string | null
+  model_version: string | null
+  prompt_version: string | null
+  created_at: string | null
+  invalid_reason: string | null
+}
+export interface MemoryPage {
+  items: MemoryEntry[]
+  total: number
+  page: number
+  page_size: number
+  enabled: boolean
+  counts: Record<MemoryEntry['status'], number>
+}
+export async function fetchMemories(page = 1, status?: MemoryEntry['status']): Promise<MemoryPage> {
+  const { data } = await v2http.get('/memory', { params: { page, page_size: 10, status } })
+  return data.data
+}
+export async function deleteMemory(memoryId: string): Promise<{ memory_id: string; deleted: boolean; status: string }> {
+  const { data } = await v2http.delete(`/memory/${encodeURIComponent(memoryId)}`)
+  return data.data
+}

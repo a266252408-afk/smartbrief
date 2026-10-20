@@ -525,15 +525,16 @@ async def memory_status():
     """长期记忆开关状态 + 已存储报告数量（知识库页"记忆开关"卡数据源）。
 
     实现说明：开关关闭时接口仍返回 enabled=false 且计数置 0 ——
-    计数依赖开关（关闭时不做 ChromaDB 查询），明确"关闭=清空"。
+    count仅统计当前合格active记忆；旧记录不再混作可信数量。关闭不删除数据。
     """
     try:
-        from rag.store import get_store, MEMORY_COLLECTION
-        store = get_store(None, MEMORY_COLLECTION)
-        report_count = store.count({"type": "report"}) if long_term_memory.is_enabled() else 0
+        from services.memory_management import list_memories
+        summary = await asyncio.to_thread(list_memories, 1, 1)
+        report_count = summary["counts"]["active"] if long_term_memory.is_enabled() else 0
     except Exception:
         report_count = 0
     return {"enabled": long_term_memory.is_enabled(), "count": report_count}
+
 
 
 @router.post("/memory/toggle")
@@ -642,6 +643,7 @@ async def task_report(task_id: str):
         "forced_output": task["forced_output"],
         "error_code": task["error_code"],
         "title": task.get("topic", ""),
+        "regenerated_from": task.get("regenerated_from"),
         "content_markdown": content,
         "sources": get_sources(task_id)["sources"],
         "document_ids": task.get("document_ids", []),

@@ -1,18 +1,19 @@
 <script setup lang="ts">
 import RetrievalPanel from '../components/RetrievalPanel.vue'
 import QualityBadge from '../components/QualityBadge.vue'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { renderReport, escapeHtml } from '../utils/report'
 import '../styles/report.css'
 import html2pdf from 'html2pdf.js'
-import { fetchTaskStatus, resumeTask, type TaskStatus, type ReactLog, type ReviewRound } from '../api/tasks'
+import { authRole } from '../api/session'
+import { fetchTaskStatus, resumeTask, regenerateTask, type TaskStatus, type ReactLog, type ReviewRound } from '../api/tasks'
 
 const route = useRoute()
 const router = useRouter()
 
-const taskId = route.params.taskId as string
+const taskId = ref(route.params.taskId as string)
 
 const detail = ref<TaskStatus | null>(null)
 const loading = ref(false)
@@ -22,11 +23,15 @@ const pollTimer = ref<number | null>(null)
 // ---------------- 轮询 ----------------
 
 async function refresh() {
+  const requestedId = taskId.value
   loading.value = true
   try {
-    detail.value = await fetchTaskStatus(taskId)
+    const result = await fetchTaskStatus(requestedId)
+    if (requestedId !== taskId.value) return
+    detail.value = result
     notFound.value = false
   } catch (e: any) {
+    if (requestedId !== taskId.value) return
     if (e?.response?.status === 404) {
       notFound.value = true
       stopPolling()
@@ -34,7 +39,7 @@ async function refresh() {
       ElMessage.error('获取任务状态失败')
     }
   } finally {
-    loading.value = false
+    if (requestedId === taskId.value) loading.value = false
   }
 }
 
@@ -219,7 +224,7 @@ async function onResume() {
   }
   resuming.value = true
   try {
-    await resumeTask(taskId)
+    await resumeTask(taskId.value)
     ElMessage.success('任务已恢复，正在从最近 checkpoint 断点续跑…')
     startPolling()
     await refresh()
@@ -253,7 +258,7 @@ const reportEl = ref<HTMLElement>()
 const reportHtml = computed(() => {
   const md = detail.value?.draft_content ?? ''
   if (!md) return ''
-  return renderReport(md, detail.value?.evidence, taskId, detail.value?.citations, detail.value?.quality_status)
+  return renderReport(md, detail.value?.evidence, taskId.value, detail.value?.citations, detail.value?.quality_status)
 })
 
 /** 导出 Word：生成 .doc（HTML 兼容格式，Word 可直接打开） */
@@ -291,6 +296,24 @@ async function exportPdf() {
     ElMessage.error('PDF 导出失败')
   }
 }
+
+const regenerating = ref(false)
+async function onRegenerate() {
+  regenerating.value = true
+  try {
+    const next = await regenerateTask(taskId.value)
+    await router.push(`/tasks/${next.task_id}`)
+  } catch { ElMessage.error('重新生成失败，原报告保持不变') }
+  finally { regenerating.value = false }
+}
+watch(() => route.params.taskId, async value => {
+  stopPolling()
+  taskId.value = String(value)
+  detail.value = null
+  notFound.value = false
+  await refresh()
+  startPolling()
+})
 </script>
 
 <template>
@@ -301,6 +324,7 @@ async function exportPdf() {
         <h2 class="topic">{{ detail?.topic || '任务详情' }}</h2>
         <p class="hint">
           <code>{{ taskId }}</code>
+          <span v-if="detail?.regenerated_from">重新生成自 {{ detail.regenerated_from }}</span>
           <el-tag v-if="detail" :type="statusInfo.type" size="small" class="status-tag">
             {{ statusInfo.label }}
           </el-tag>
@@ -316,6 +340,7 @@ async function exportPdf() {
           :disabled="loading"
           @click="onResume"
         >恢复执行</el-button>
+        <el-button v-if="detail && !['running', 'queued'].includes(detail.execution_status)" :disabled="authRole === 'readonly'" :loading="regenerating" @click="onRegenerate">重新生成</el-button>
         <el-button :loading="loading" @click="refresh">刷新</el-button>
       </div>
     </div>

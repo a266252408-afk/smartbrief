@@ -81,16 +81,18 @@ def _row_to_task(row) -> dict | None:
     return task
 
 
-def create_task(task_id: str, topic: str) -> None:
+def create_task(task_id: str, topic: str, *, document_ids: list[str] | None = None, regenerated_from: str | None = None) -> None:
     """插入一条任务初始记录（status 默认 running）。
 
     由 API 层在提交任务时调用（后台工作流启动之前），
     保证前端立刻能在任务列表里看到这条"执行中"记录。
     """
+    from services.retrieval_service import DocumentSelection
+    selected = DocumentSelection(document_ids=document_ids or []).document_ids
     with get_connection() as conn:
         conn.execute(
-            "INSERT INTO tasks (task_id, topic) VALUES (?, ?)",
-            (task_id, topic),
+            "INSERT INTO tasks (task_id, topic, document_ids, regenerated_from) VALUES (?, ?, ?, ?)",
+            (task_id, topic, _dumps(selected), regenerated_from),
         )
 
 
@@ -243,6 +245,8 @@ def delete_task(task_id: str) -> bool:
     :return: True 表示删除了记录；任务不存在返回 False（调用方据此返回 404）
     """
     with get_connection() as conn:
+        from db.memory_repository import invalidate_task
+        invalidate_task(task_id, conn)
         conn.execute("DELETE FROM task_logs WHERE task_id = ?", (task_id,))
         cur = conn.execute("DELETE FROM tasks WHERE task_id = ?", (task_id,))
     return cur.rowcount > 0

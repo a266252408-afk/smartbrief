@@ -780,6 +780,122 @@
       ],
       "title": "RetrievalRecord",
       "type": "object"
+    },
+    "MemoryPage": {
+      "type": "object",
+      "required": [
+        "items",
+        "total",
+        "page",
+        "page_size",
+        "enabled",
+        "counts"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MemoryEntry"
+          }
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "page_size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "counts": {
+          "type": "object",
+          "required": [
+            "active",
+            "unverified",
+            "unavailable",
+            "invalid",
+            "deleted"
+          ],
+          "properties": {
+            "active": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unverified": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unavailable": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "invalid": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "deleted": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "RegenerationResult": {
+      "type": "object",
+      "required": [
+        "task_id",
+        "topic",
+        "status",
+        "regenerated_from"
+      ],
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "topic": {
+          "type": "string"
+        },
+        "status": {
+          "const": "running"
+        },
+        "regenerated_from": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "MemoryDeleteResult": {
+      "type": "object",
+      "required": [
+        "memory_id",
+        "deleted",
+        "status"
+      ],
+      "properties": {
+        "memory_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "deleted": {
+          "type": "boolean"
+        },
+        "status": {
+          "const": "deleted"
+        }
+      },
+      "additionalProperties": false
     }
   }
 }
