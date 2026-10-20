@@ -9,6 +9,7 @@ import json
 from typing import Any
 
 from db.database import get_connection
+from services.task_outcome import TaskOutcome
 
 _JSON_FIELDS = ("plan", "completed_steps", "research_data", "review_comments",
                 "review_history", "memory_hits")
@@ -16,7 +17,8 @@ _JSON_FIELDS = ("plan", "completed_steps", "research_data", "review_comments",
 _ALLOWED_UPDATE = {"status", "topic", "plan", "current_step_index", "completed_steps",
                    "research_data", "draft_content", "final_report", "error",
                    "review_comments", "review_history", "iteration", "max_iterations",
-                   "passed", "forced_pass", "memory_hits"}
+                   "passed", "forced_pass", "memory_hits",
+                   "execution_status", "quality_status", "forced_output", "error_code"}
 
 
 def _dumps(value: Any) -> str | None:
@@ -67,6 +69,8 @@ def _row_to_task(row) -> dict | None:
     task["review_comments"] = _loads(task.get("review_comments"), [])   # JSON -> list
     task["review_history"] = _loads(task.get("review_history"), [])     # JSON -> list（各轮审核记录）
     task["memory_hits"] = _loads(task.get("memory_hits"), [])           # JSON -> list（长期记忆命中）
+    if "forced_output" in task:
+        task["forced_output"] = bool(task["forced_output"])
     return task
 
 
@@ -96,6 +100,13 @@ def update_task(task_id: str, **fields) -> None:
     updates = {k: v for k, v in fields.items() if k in _ALLOWED_UPDATE}   # 白名单过滤
     if not updates:
         return
+    if "status" in updates or "execution_status" in updates:
+        status = updates.get("execution_status", updates.get("status"))
+        if "status" in updates and updates["status"] != status:
+            raise ValueError("执行状态别名不一致")
+        updates["status"] = updates["execution_status"] = status
+    outcome_fields = {k: v for k, v in updates.items() if k in TaskOutcome.model_fields}
+    TaskOutcome(task_id=task_id, **({"execution_status": "running", "quality_status": "pending", "forced_output": False} | outcome_fields))
     sets = []
     params: list = []
     for key, value in updates.items():
@@ -129,7 +140,7 @@ def mark_interrupted_tasks_as_paused(
     """
     with get_connection() as conn:
         cur = conn.execute(
-            "UPDATE tasks SET status = 'paused', error = ?, "
+            "UPDATE tasks SET status = 'paused', execution_status = 'paused', error = ?, "
             "updated_at = datetime('now','localtime') WHERE status = 'running'",
             (message,),
         )
@@ -198,7 +209,7 @@ def list_tasks(
         # 2) 再查本页数据（按时间排序，LIMIT/OFFSET 分页）
         rows = conn.execute(
             f"SELECT task_id, topic, status, plan, current_step_index, completed_steps, "
-            f"created_at, updated_at FROM tasks {where} "
+            f"execution_status, quality_status, forced_output, error_code, created_at, updated_at FROM tasks {where} "
             f"ORDER BY created_at {direction}, task_id {direction} LIMIT ? OFFSET ?",
             params + [limit, offset],
         ).fetchall()

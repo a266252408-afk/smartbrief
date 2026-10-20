@@ -627,6 +627,10 @@ async def task_report(task_id: str):
     total_time = _elapsed_seconds(created_at, updated_at)
     return {
         "task_id": task_id,
+        "execution_status": task["execution_status"],
+        "quality_status": task["quality_status"],
+        "forced_output": task["forced_output"],
+        "error_code": task["error_code"],
         "title": task.get("topic", ""),
         "content_markdown": content,
         "charts": [],  # 当前未生成独立图表，保留响应字段供后续扩展。

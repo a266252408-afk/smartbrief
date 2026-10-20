@@ -1,6 +1,7 @@
 """LangGraph 多智能体工作流的共享状态定义。
 """
 from typing import TypedDict, List, Dict, Optional
+from services.task_outcome import ExecutionStatus, QualityStatus
 
 
 class AgentState(TypedDict):
@@ -20,6 +21,10 @@ class AgentState(TypedDict):
     """
     # ---------- 1. 任务信息 ----------
     task_id: str              # 任务唯一 id（由 API 层生成，形如 task_ab12cd34）
+    execution_status: ExecutionStatus
+    quality_status: QualityStatus
+    forced_output: bool
+    error_code: Optional[str]
     topic: str                # 用户提交的研究主题（如 "智能手表 2025 市场"）
 
     # ---------- 2. Plan 进度 ----------

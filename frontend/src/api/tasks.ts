@@ -1,7 +1,17 @@
 import { createHttp } from './http'
 
+/** 执行与报告质量为两个独立事实。 */
+export type ExecutionStatus = 'queued' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled'
+export type QualityStatus = 'pending' | 'passed' | 'rejected' | 'unavailable' | 'not_run' | 'unknown'
+export interface TaskOutcome {
+  execution_status: ExecutionStatus
+  quality_status: QualityStatus
+  forced_output: boolean
+  error_code: string | null
+}
+
 /** 任务摘要（列表项） */
-export interface TaskSummary {
+export interface TaskSummary extends TaskOutcome {
   task_id: string
   topic: string
   /** running 执行中 / paused 已暂停（服务中断遗留）/ completed 已完成 / failed 失败 */
@@ -76,7 +86,7 @@ export interface GenerateResult {
 }
 
 /** 任务报告（「报告展示」页数据源） */
-export interface TaskReport {
+export interface TaskReport extends TaskOutcome {
   task_id: string
   title: string
   content_markdown: string

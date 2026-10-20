@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes import router
+from api.task_outcomes import router as task_outcome_router
 from api.security import authenticate, AuthSession
 from services.security import cors_origins
 from db import database
@@ -100,6 +101,7 @@ async def auth_session(request: Request):
 
 
 app.include_router(router)
+app.include_router(task_outcome_router)
 
 
 if __name__ == "__main__":

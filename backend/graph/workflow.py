@@ -92,6 +92,10 @@ def _initial_state(task_id: str, topic: str) -> AgentState:
     """
     return {
         "task_id": task_id,           # 任务 id（也是后续 checkpoint 的 thread_id）
+        "execution_status": "running",
+        "quality_status": "pending",
+        "forced_output": False,
+        "error_code": None,
         "topic": topic,               # 用户提交的研究主题
         "plan": [],                   # Planner 节点会写入步骤列表
         "current_step_index": 0,      # 初始进度 0
@@ -183,6 +187,9 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
         task_repository.update_task(                  # 最终状态落库
             task_id,
             status="completed",
+            quality_status=final.get("quality_status", "unknown"),
+            forced_output=bool(final.get("forced_output", final.get("forced_pass"))),
+            error_code=final.get("error_code"),
             plan=final.get("plan", []),
             current_step_index=final.get("current_step_index", 0),
             completed_steps=final.get("completed_steps", []),

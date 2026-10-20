@@ -79,3 +79,7 @@ Playwright 配置默认使用项目内 `.browser-cache`；浏览器安装和运�
 `SMARTBRIEF_ALLOW_SKILL_PYTHON=false` 与 `SMARTBRIEF_ALLOW_SKILL_SCRIPTS=false` 为默认。管理员仅在信任代码时于后端环境显式设为1或true，不能通过技能metadata、提示或API请求context启用。Python禁用时不导入skill.py，保留Markdown能力；脚本禁用时不发现或注入工具，直接调用也拒绝。已加载Python和脚本在运行前重新检查开关。
 
 启用代表所有者信任本机代码，不是Python沙箱；仍限制脚本目录与参数传递、禁shell并保留超时，但受信任Python可拥有后端进程权限。前端没有给模型或只读角色开放启用此开关的接口。
+
+## T03 数据库升级前置
+
+T03新增任务双状态列并事务回填，启动时init_db会执行升级（user_version=1）。真实实例首次运行新版本前，必须按[回滚手册](runbooks/git-and-data-rollback.md)停写，仓库外备份业务库/检查点/向量库/上传及非密钥配置，并在隔离副本校验完整性和恢复。测试仅使用临时旧库，不表示真实实例已经备份或升级。旧passed=True不足以证明质量通过，迁移后为unknown；原记录保留。

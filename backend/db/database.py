@@ -12,6 +12,8 @@ LangGraph 的**图运行时状态**（Checkpointer）由独立库文件
 import sqlite3
 from pathlib import Path
 
+from db.quality_migration import migrate_quality
+
 # 业务 SQLite 库文件（backend/data.db）
 DB_PATH = Path(__file__).resolve().parents[1] / "data.db"
 
@@ -22,6 +24,10 @@ CREATE TABLE IF NOT EXISTS tasks (
     task_id             TEXT PRIMARY KEY,   -- 任务唯一 id（API 层生成，形如 task_ab12cd34）
     topic               TEXT NOT NULL,      -- 用户提交的研究主题
     status              TEXT NOT NULL DEFAULT 'running',  -- running | paused（服务中断）| completed | failed
+    execution_status    TEXT NOT NULL DEFAULT 'running',
+    quality_status      TEXT NOT NULL DEFAULT 'pending',
+    forced_output       INTEGER NOT NULL DEFAULT 0,
+    error_code          TEXT,
     plan                TEXT,          -- JSON 数组（步骤列表 [{"id":1,"agent":"researcher",...}]）
     current_step_index  INTEGER DEFAULT 0,  -- 当前进度（= 已完成步骤数）
     completed_steps     TEXT,          -- JSON 数组（已完成步骤 id，如 "[1,2]"）
@@ -108,8 +114,11 @@ def init_db(db_path: Path | None = None) -> None:
         DB_PATH = Path(db_path)             # 覆盖全局库路径（模块级单例）
     with sqlite3.connect(DB_PATH) as conn:
         conn.executescript(_SCHEMA)         # 批量执行建表 SQL（IF NOT EXISTS → 幂等）
+        conn.execute("BEGIN IMMEDIATE")  # 旧库补列与回填共同提交，失败全部回滚
         for sql in _MIGRATIONS:             # 旧库补列（已存在则跳过）
             try:
                 conn.execute(sql)
-            except sqlite3.OperationalError:
-                pass
+            except sqlite3.OperationalError as exc:
+                if "duplicate column name" not in str(exc):
+                    raise
+        migrate_quality(conn)
