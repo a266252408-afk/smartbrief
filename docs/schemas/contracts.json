@@ -226,42 +226,186 @@
       "description": "T04-02已实现：声明段落与来源编号的结构映射；valid仅表示来源存在、未删除且能回溯，不证明事实真实性或语义支持。"
     },
     "MemoryEntry": {
-      "type": "object",
-      "required": [
-        "memory_id",
-        "task_id",
-        "quality_status",
-        "verified",
-        "created_at"
-      ],
+      "additionalProperties": false,
       "properties": {
         "memory_id": {
+          "minLength": 1,
+          "title": "Memory Id",
           "type": "string"
         },
         "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "topic": {
+          "title": "Topic",
           "type": "string"
         },
         "quality_status": {
           "enum": [
             "passed",
             "unknown"
-          ]
+          ],
+          "title": "Quality Status",
+          "type": "string"
         },
         "verified": {
+          "title": "Verified",
           "type": "boolean"
         },
-        "created_at": {
-          "type": "string",
-          "format": "date-time"
+        "status": {
+          "enum": [
+            "active",
+            "unverified",
+            "unavailable",
+            "invalid",
+            "deleted"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "report_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Report Hash"
+        },
+        "index_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Index Hash"
+        },
+        "model_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Model Name"
+        },
+        "model_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Version"
         },
         "prompt_version": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Prompt Version"
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Created At"
+        },
+        "invalid_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Invalid Reason"
         }
       },
-      "additionalProperties": false
+      "required": [
+        "memory_id",
+        "task_id",
+        "topic",
+        "quality_status",
+        "verified",
+        "status",
+        "report_hash",
+        "model_name",
+        "prompt_version",
+        "created_at"
+      ],
+      "title": "MemoryEntry",
+      "type": "object",
+      "description": "T06-01已实现：SQLite权威准入，旧向量未验证；model_name为当前调用配置，供应商版本不可得为null。",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "verified": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "status": {
+                "const": "active"
+              },
+              "quality_status": {
+                "const": "passed"
+              },
+              "report_hash": {
+                "type": "string",
+                "minLength": 1
+              },
+              "index_hash": {
+                "type": "string",
+                "minLength": 1
+              },
+              "prompt_version": {
+                "type": "string",
+                "minLength": 1
+              },
+              "task_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "status": {
+                "not": {
+                  "const": "active"
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "ModelUsage": {
       "type": "object",

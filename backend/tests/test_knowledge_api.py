@@ -113,9 +113,12 @@ def test_knowledge_search_validation(client):
 
 
 def test_memory_search_endpoint(client):
+    from tests.memory_support import approved_report
+    report = "# 一、市场规模\n\n2025 出货量数据[S1]\n\n# 二、竞争格局\n\n厂商分析[S1]"
+    approved_report("便携储能市场调研", report, "task_mem1")
     long_term_memory.remember(
         "便携储能市场调研",
-        "# 一、市场规模\n\n2025 出货量数据\n\n# 二、竞争格局\n\n厂商分析",
+        report,
         task_id="task_mem1",
     )
     resp = client.get("/api/v1/memory/search", params={"q": "便携储能", "k": 3})

@@ -12,6 +12,7 @@ import pytest
 from memory import checkpointer as cp_mod
 from memory import long_term_memory
 from rag import store as rag_store
+from tests.memory_support import approved_report
 
 
 class FakeEmbeddings:
@@ -48,9 +49,11 @@ def run(coro):
 
 
 def test_remember_then_recall_roundtrip():
+    report = "# 一、市场规模\n\n2025 年全球出货 X 万台[S1]\n\n# 二、竞争格局\n\n头部厂商盘点[S1]"
+    approved_report("便携储能市场", report, "task_m1")
     ok = long_term_memory.remember(
         "便携储能市场",
-        "# 一、市场规模\n\n2025 年全球出货 X 万台\n\n# 二、竞争格局\n\n头部厂商盘点",
+        report,
         task_id="task_m1",
     )
     assert ok is True
@@ -73,8 +76,10 @@ def test_remember_empty_report_skipped():
 
 
 def test_remember_duplicate_skipped():
-    long_term_memory.remember("主题A", "报告正文内容" * 10, task_id="t1")
-    assert long_term_memory.remember("主题A", "报告正文内容" * 10, task_id="t1") is False
+    report = "报告正文内容" * 10 + "[S1]"
+    approved_report("主题A", report, "t1")
+    long_term_memory.remember("主题A", report, task_id="t1")
+    assert long_term_memory.remember("主题A", report, task_id="t1") is False
 
 
 def test_remember_embedding_failure_tolerated(monkeypatch):
@@ -84,7 +89,9 @@ def test_remember_embedding_failure_tolerated(monkeypatch):
 
 
 def test_search_memory_proxy():
-    long_term_memory.remember("家用储能", "# 报告\n内容", task_id="t2")
+    report = "# 报告\n内容[S1]"
+    approved_report("家用储能", report, "t2")
+    long_term_memory.remember("家用储能", report, task_id="t2")
     assert len(long_term_memory.search_memory("家用储能", k=2)) == 1
     # 检索结果含 topic / task_id 等记忆字段
     hit = long_term_memory.search_memory("家用储能", k=2)[0]

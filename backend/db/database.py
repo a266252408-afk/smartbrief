@@ -19,6 +19,12 @@ DB_PATH = Path(__file__).resolve().parents[1] / "data.db"
 
 # 建表 SQL（幂等：IF NOT EXISTS 保证重复执行不报错）
 _SCHEMA = """
+-- T06记忆权威登记；旧向量保持未验证，不回填为可信。
+CREATE TABLE IF NOT EXISTS memory_entries (
+    memory_id TEXT PRIMARY KEY,
+    data TEXT NOT NULL
+);
+
 -- 任务主表：一个 task_id 对应一条任务记录
 CREATE TABLE IF NOT EXISTS tasks (
     task_id             TEXT PRIMARY KEY,   -- 任务唯一 id（API 层生成，形如 task_ab12cd34）

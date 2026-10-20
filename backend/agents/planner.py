@@ -172,6 +172,7 @@ async def planner_node(state: dict) -> dict:
                 "score": top.get("score", 0),
                 "task_id": top.get("task_id", ""),
                 "created_at": top.get("created_at", ""),
+                **{key: top[key] for key in ("memory_id", "verified", "quality_status", "prompt_version") if key in top},
             })
         few_shot = _build_few_shot(top)
         hit_log = f"检索到历史报告：{top.get('topic', '')}，结构类似，已作为 Few-shot 参考"

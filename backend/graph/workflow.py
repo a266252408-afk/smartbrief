@@ -114,8 +114,8 @@ async def _remember_task(task_id: str, topic: str, final_report: str) -> None:
     """
     try:
         await asyncio.to_thread(long_term_memory.remember, topic, final_report, task_id)
-    except Exception as exc:  # pragma: no cover - 真实异常路径
-        logger.warning("任务 %s 写入长期记忆失败（忽略）：%s", task_id, exc)
+    except Exception:  # pragma: no cover - 真实异常路径
+        logger.warning("任务 %s 写入长期记忆不可用（报告保留）", task_id)
 
 
 async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:

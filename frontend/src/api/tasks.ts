@@ -66,6 +66,10 @@ export interface ReviewRound {
 
 /** 长期记忆命中：Planner 规划前检索到的相似历史报告 */
 export interface MemoryHit {
+  memory_id?: string
+  verified?: boolean
+  quality_status?: 'passed' | 'unknown'
+  prompt_version?: string | null
   topic: string
   /** 历史报告的结构（# 开头章节标题） */
   structure?: string[]
