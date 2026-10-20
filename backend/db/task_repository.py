@@ -14,12 +14,12 @@ from services.evidence import validate_sources
 from services.citations import Citation
 
 _JSON_FIELDS = ("plan", "completed_steps", "research_data", "review_comments",
-                "review_history", "memory_hits", "evidence", "citations", "citation_errors")
+                "review_history", "memory_hits", "document_ids", "retrievals", "evidence", "citations", "citation_errors")
 # 允许更新的字段白名单：防止调用方误传脏字段（如 task_id / created_at）
 _ALLOWED_UPDATE = {"status", "topic", "plan", "current_step_index", "completed_steps",
                    "research_data", "draft_content", "final_report", "error",
                    "review_comments", "review_history", "iteration", "max_iterations",
-                   "passed", "forced_pass", "memory_hits", "evidence", "citations", "citation_errors",
+                   "passed", "forced_pass", "memory_hits", "document_ids", "retrievals", "evidence", "citations", "citation_errors",
                    "execution_status", "quality_status", "forced_output", "error_code"}
 
 
@@ -73,6 +73,8 @@ def _row_to_task(row) -> dict | None:
     task["memory_hits"] = _loads(task.get("memory_hits"), [])           # JSON -> list（长期记忆命中）
     task["citations"] = _loads(task.get("citations"), [])
     task["citation_errors"] = _loads(task.get("citation_errors"), [])
+    task["document_ids"] = json.loads(task.get("document_ids") or "[]")
+    task["retrievals"] = json.loads(task.get("retrievals") or "[]")
     task["evidence"] = _loads(task.get("evidence"), [])
     if "forced_output" in task:
         task["forced_output"] = bool(task["forced_output"])
@@ -112,6 +114,14 @@ def update_task(task_id: str, **fields) -> None:
         updates["status"] = updates["execution_status"] = status
     outcome_fields = {k: v for k, v in updates.items() if k in TaskOutcome.model_fields}
     TaskOutcome(task_id=task_id, **({"execution_status": "running", "quality_status": "pending", "forced_output": False} | outcome_fields))
+    from services.retrieval_service import DocumentSelection, RetrievalRecord
+    if "document_ids" in updates:
+        updates["document_ids"] = DocumentSelection(document_ids=updates["document_ids"]).document_ids
+    if "retrievals" in updates:
+        records = [RetrievalRecord.model_validate(r) for r in updates["retrievals"]]
+        if any(r.task_id != task_id for r in records):
+            raise ValueError("检索记录跨任务")
+        updates["retrievals"] = [r.model_dump() for r in records]
     if "evidence" in updates:
         updates["evidence"] = validate_sources(task_id, updates["evidence"])
     if "citations" in updates:

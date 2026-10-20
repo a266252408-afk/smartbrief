@@ -18,6 +18,7 @@ from rag import store as rag_store
 from skills.skills_manager import manager as skill_manager, MAX_ZIP_SIZE
 from tools import builtin_tools
 from services.file_security import MAX_DOCUMENT_BYTES
+from services.retrieval_service import DocumentSelection
 
 router = APIRouter(prefix="/api/v1", tags=["chat"])
 
@@ -30,7 +31,9 @@ class ChatRequest(BaseModel):
     history: list = Field(default_factory=list, description="历史消息（OpenAI 格式）")
 
 
-class GenerateRequest(BaseModel):
+
+
+class GenerateRequest(DocumentSelection):
     topic: str = Field(..., min_length=1, max_length=200, description="研究主题")
 
 
@@ -321,6 +324,7 @@ async def generate_task(req: GenerateRequest):
     topic = req.topic.strip()
     # 先写入任务初始记录（running），再后台执行（前端轮询 status 可见）
     task_repository.create_task(task_id, topic)
+    task_repository.update_task(task_id, document_ids=req.document_ids)
     asyncio.create_task(workflow.run_task(task_id, topic))
     return {"task_id": task_id, "status": "running", "topic": topic}
 

@@ -174,10 +174,12 @@ def list_documents(persist_dir: Optional[str] = None) -> List[dict]:
     grouped: dict = {}
     for item in items:
         meta = item["metadata"] or {}
-        key = (meta.get("category", ""), meta.get("source", ""))
+        key = (meta.get("category", ""), meta.get("document_id") or meta.get("source", ""))
         entry = grouped.setdefault(key, {
             "category": meta.get("category", ""),
             "source": meta.get("source", ""),
+            "document_id": meta.get("document_id"),
+            "display_name": meta.get("display_name", meta.get("source", "")),
             "file_type": meta.get("file_type", ""),
             "chunk_count": 0,
             "snippet": "",

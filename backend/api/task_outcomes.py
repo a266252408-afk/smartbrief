@@ -39,3 +39,15 @@ async def sources(request: Request, task_id: str):
     if data is None:
         return JSONResponse({"error": ApiError(code="TASK_NOT_FOUND", message="任务不存在", retryable=False, request_id=request.state.request_id).model_dump()}, status_code=404)
     return {"data": data, "meta": {"request_id": request.state.request_id}}
+
+
+@router.get("/{task_id}/retrievals")
+async def retrievals(request: Request, task_id: str):
+    from services.retrieval_service import get_retrievals
+    try:
+        data = get_retrievals(task_id)
+    except ValueError:
+        return JSONResponse({"error": ApiError(code="RETRIEVALS_INVALID", message="检索记录损坏，暂不可用", retryable=False, request_id=request.state.request_id).model_dump()}, status_code=500)
+    if data is None:
+        return JSONResponse({"error": ApiError(code="TASK_NOT_FOUND", message="任务不存在", retryable=False, request_id=request.state.request_id).model_dump()}, status_code=404)
+    return {"data": data, "meta": {"request_id": request.state.request_id}}

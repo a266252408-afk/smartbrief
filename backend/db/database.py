@@ -43,6 +43,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     forced_pass         INTEGER DEFAULT 0,   -- 是否因达循环上限被强制通过（0/1）
     citations           TEXT NOT NULL DEFAULT '[]',
     citation_errors     TEXT NOT NULL DEFAULT '[]',
+    document_ids        TEXT NOT NULL DEFAULT '[]',
+    retrievals          TEXT NOT NULL DEFAULT '[]',
     evidence            TEXT NOT NULL DEFAULT '[]',  -- 任务内来源，不反推历史证据
     memory_hits         TEXT,          -- JSON 数组（本次任务的长期记忆命中 [{"topic","score",...}]）
     created_at          TEXT DEFAULT (datetime('now','localtime')),  -- 创建时间
@@ -83,6 +85,8 @@ CREATE TABLE IF NOT EXISTS evaluation_reports (
 # 注意：加列必须同步修改 _SCHEMA、task_repository 的 _JSON_FIELDS/_ALLOWED_UPDATE、
 # workflow.run_task 落库与前端类型，五处缺一不可（见 CLAUDE.md 约定 12）。
 _MIGRATIONS = [
+    "ALTER TABLE tasks ADD COLUMN document_ids TEXT NOT NULL DEFAULT '[]'",
+    "ALTER TABLE tasks ADD COLUMN retrievals TEXT NOT NULL DEFAULT '[]'",
     "ALTER TABLE tasks ADD COLUMN review_comments TEXT",
     "ALTER TABLE tasks ADD COLUMN review_history TEXT",
     "ALTER TABLE tasks ADD COLUMN iteration INTEGER DEFAULT 0",

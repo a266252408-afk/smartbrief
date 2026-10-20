@@ -74,7 +74,109 @@
       "description": "T03已实现：执行与审核质量独立；v2任务/报告data与v1新增字段，forced_output不代表通过。"
     },
     "Evidence": {
-      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "pattern": "^S[1-9][0-9]*$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "task_id": {
+          "minLength": 1,
+          "title": "Task Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "web",
+            "document"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "excerpt": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Excerpt",
+          "type": "string"
+        },
+        "retrieved_at": {
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "document_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Document Id"
+        },
+        "chunk_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Chunk Id"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        },
+        "source_deleted": {
+          "default": false,
+          "title": "Source Deleted",
+          "type": "boolean"
+        }
+      },
       "required": [
         "source_id",
         "task_id",
@@ -83,120 +185,8 @@
         "excerpt",
         "retrieved_at"
       ],
-      "properties": {
-        "source_id": {
-          "type": "string",
-          "pattern": "^S[1-9][0-9]*$"
-        },
-        "task_id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "kind": {
-          "enum": [
-            "web",
-            "document"
-          ]
-        },
-        "title": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 500
-        },
-        "excerpt": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 4000
-        },
-        "retrieved_at": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "url": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "pattern": "^https?://"
-        },
-        "document_id": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "chunk_id": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "page": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "minimum": 1
-        },
-        "score": {
-          "type": [
-            "number",
-            "null"
-          ]
-        },
-        "source_deleted": {
-          "type": "boolean"
-        }
-      },
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "kind": {
-                "const": "web"
-              }
-            }
-          },
-          "then": {
-            "required": [
-              "url"
-            ],
-            "properties": {
-              "url": {
-                "type": "string",
-                "pattern": "^https?://"
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "kind": {
-                "const": "document"
-              }
-            }
-          },
-          "then": {
-            "required": [
-              "document_id",
-              "chunk_id"
-            ],
-            "properties": {
-              "document_id": {
-                "type": "string",
-                "minLength": 1
-              },
-              "chunk_id": {
-                "type": "string",
-                "minLength": 1
-              }
-            }
-          }
-        }
-      ],
-      "additionalProperties": false,
-      "description": "T04-01已实现：任务内服务端编号，web URL限定无凭证HTTP(S)，不从历史报告反推来源。"
+      "title": "Evidence",
+      "type": "object"
     },
     "Citation": {
       "type": "object",
@@ -415,12 +405,13 @@
           "maxLength": 200
         },
         "document_ids": {
-          "type": "array",
           "items": {
-            "type": "string",
-            "minLength": 1
+            "pattern": "^[a-f0-9]{32}$",
+            "type": "string"
           },
           "maxItems": 20,
+          "title": "Document Ids",
+          "type": "array",
           "uniqueItems": true
         }
       },
@@ -522,6 +513,119 @@
       },
       "additionalProperties": false,
       "description": "T02已实现，既有v1上传响应兼容新增字段"
+    },
+    "DocumentSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "document_ids": {
+          "items": {
+            "pattern": "^[a-f0-9]{32}$",
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Document Ids",
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "title": "DocumentSelection",
+      "type": "object"
+    },
+    "RetrievalOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "top_k": {
+          "default": 5,
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Top K",
+          "type": "integer"
+        },
+        "threshold": {
+          "default": 0.35,
+          "maximum": 1,
+          "minimum": -1,
+          "title": "Threshold",
+          "type": "number"
+        },
+        "context_budget": {
+          "default": 6000,
+          "maximum": 24000,
+          "minimum": 256,
+          "title": "Context Budget",
+          "type": "integer"
+        }
+      },
+      "title": "RetrievalOptions",
+      "type": "object"
+    },
+    "RetrievalRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "document_ids": {
+          "items": {
+            "pattern": "^[a-f0-9]{32}$",
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Document Ids",
+          "type": "array"
+        },
+        "task_id": {
+          "minLength": 1,
+          "title": "Task Id",
+          "type": "string"
+        },
+        "query": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Query",
+          "type": "string"
+        },
+        "options": {
+          "$ref": "#/$defs/RetrievalOptions"
+        },
+        "status": {
+          "enum": [
+            "not_selected",
+            "matched",
+            "no_hits",
+            "below_threshold",
+            "budget_excluded",
+            "documents_missing",
+            "embedding_failed",
+            "index_failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Code"
+        }
+      },
+      "required": [
+        "task_id",
+        "query",
+        "status"
+      ],
+      "title": "RetrievalRecord",
+      "type": "object"
     }
   }
 }

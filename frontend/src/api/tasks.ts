@@ -78,6 +78,8 @@ export interface MemoryHit {
 
 /** 任务详情（status 接口返回） */
 export interface TaskStatus extends TaskSummary {
+  document_ids?: string[]
+  retrievals?: RetrievalRecord[]
   evidence?: Evidence[]
   citations?: Citation[]
   citation_errors?: string[]
@@ -179,4 +181,15 @@ export async function resumeTask(taskId: string): Promise<{ task_id: string; sta
 export async function fetchTaskReport(taskId: string): Promise<TaskReport> {
   const { data } = await http.get(`/tasks/${taskId}/report`)
   return data as TaskReport
+}
+
+/** 上传文档检索的独立状态，不代表报告质量。 */
+export interface RetrievalRecord {
+  task_id: string
+  document_ids: string[]
+  query: string
+  options: { top_k: number; threshold: number; context_budget: number }
+  status: 'not_selected' | 'matched' | 'no_hits' | 'below_threshold' | 'budget_excluded' | 'documents_missing' | 'embedding_failed' | 'index_failed'
+  evidence: Evidence[]
+  error_code: string | null
 }
