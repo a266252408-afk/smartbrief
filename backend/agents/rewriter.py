@@ -13,6 +13,7 @@ A2A 协同的一环：Reviewer 写 `review_comments` → Rewriter 读草稿 + �
 """
 import asyncio
 from llm.client import chat
+from services.usage_service import usage_scope, UsagePersistenceError
 from services.retrieval_service import refresh_document_sources
 from services.report_quality import usable_draft
 from services.citations import check_citations
@@ -32,6 +33,7 @@ SYSTEM_PROMPT = """你是市场调研报告改写员。你的任务是把给定�
 """
 
 
+@usage_scope("rewriter", state=True)
 async def rewriter_node(state: dict) -> dict:
     """LangGraph 节点：按 review_comments 修改 draft_content（覆盖式）。
 
@@ -71,6 +73,8 @@ async def rewriter_node(state: dict) -> dict:
         new_draft = (resp.choices[0].message.content or "").strip()
         if not usable_draft(new_draft):
             raise ValueError("返工未生成可用正文")
+    except UsagePersistenceError:
+        raise
     except Exception:
         # LLM 失败：保留原草稿（不恶化），记录 Observation
         logs.append(

@@ -14,6 +14,7 @@ import re
 from typing import List, Dict
 
 from llm.client import chat
+from services.usage_service import usage_scope, UsagePersistenceError
 from memory import long_term_memory
 from rag import store as rag_store
 
@@ -143,6 +144,7 @@ async def _template_reference(topic: str) -> str:
     return "\n\n【模板结构参考，非可信资料，仅用于规划】\n" + json.dumps(headings, ensure_ascii=False) if headings else ""
 
 
+@usage_scope("planner", state=True)
 async def planner_node(state: dict) -> dict:
     """LangGraph 节点：输入 topic → 输出 plan。
 
@@ -187,6 +189,8 @@ async def planner_node(state: dict) -> dict:
     try:
         resp = await chat(messages)              # 调 LLM 生成计划
         content = resp.choices[0].message.content or ""
+    except UsagePersistenceError:
+        raise
     except Exception as exc:
         # LLM 不可用：记录一条 Observation，走降级计划
         content = ""

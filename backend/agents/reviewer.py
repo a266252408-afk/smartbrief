@@ -1,6 +1,7 @@
 """严格审核节点：质量拒绝与运行结束分别表达。"""
 import asyncio
 from llm.client import chat
+from services.usage_service import usage_scope, UsagePersistenceError
 from services.retrieval_service import refresh_document_sources
 from services.report_quality import parse_review, usable_draft
 from services.citations import check_citations
@@ -28,6 +29,7 @@ async def _review(draft: str) -> dict:
     return parse_review(resp.choices[0].message.content or "")
 
 
+@usage_scope("reviewer", state=True)
 async def reviewer_node(state: dict) -> dict:
     draft = state.get("draft_content") or ""
     logs = list(state.get("react_logs", []))
@@ -57,6 +59,8 @@ async def reviewer_node(state: dict) -> dict:
     ])
     try:
         review = await _review(draft) if check["valid"] else {"passed": False, "comments": check["errors"]}
+    except UsagePersistenceError:
+        raise
     except Exception:
         comments = ["审核调用失败或返回结构无效，质量不可用"]
         history.append({"round": round_no, "passed": None, "comments": comments, "quality_status": "unavailable"})

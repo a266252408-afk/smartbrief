@@ -11,6 +11,7 @@ from agents.scheduler import scheduler_node
 from db import task_repository
 from graph.state import AgentState
 from services.report_quality import usable_draft
+from services.usage_service import usage_scope
 from memory import checkpointer as cp_mod
 from memory import long_term_memory
 
@@ -119,6 +120,7 @@ async def _remember_task(task_id: str, topic: str, final_report: str) -> None:
         logger.warning("任务 %s 写入长期记忆不可用（报告保留）", task_id)
 
 
+@usage_scope("workflow", task=True)
 async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
     """执行完整流程：运行图 → 落库日志与最终状态。
 

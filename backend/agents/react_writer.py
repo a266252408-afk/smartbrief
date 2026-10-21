@@ -10,6 +10,7 @@ Writer 的行动是「调用 LLM 生成文本」而非调用外部搜索工具�
 import asyncio
 
 from llm.client import chat
+from services.usage_service import usage_scope, UsagePersistenceError
 from rag import store as rag_store
 from services.citations import evidence_context
 
@@ -41,6 +42,7 @@ async def _retrieve_terms(task: str) -> list:
         return []
 
 
+@usage_scope("writer")
 async def react_writer_run(task: str, step_id: int, logs: list, research_data: dict, evidence=None) -> str:
     """对单个 writing 步骤执行 ReAct 循环（行动 = llm_gen）。
 
@@ -102,6 +104,8 @@ async def react_writer_run(task: str, step_id: int, logs: list, research_data: d
     try:
         resp = await chat(messages)                  # 行动：调用 LLM 生成文本
         content = resp.choices[0].message.content or ""
+    except UsagePersistenceError:
+        raise
     except Exception as exc:
         # LLM 失败：返回占位文本 + Observation 记录（任务继续跑，不中断）
         content = f"（章节撰写失败：{exc}）"

@@ -8,6 +8,7 @@ import json
 import re
 
 from llm.client import chat
+from services.usage_service import usage_scope, UsagePersistenceError
 from services.citations import evidence_context
 from mcp_client.mcp_client import mcp_manager
 
@@ -90,6 +91,7 @@ async def _run_search(query: str, step_id: int, logs: list) -> dict:
         return {"error": str(exc)}
 
 
+@usage_scope("researcher")
 async def react_researcher_run(task: str, step_id: int, logs: list) -> dict:
     """对单个 research 步骤执行 ReAct 循环（最多 MAX_REACT_STEPS 轮）。
 
@@ -118,6 +120,8 @@ async def react_researcher_run(task: str, step_id: int, logs: list) -> dict:
         try:
             resp = await chat(messages)
             decision_text = resp.choices[0].message.content or ""
+        except UsagePersistenceError:
+            raise
         except Exception as exc:
             # LLM 决策失败：记录 Thought 后降级为直接搜索一次
             logs.append(

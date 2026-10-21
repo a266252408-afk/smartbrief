@@ -12,6 +12,7 @@ import re
 from types import SimpleNamespace
 
 from llm.client import chat
+from services.usage_service import usage_scope
 from mcp_client.mcp_client import mcp_manager
 from skills import skills_manager
 from tools import builtin_tools
@@ -235,6 +236,7 @@ def _to_assistant_message(message) -> dict:
     return msg
 
 
+@usage_scope("single_agent", standalone=True)
 async def run(user_input: str, history: list | None = None) -> dict:
     """单智能体对话入口。
 

@@ -13,6 +13,7 @@ import os
 
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
+from services.usage_service import measured_call
 
 # 加载 backend/.env（load_dotenv 默认读当前工作目录的 .env，无副作用可重复调用）
 load_dotenv()
@@ -51,4 +52,4 @@ async def chat(messages: list, tools: list | None = None, tool_choice: str | Non
         kwargs["tools"] = tools
     if tool_choice:
         kwargs["tool_choice"] = tool_choice
-    return await client.chat.completions.create(**kwargs)
+    return await measured_call(client.chat.completions.create, kwargs)

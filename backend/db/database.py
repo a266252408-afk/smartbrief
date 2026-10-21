@@ -19,6 +19,14 @@ DB_PATH = Path(__file__).resolve().parents[1] / "data.db"
 
 # 建表 SQL（幂等：IF NOT EXISTS 保证重复执行不报错）
 _SCHEMA = """
+-- T07逐调用账本；旧任务没有历史调用证据，不回填零用量。
+CREATE TABLE IF NOT EXISTS model_usage (
+    call_id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL,
+    data TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_model_usage_task ON model_usage(task_id);
+
 -- T06记忆权威登记；旧向量保持未验证，不回填为可信。
 CREATE TABLE IF NOT EXISTS memory_entries (
     memory_id TEXT PRIMARY KEY,

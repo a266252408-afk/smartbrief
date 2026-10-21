@@ -208,3 +208,21 @@ export async function regenerateTask(taskId: string): Promise<GenerateResult & {
   const { data } = await client.post(`/tasks/${encodeURIComponent(taskId)}/regenerate`)
   return data.data
 }
+
+/** T07逐调用用量；未知Token与费用显式null。 */
+export interface ModelUsage {
+  call_id: string
+  task_id: string
+  agent: string
+  model: string
+  status: 'success' | 'failed' | 'cancelled' | 'budget_exceeded'
+  duration_ms: number
+  input_tokens: number | null
+  output_tokens: number | null
+  usage_known: boolean
+  estimated_cost: number | null
+  currency: string | null
+  attempt: number
+  created_at: string
+  error_code: string | null
+}
