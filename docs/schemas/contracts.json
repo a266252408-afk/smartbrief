@@ -709,7 +709,8 @@
           },
           "maxItems": 20,
           "title": "Document Ids",
-          "type": "array"
+          "type": "array",
+          "uniqueItems": true
         },
         "topic": {
           "maxLength": 200,
@@ -1220,6 +1221,110 @@
       ],
       "title": "TaskCancelled",
       "type": "object"
+    },
+    "TaskResumed": {
+      "additionalProperties": false,
+      "properties": {
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "execution_status": {
+          "enum": [
+            "queued",
+            "running"
+          ],
+          "title": "Execution Status",
+          "type": "string"
+        },
+        "resumed": {
+          "title": "Resumed",
+          "type": "boolean"
+        },
+        "resume_mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "checkpoint",
+                "restart"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Resume Mode"
+        }
+      },
+      "required": [
+        "task_id",
+        "status",
+        "execution_status",
+        "resumed",
+        "resume_mode"
+      ],
+      "title": "TaskResumed",
+      "type": "object",
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "status": {
+                  "const": "queued"
+                },
+                "execution_status": {
+                  "const": "queued"
+                }
+              }
+            },
+            {
+              "properties": {
+                "status": {
+                  "const": "running"
+                },
+                "execution_status": {
+                  "const": "running"
+                },
+                "resumed": {
+                  "const": false
+                }
+              }
+            }
+          ]
+        },
+        {
+          "if": {
+            "properties": {
+              "resumed": {
+                "const": true
+              }
+            },
+            "required": [
+              "resumed"
+            ]
+          },
+          "then": {
+            "properties": {
+              "resume_mode": {
+                "enum": [
+                  "checkpoint",
+                  "restart"
+                ]
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }

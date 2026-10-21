@@ -28,9 +28,9 @@ test('选择上传资料，详情与报告展示检索片段，Word保留文档�
       { document_id: 'b'.repeat(32), source: '模板.md', category: 'template', chunk_count: 1 },
       { source: '旧资料.txt', category: 'upload', chunk_count: 1 }
     ] } })
-    else if (path === '/api/v1/generate') {
+    else if (path === '/api/v2/tasks') {
       submitted = route.request().postDataJSON()
-      await route.fulfill({ json: { task_id: task.task_id, status: 'running', topic: task.topic } })
+      await route.fulfill({ status: 202, json: { data: { task_id: task.task_id, status: 'queued', execution_status: 'queued', topic: task.topic }, meta: { request_id: 'fixture' } } })
     } else if (path.endsWith('/status')) await route.fulfill({ json: task })
     else if (path.endsWith('/report')) await route.fulfill({ json: { ...task, sources: evidence, title: task.topic,
       content_markdown: task.final_report, charts: [], executive_summary: { total_time: 1, react_loops: 1, memory_hit_count: 0 } } })

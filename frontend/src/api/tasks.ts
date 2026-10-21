@@ -35,6 +35,7 @@ export interface Citation {
 
 /** 任务摘要（列表项） */
 export interface TaskSummary extends TaskOutcome {
+  resume_mode?: 'checkpoint' | 'restart' | null
   regenerated_from?: string | null
   task_id: string
   topic: string
@@ -147,10 +148,23 @@ const http = createHttp({
   timeout: 15000
 })
 
+const controlHttp = createHttp({ baseURL: '/api/v2', timeout: 15000 })
+const pendingKeys = new Map<string, string>()
+async function taskAction<T>(path: string, body: object = {}): Promise<T> {
+  const request = JSON.stringify([path, body])
+  let key = pendingKeys.get(request)
+  if (!key) {
+    key = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('')
+    pendingKeys.set(request, key)
+  }
+  const { data } = await controlHttp.post(path, body, { headers: { 'Idempotency-Key': key } })
+  pendingKeys.delete(request)
+  return data.data as T
+}
+
 /** 提交研究任务（返回 task_id，立即返回） */
 export async function submitTask(topic: string, documentIds: string[] = []): Promise<GenerateResult> {
-  const { data } = await http.post('/generate', documentIds.length ? { topic, document_ids: documentIds } : { topic })
-  return data as GenerateResult
+  return taskAction<GenerateResult>('/tasks', documentIds.length ? { topic, document_ids: documentIds } : { topic })
 }
 
 /** 任务列表（分页 + 状态过滤 + 主题搜索 + 时间排序） */
@@ -180,9 +194,8 @@ export async function deleteTask(taskId: string): Promise<{ task_id: string; del
 }
 
 /** 恢复任务：暂停/失败的任务从最近 checkpoint 断点续跑 */
-export async function resumeTask(taskId: string): Promise<{ task_id: string; status: string; resumed: boolean }> {
-  const { data } = await http.post(`/tasks/${taskId}/resume`)
-  return data as { task_id: string; status: string; resumed: boolean }
+export async function resumeTask(taskId: string): Promise<TaskResumed> {
+  return taskAction<TaskResumed>(`/tasks/${encodeURIComponent(taskId)}/resume`)
 }
 
 /** 任务报告：最终报告 Markdown + 执行摘要（仅已完成任务可获取） */
@@ -204,9 +217,7 @@ export interface RetrievalRecord {
 
 /** 生成新任务并保留原任务溯源。 */
 export async function regenerateTask(taskId: string): Promise<GenerateResult & { regenerated_from: string }> {
-  const client = createHttp({ baseURL: '/api/v2', timeout: 15000 })
-  const { data } = await client.post(`/tasks/${encodeURIComponent(taskId)}/regenerate`)
-  return data.data
+  return taskAction<GenerateResult & { regenerated_from: string }>(`/tasks/${encodeURIComponent(taskId)}/regenerate`)
 }
 
 /** T07逐调用用量；未知Token与费用显式null。 */
@@ -264,4 +275,16 @@ export interface TaskCancelled {
   execution_status: 'cancelled'
   cancelled: true
   already_cancelled: boolean
+}
+
+export interface TaskResumed {
+  task_id: string
+  status: 'queued' | 'running'
+  execution_status: 'queued' | 'running'
+  resumed: boolean
+  resume_mode: 'checkpoint' | 'restart' | null
+}
+
+export async function cancelTask(taskId: string): Promise<TaskCancelled> {
+  return taskAction<TaskCancelled>(`/tasks/${encodeURIComponent(taskId)}/cancel`)
 }

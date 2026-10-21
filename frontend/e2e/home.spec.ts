@@ -25,12 +25,12 @@ for (const failFirst of [false, true]) {
       const path = new URL(request.url()).pathname
       if (path === '/api/v2/auth/session') {
         await route.fulfill({ json: { data: { role: 'admin' }, meta: { request_id: 'fixture' } } })
-      } else if (path === '/api/v1/generate' && request.method() === 'POST') {
+      } else if (path === '/api/v2/tasks' && request.method() === 'POST') {
         requests.push(request.postDataJSON())
         if (failFirst && requests.length === 1) {
-          await route.fulfill({ status: 503, json: { detail: '固定服务故障' } })
+          await route.fulfill({ status: 503, json: { error: { message: '固定服务故障' } } })
         } else {
-          await route.fulfill({ json: { task_id: fixture.task_id, status: 'running', topic: fixture.topic } })
+          await route.fulfill({ status: 202, json: { data: { task_id: fixture.task_id, status: 'queued', execution_status: 'queued', topic: fixture.topic }, meta: { request_id: 'fixture' } } })
         }
       } else if (path === `/api/v1/tasks/${fixture.task_id}/status`) {
         await route.fulfill({ json: fixture })

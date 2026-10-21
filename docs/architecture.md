@@ -71,3 +71,15 @@ v2 memory提供分页、五状态过滤和管理员墓碑删除；索引删除�
 MAX_TASK_TOKENS默认20000，MODEL_COMPLETION_RESERVE默认2048，MODEL_TIMEOUT_SECONDS默认60，MODEL_MAX_RETRIES默认1。消息及工具UTF-8字节数加完成预留用于调用前保守估算；成功已知Token后按供应商值结算，未知/失败按预留扣账，旧未知无预留按当前预算扣满。同任务并发事务保护，恢复读取持久化账本。分词器和供应商用量可能不同，不能宣称严格Token或金额封顶。
 
 MODEL_PRICES_JSON可按模型指定每百万输入/输出单价与三字母币种，无默认值；费用按调用时配置估算并持久化，价格变化不重估历史，不同币种分开统计。v2 tasks/{id}/usage统一包对管理员/只读开放，未知任务404、损坏/不可用503；旧任务无记录显示未知而非零，v1形状保留。TaskDetail按需查看和轮询，切任务/卸载拒绝迟到响应；JSON导出只含结构化账本，费用部分已知时不称总额。
+
+## 受控任务生命周期（T08）
+
+单worker的TaskService持有句柄和信号量，MAX_CONCURRENT_TASKS默认2。v2创建返回202/queued，v1保留200与原键并报告真实queued；提交、重生成、恢复与评测共用队列。SQLite条件领取生成内部运行租约，重复调度不重复执行。同业务库实例锁拒绝第二个任务worker；环境workers配置>1也拒绝。关闭等待句柄并将running留为paused，queued可靠保留；启动只领取queued，原running先转paused。
+
+取消先在事务中提交cancelled/not_run和唯一审计，再通知句柄；完成和取消用running/租约条件竞争，最终状态与完整图日志同事务。成功取消后旧回调不能完成任务或进入后续Agent/记忆。不可中断的线程I/O可能结束当前操作，租约阻止后续步骤与结果写入；已完成任务不接受取消。
+
+动作凭据与创建/取消/恢复/重生成同事务，Idempotency-Key仅存SHA256摘要；按动作、目标和规范请求体校验，冲突409，重复同请求返回历史接收结果。无Key的创建不保证去重。删除任务不会清除幂等凭据或令历史Key重新生成任务。恢复仅paused/failed可重新排队，queued/running重复请求不新增执行，cancelled/completed拒绝；恢复不清空用量预算。
+
+持久化图有next节点才称checkpoint续跑；终止、缺失、损坏或执行时失效会明确restart，从头重新检索。SQLite检查点不可用时清理连接后使用临时内存状态，不修改损坏原文件。resume_mode是实际运行结果的一部分；内部run_token/resume_requested不进入API。旧记录不伪造恢复模式或动作历史。
+
+前端创建/取消/恢复/重生成用v2并在失败重试时保留同一Key；详情与列表识别queued/cancelled，队列持续轮询，运行中可取消。后台轮询不遮挡操作，按请求版本号拒收同ID和跨ID迟到响应；只读禁写，失败不假称成功，实际从头重试/断点续跑明确展示。Windows实例互斥实际验证；Linux实例锁分支和容器恢复留T10/T13，不以本机测试冒充跨平台验收。

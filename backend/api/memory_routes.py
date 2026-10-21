@@ -49,15 +49,18 @@ async def regenerate(request: Request, task_id: str):
     from services.task_service import get_task_service, TaskControlError
     try:
         service = get_task_service()
+        from api.task_control_routes import empty_action
+        await empty_action(request)
     except TaskControlError as exc:
         return failure(request, exc.status, exc.code, str(exc))
     try:
-        result = await asyncio.to_thread(task_regeneration.prepare_regeneration,task_id)
+        result = await service.regenerate(task_id,key=request.headers.get("Idempotency-Key"))
+    except TaskControlError as exc:
+        return failure(request,exc.status,exc.code,str(exc))
     except task_regeneration.TaskNotTerminal:
         return failure(request,409,"TASK_NOT_TERMINAL","运行或排队中的任务不能重新生成")
     except Exception:
         return failure(request,503,"TASK_CREATE_FAILED","新任务创建失败")
     if result is None:
         return failure(request,404,"TASK_NOT_FOUND","原任务不存在")
-    service.schedule(result["task_id"])
     return success(request,result)

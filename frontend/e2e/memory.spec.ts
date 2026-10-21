@@ -33,7 +33,7 @@ async function setup(page: Page, role: 'admin' | 'readonly' = 'admin', unavailab
       mutations.push(path)
       const first = path.includes('/old/')
       await route.fulfill({ json: { data: { task_id: first ? 'new' : 'new2', topic: '新报告',
-        status: 'running', regenerated_from: first ? 'old' : 'new' }, meta: { request_id: 'fixture' } } })
+        status: 'queued', regenerated_from: first ? 'old' : 'new' }, meta: { request_id: 'fixture' } } })
     } else if (path === '/api/v1/tasks/new/status' || path === '/api/v1/tasks/new2/status') {
       const second = path.includes('/new2/'), running = second && ++secondReads === 1
       await route.fulfill({ json: { task_id: second ? 'new2' : 'new', regenerated_from: second ? 'new' : 'old',

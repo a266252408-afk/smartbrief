@@ -14,9 +14,9 @@ test('无效令牌、只读拒绝写入和401重新认证', async ({ page }) => 
       await route.fulfill(token === 'Bearer fixture-readonly' ?
         { json: { data: { role:'readonly' }, meta:{ request_id:'fixture' } } } :
         { status:401, json:{ error:{ message:'无效令牌' } } })
-    } else if (path === '/api/v1/generate') {
+    } else if (path === '/api/v2/tasks') {
       expect(token).toBe('Bearer fixture-readonly')
-      await route.fulfill({ status:403, json:{ detail:'只读令牌无权执行此操作' } })
+      await route.fulfill({ status:403, json:{ error:{ message:'只读令牌无权执行此操作' } } })
     } else if (path === '/api/v1/tasks') {
       await route.fulfill({ status:401, json:{ detail:'凭证已失效' } })
     } else { unexpected.push(path); await route.fulfill({ status:500 }) }

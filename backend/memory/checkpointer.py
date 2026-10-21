@@ -65,9 +65,16 @@ async def open_checkpointer(
         # "generator didn't stop after athrow()"。
         opener = AsyncSqliteSaver.from_conn_string(str(path))
         cp = await opener.__aenter__()
+        await cp.setup()  # 真正验证库可用，不能等图执行后才发现损坏。
         kind = "sqlite"
-    except Exception as exc:  # pragma: no cover - 依赖缺失/文件异常降级路径
-        logger.warning("SQLite Checkpointer 不可用（%s），降级为进程内 MemorySaver", exc)
+    except Exception:
+        logger.warning("SQLite Checkpointer 不可用，使用临时状态从头重试")
+        if opener is not None:
+            try:
+                await opener.__aexit__(None,None,None)
+            except Exception:
+                logger.warning("不可用检查点连接清理失败")
+            opener = None
         cp = _get_memory_saver()
         kind = "memory"
     try:
@@ -78,17 +85,8 @@ async def open_checkpointer(
             await opener.__aexit__(None, None, None)
 
 
-def _latest_on(cp: Any, task_id: str):
-    """取某任务（thread_id）的最新快照（async/同步 Saver 方法兼容）。"""
-    config = {"configurable": {"thread_id": task_id}}
-    aget = getattr(cp, "aget_tuple", None)
-    if aget is not None:
-        return aget(config)          # AsyncSqliteSaver / 新版 MemorySaver → await
-    return cp.get_tuple(config)      # 旧版同步 MemorySaver
-
-
 def has_checkpoint(task_id: str, db_path: Optional[str] = None) -> bool:
-    """（同步只读）指定任务（thread_id）是否存在可续跑的快照。"""
+    """（同步只读）是否存在快照；是否仍有待执行节点由resumable_mode判断。"""
     path = Path(db_path or CHECKPOINT_DB)
     try:
         from langgraph.checkpoint.sqlite import SqliteSaver
@@ -100,16 +98,6 @@ def has_checkpoint(task_id: str, db_path: Optional[str] = None) -> bool:
         return _get_memory_saver().get_tuple(
             {"configurable": {"thread_id": task_id}}
         ) is not None
-
-
-async def async_has_checkpoint(cp: Any, task_id: str) -> bool:
-    """在已打开的 Checkpointer（连接内）上查询是否有可续跑快照。"""
-    try:
-        latest = await _latest_on(cp, task_id)
-        return latest is not None
-    except Exception as exc:  # pragma: no cover - 依赖异常路径
-        logger.warning("查询任务 %s 快照失败：%s", task_id, exc)
-        return False
 
 
 def list_snapshots(task_id: str, db_path: Optional[str] = None) -> List[Dict]:
@@ -152,3 +140,18 @@ def reset_checkpointer() -> None:
     """清空进程内 MemorySaver 单例（测试隔离用：换临时库文件前调用）。"""
     global _memory_saver
     _memory_saver = None
+
+
+def resumable_mode(task_id: str) -> str:
+    """只有持久化图仍有后续节点才称断点续跑；不把终止快照当作可恢复。"""
+    if not CHECKPOINT_DB.is_file():
+        return "restart"
+    try:
+        from langgraph.checkpoint.sqlite import SqliteSaver
+        from graph.workflow import build_graph
+        with SqliteSaver.from_conn_string(str(CHECKPOINT_DB)) as cp:
+            state = build_graph(checkpointer=cp).get_state({"configurable":{"thread_id":task_id}})
+            return "checkpoint" if state.next else "restart"
+    except Exception:
+        logger.warning("任务 %s 持久化检查点不可续跑，将从头重试",task_id)
+        return "restart"

@@ -17,6 +17,7 @@ _JSON_FIELDS = ("plan", "completed_steps", "research_data", "review_comments",
                 "review_history", "memory_hits", "document_ids", "retrievals", "evidence", "citations", "citation_errors")
 # 允许更新的字段白名单：防止调用方误传脏字段（如 task_id / created_at）
 _ALLOWED_UPDATE = {"status", "topic", "plan", "current_step_index", "completed_steps",
+                   "resume_mode",
                    "research_data", "draft_content", "final_report", "error",
                    "review_comments", "review_history", "iteration", "max_iterations",
                    "passed", "forced_pass", "memory_hits", "document_ids", "retrievals", "evidence", "citations", "citation_errors",
@@ -66,6 +67,7 @@ def _row_to_task(row) -> dict | None:
         return None
     task = dict(row)
     task.pop("run_token", None)  # 内部写入租约不进入v1/v2产品响应。
+    task.pop("resume_requested", None)
     task["plan"] = _loads(task.get("plan"), [])                 # JSON -> list
     task["completed_steps"] = _loads(task.get("completed_steps"), [])  # JSON -> list
     task["research_data"] = _loads(task.get("research_data"), {})       # JSON -> dict
@@ -82,7 +84,7 @@ def _row_to_task(row) -> dict | None:
     return task
 
 
-def create_task(task_id: str, topic: str, *, document_ids: list[str] | None = None, regenerated_from: str | None = None, initial_status: str = "running") -> None:
+def create_task(task_id: str, topic: str, *, document_ids: list[str] | None = None, regenerated_from: str | None = None, initial_status: str = "running", _connection=None) -> None:
     """插入一条任务初始记录（status 默认 running）。
 
     由 API 层在提交任务时调用（后台工作流启动之前），
@@ -92,11 +94,16 @@ def create_task(task_id: str, topic: str, *, document_ids: list[str] | None = No
     selected = DocumentSelection(document_ids=document_ids or []).document_ids
     if initial_status not in {"queued", "running"}:
         raise ValueError("初始任务必须排队或运行")
-    with get_connection() as conn:
+    def insert(conn):
         conn.execute(
             "INSERT INTO tasks (task_id, topic, document_ids, regenerated_from,status,execution_status) VALUES (?, ?, ?, ?,?,?)",
             (task_id, topic, _dumps(selected), regenerated_from,initial_status,initial_status),
         )
+    if _connection is not None:
+        insert(_connection)
+    else:
+        with get_connection() as conn:
+            insert(conn)
 
 
 def update_task(task_id: str, *, _connection=None, _require_running=False, **fields) -> None:
@@ -182,13 +189,13 @@ def get_task(task_id: str) -> dict | None:
 
 
 def mark_interrupted_tasks_as_paused(
-    message: str = "服务中断：任务已暂停，可点「恢复执行」从断点续跑",
+    message: str = "服务中断：任务已暂停；恢复时将检查快照，必要时从头重试",
 ) -> int:
     """后端重启后清理：把上次进程遗留的 running 任务统一置为 paused。
 
     进程被强杀 / 重启时没有任何机会把 running 改成终态（completed / failed），
     这些"僵尸 running"由 lifespan 启动扫描一次性归位为 paused；
-    用户随后点「恢复执行」→ POST /tasks/{id}/resume → 从 SqliteSaver 断点续跑。
+    用户随后点恢复；存在待执行节点则续跑，否则明确从头重试。
 
     :param message: 写入 error 列的中断说明（前端详情可展示）
     :return: 被置为 paused 的任务数
@@ -264,7 +271,7 @@ def list_tasks(
         # 2) 再查本页数据（按时间排序，LIMIT/OFFSET 分页）
         rows = conn.execute(
             f"SELECT task_id, topic, status, plan, current_step_index, completed_steps, "
-            f"execution_status, quality_status, forced_output, error_code, created_at, updated_at FROM tasks {where} "
+            f"resume_mode, execution_status, quality_status, forced_output, error_code, created_at, updated_at FROM tasks {where} "
             f"ORDER BY created_at {direction}, task_id {direction} LIMIT ? OFFSET ?",
             params + [limit, offset],
         ).fetchall()

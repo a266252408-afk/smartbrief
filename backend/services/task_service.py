@@ -1,15 +1,24 @@
 """单worker任务队列服务；生命周期与句柄归属集中管理。"""
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing import Literal
 import asyncio
 import logging
 import os
-from uuid import uuid4
+import hashlib
+import re
 
 from db import database, task_repository, task_control_repository as controls
 from services.retrieval_service import DocumentSelection
 
 logger = logging.getLogger(__name__)
+
+
+def key_digest(key):
+    if key is None:
+        return None
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{1,128}",key):
+        raise TaskControlError("INVALID_IDEMPOTENCY_KEY","幂等键须为1至128位字母、数字或._:-",422)
+    return hashlib.sha256(key.encode()).hexdigest()
 
 
 class TaskControlError(RuntimeError):
@@ -53,6 +62,21 @@ class TaskCancelled(BaseModel):
     already_cancelled: bool
 
 
+class TaskResumed(BaseModel):
+    model_config = ConfigDict(extra="forbid",strict=True)
+    task_id: str
+    status: Literal["queued","running"]
+    execution_status: Literal["queued","running"]
+    resumed: bool
+    resume_mode: Literal["checkpoint","restart"] | None
+
+    @model_validator(mode="after")
+    def consistent(self):
+        if self.status != self.execution_status or self.resumed and (self.status != "queued" or self.resume_mode is None):
+            raise ValueError("恢复接收状态不一致")
+        return self
+
+
 class TaskService:
     def __init__(self, *, max_concurrency=2, runner=None):
         if type(max_concurrency) is not int or max_concurrency < 1:
@@ -68,33 +92,38 @@ class TaskService:
         for task_id in controls.queued_ids():
             self.schedule(task_id)
 
-    async def submit(self, topic, document_ids=None):
+    async def submit(self, topic, document_ids=None, *, key=None):
         if self.closing:
             raise TaskControlError("TASK_SERVICE_STOPPED", "任务服务正在关闭")
-        task_id = "task_" + uuid4().hex
+        digest = key_digest(key)
         try:
             body = TaskCreateRequest(topic=topic, document_ids=document_ids or [])
         except ValueError:
             raise TaskControlError("INVALID_TASK_REQUEST", "主题或文档选择无效", 422) from None
         try:
-            task_repository.create_task(task_id, body.topic, document_ids=body.document_ids, initial_status="queued")
+            result = controls.create_job(body.topic,body.document_ids,key=digest)
+            result = TaskAccepted.model_validate(result).model_dump()
+        except TaskControlError:
+            raise
         except Exception:
             raise TaskControlError("TASK_CREATE_FAILED", "任务创建失败") from None
-        self.schedule(task_id)
-        return TaskAccepted(task_id=task_id, topic=body.topic).model_dump()
+        self.schedule(result["task_id"])
+        return result
 
-    def schedule(self, task_id, *, resume=False):
+    def schedule(self, task_id, *, resume=False, replace=False):
         if self.closing:
             raise TaskControlError("TASK_SERVICE_STOPPED", "任务服务正在关闭")
         handle = self.handles.get(task_id)
-        if handle is None or handle.done():
+        if replace and handle is not None:
+            handle.cancel()
+        if replace or handle is None or handle.done():
             handle = asyncio.create_task(self._execute(task_id, resume))
             self.handles[task_id] = handle
             handle.add_done_callback(lambda done: self.handles.pop(task_id, None) if self.handles.get(task_id) is done else None)
         return handle
 
     async def _execute(self, task_id, resume):
-        from services.execution_context import execution_lease
+        from services.execution_context import execution_lease, ExecutionStopped
         context = None
         try:
             async with self.semaphore:
@@ -103,6 +132,7 @@ class TaskService:
                     return
                 context = execution_lease.set((task_id,token))
                 task = task_repository.get_task(task_id)
+                resume = resume or controls.requested_resume(task_id)
                 if self.runner is None:
                     from graph.workflow import run_task
                     await run_task(task_id, task["topic"], resume=resume)
@@ -120,20 +150,24 @@ class TaskService:
                 logger.warning("任务 %s 暂停状态不可用，留待启动时复核", task_id)
         except Exception:
             logger.warning("任务执行或持久化不可用，任务 %s 保留实际落库状态", task_id)
-            try:
-                current = task_repository.get_task(task_id)
-                if current and current["execution_status"] == "running":
-                    task_repository.update_task(task_id, status="failed", quality_status="not_run",
+            if context is not None:
+                try:
+                    # 只使用已领取租约条件写终态，不依赖可能损坏的任务JSON重读。
+                    task_repository.update_task(task_id, _require_running=True, status="failed", quality_status="not_run",
+                        forced_output=False, forced_pass=False, passed=False,
                         error_code="TASK_EXECUTION_FAILED", error="任务执行失败")
-            except Exception:
-                logger.warning("任务 %s 状态写入不可用，不能标记成功", task_id)
+                except ExecutionStopped:
+                    pass  # 取消/完成/新租约已先赢得状态竞争，不覆盖。
+                except Exception:
+                    logger.warning("任务 %s 状态写入不可用，不能标记成功", task_id)
         finally:
             if context is not None:
                 execution_lease.reset(context)
 
-    async def cancel(self, task_id):
+    async def cancel(self, task_id, *, key=None):
+        digest = key_digest(key)
         try:
-            already = controls.cancel(task_id)
+            result = TaskCancelled.model_validate(controls.cancel(task_id,key=digest)).model_dump()
         except TaskControlError:
             raise
         except Exception:
@@ -141,7 +175,33 @@ class TaskService:
         handle = self.handles.get(task_id)
         if handle is not None:
             handle.cancel()
-        return TaskCancelled(task_id=task_id,already_cancelled=already).model_dump()
+        return result
+
+    async def resume(self, task_id, *, key=None):
+        if self.closing:
+            raise TaskControlError("TASK_SERVICE_STOPPED","任务服务正在关闭")
+        from memory.checkpointer import resumable_mode
+        digest = key_digest(key)
+        try:
+            mode = await asyncio.to_thread(resumable_mode,task_id)
+            result,fresh = controls.resume(task_id,mode,key=digest)
+            result = TaskResumed.model_validate(result).model_dump()
+        except TaskControlError:
+            raise
+        except Exception:
+            raise TaskControlError("TASK_RESUME_FAILED","任务恢复持久化失败") from None
+        if result["status"] == "queued":
+            self.schedule(task_id,replace=fresh)
+        return result
+
+    async def regenerate(self, task_id, *, key=None):
+        if self.closing:
+            raise TaskControlError("TASK_SERVICE_STOPPED","任务服务正在关闭")
+        from services.task_regeneration import prepare_regeneration
+        result = await asyncio.to_thread(prepare_regeneration,task_id,key_digest(key))
+        if result is not None:
+            self.schedule(result["task_id"])
+        return result
 
     async def wait(self, task_id):
         handle = self.handles.get(task_id)

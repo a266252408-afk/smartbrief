@@ -1,15 +1,16 @@
 <script setup lang="ts">
+import TaskControls from '../components/TaskControls.vue'
 import UsagePanel from '../components/UsagePanel.vue'
 import RetrievalPanel from '../components/RetrievalPanel.vue'
 import QualityBadge from '../components/QualityBadge.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { renderReport, escapeHtml } from '../utils/report'
 import '../styles/report.css'
 import html2pdf from 'html2pdf.js'
 import { authRole } from '../api/session'
-import { fetchTaskStatus, resumeTask, regenerateTask, type TaskStatus, type ReactLog, type ReviewRound } from '../api/tasks'
+import { fetchTaskStatus, regenerateTask, type TaskStatus, type ReactLog, type ReviewRound } from '../api/tasks'
 
 const route = useRoute()
 const router = useRouter()
@@ -20,19 +21,21 @@ const detail = ref<TaskStatus | null>(null)
 const loading = ref(false)
 const notFound = ref(false)
 const pollTimer = ref<number | null>(null)
+let refreshVersion = 0
 
 // ---------------- 轮询 ----------------
 
 async function refresh() {
   const requestedId = taskId.value
-  loading.value = true
+  const version = ++refreshVersion
+  loading.value = detail.value === null
   try {
     const result = await fetchTaskStatus(requestedId)
-    if (requestedId !== taskId.value) return
+    if (requestedId !== taskId.value || version !== refreshVersion) return
     detail.value = result
     notFound.value = false
   } catch (e: any) {
-    if (requestedId !== taskId.value) return
+    if (requestedId !== taskId.value || version !== refreshVersion) return
     if (e?.response?.status === 404) {
       notFound.value = true
       stopPolling()
@@ -40,7 +43,7 @@ async function refresh() {
       ElMessage.error('获取任务状态失败')
     }
   } finally {
-    if (requestedId === taskId.value) loading.value = false
+    if (requestedId === taskId.value && version === refreshVersion) loading.value = false
   }
 }
 
@@ -54,7 +57,7 @@ function stopPolling() {
 function startPolling() {
   stopPolling()
   pollTimer.value = window.setInterval(() => {
-    if (detail.value?.status === 'running') {
+    if (['queued', 'running'].includes(detail.value?.status ?? '')) {
       void refresh()
     } else {
       stopPolling()
@@ -67,15 +70,17 @@ onMounted(async () => {
   startPolling()
 })
 
-onBeforeUnmount(stopPolling)
+onBeforeUnmount(() => { refreshVersion++; stopPolling() })
 
 // ---------------- 派生数据 ----------------
 
-const isRunning = computed(() => detail.value?.status === 'running')
+const isRunning = computed(() => ['queued', 'running'].includes(detail.value?.status ?? ''))
 
 /** 状态标签（含paused：服务中断后由后端启动扫描自动标记） */
 const statusInfo = computed<{ label: string; type: 'primary' | 'warning' | 'success' | 'danger' | 'info' }>(() => {
   const s = detail.value?.status
+  if (s === 'queued') return { label: '排队中', type: 'warning' }
+  if (s === 'cancelled') return { label: '已取消', type: 'info' }
   if (s === 'running') return { label: '执行中', type: 'primary' }
   if (s === 'paused') return { label: '已暂停', type: 'warning' }
   if (s === 'completed') return { label: '执行完成', type: 'info' }
@@ -88,6 +93,7 @@ function stepState(stepId: number): 'done' | 'running' | 'pending' {
   if (!detail.value) return 'pending'
   const completed = detail.value.completed_steps ?? []
   if (completed.includes(stepId)) return 'done'
+  if (detail.value.status !== 'running') return 'pending'
   // 第一个未完成步骤视为当前正在执行
   const firstPending = planSteps.value.find((s) => !completed.includes(s.id))
   return firstPending && firstPending.id === stepId ? 'running' : 'pending'
@@ -205,35 +211,10 @@ const iterationText = computed(() => {
 /** 审核状态与执行状态独立，旧passed字段不作为质量判据。 */
 const showReviewPanel = computed(() => !!detail.value)
 
-// ---------------- 断点续跑 ----------------
-
-const resuming = ref(false)
-
-async function onResume() {
-  const status = detail.value?.status
-  if (status !== 'paused') {
-    return // 恢复入口仅对「已暂停」任务开放；执行中/失败/已完成任务不需要恢复
-  }
-  try {
-    await ElMessageBox.confirm(
-      '该任务因服务中断已自动暂停。确认从最近 checkpoint 断点续跑，继续完成剩余步骤吗？',
-      '恢复执行',
-      { type: 'warning', confirmButtonText: '断点续跑', cancelButtonText: '取消' }
-    )
-  } catch {
-    return
-  }
-  resuming.value = true
-  try {
-    await resumeTask(taskId.value)
-    ElMessage.success('任务已恢复，正在从最近 checkpoint 断点续跑…')
-    startPolling()
-    await refresh()
-  } catch (e: any) {
-    ElMessage.error(e?.response?.data?.detail || '恢复任务失败，请检查后端服务')
-  } finally {
-    resuming.value = false
-  }
+async function onControlled() {
+  await refresh()
+  if (isRunning.value) startPolling()
+  else stopPolling()
 }
 
 // ---------------- 长期记忆命中 ----------------
@@ -334,13 +315,7 @@ watch(() => route.params.taskId, async value => {
         </p>
       </div>
       <div class="header-actions">
-        <el-button
-          v-if="detail && detail.status === 'paused'"
-          type="warning"
-          :loading="resuming"
-          :disabled="loading"
-          @click="onResume"
-        >恢复执行</el-button>
+        <TaskControls v-if="detail" :task-id="taskId" :status="detail.status" @changed="onControlled" />
         <el-button v-if="detail && !['running', 'queued'].includes(detail.execution_status)" :disabled="authRole === 'readonly'" :loading="regenerating" @click="onRegenerate">重新生成</el-button>
         <el-button :loading="loading" @click="refresh">刷新</el-button>
       </div>
@@ -428,6 +403,8 @@ watch(() => route.params.taskId, async value => {
         </div>
       </div>
     </el-card>
+
+    <p v-if="detail?.resume_mode" class="hint">本次恢复：{{ detail.resume_mode === 'checkpoint' ? '断点续跑' : '从头重试' }}</p>
 
     <UsagePanel v-if="detail" :task-id="taskId" :running="isRunning" />
 

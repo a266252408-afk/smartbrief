@@ -25,7 +25,7 @@ def route_after_review(state: dict) -> str:
 
 
 
-def build_graph(checkpointer=None):
+def build_graph(checkpointer=None, *, interrupt_before=None):
     """构建并编译 LangGraph（带 Reviewer/Rewriter 条件循环；Checkpointer）。
 
     实现说明：
@@ -49,7 +49,7 @@ def build_graph(checkpointer=None):
         {"passed": END, "rewrite": "rewriter"},      # 通过 → 结束；不通过 → 返工
     )
     graph.add_edge("rewriter", "reviewer")           # 返工完 → 再次审核（条件循环）
-    return graph.compile(checkpointer=checkpointer)
+    return graph.compile(checkpointer=checkpointer,interrupt_before=interrupt_before)
 
 
 def _initial_state(task_id: str, topic: str) -> AgentState:
@@ -67,6 +67,7 @@ def _initial_state(task_id: str, topic: str) -> AgentState:
         "citation_errors": [],
         "required_citations": [],
         "task_id": task_id,           # 任务 id（也是后续 checkpoint 的 thread_id）
+        "resume_mode": None,
         "execution_status": "running",
         "quality_status": "pending",
         "forced_output": False,
@@ -142,10 +143,22 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
         async with cp_mod.open_checkpointer() as (cp, _kind):
             graph = build_graph(checkpointer=cp)
             config = {"configurable": {"thread_id": task_id}}
-            if resume and await cp_mod.async_has_checkpoint(cp, task_id):
+            mode = None
+            if resume:
+                try:
+                    snapshot = await graph.aget_state(config) if _kind == "sqlite" else None
+                    mode = "checkpoint" if snapshot is not None and snapshot.next else "restart"
+                except Exception:
+                    mode = "restart"
+                task_repository.update_task(task_id,resume_mode=mode)
+            if mode == "checkpoint":
                 # 断点续跑：不传 input，LangGraph 从最近快照继续未完成的节点
                 final = await graph.ainvoke(None, config)
             else:
+                if mode == "restart":
+                    await cp.adelete_thread(task_id)
+                    from db.task_control_repository import reset_for_restart
+                    reset_for_restart(task_id,initial)
                 if initial["document_ids"]:
                     record = await asyncio.to_thread(retrieve_documents, topic, initial["document_ids"], task_id=task_id)
                     initial["retrievals"] = [record]
@@ -154,11 +167,12 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
                 final = await graph.ainvoke(initial, config)          # 新任务从头跑
         failed = final.get("execution_status") == "failed" or not usable_draft(final.get("draft_content"))
         final_report = None if failed else final["draft_content"]
-        final.update(execution_status="failed" if failed else "completed",
+        final.update(execution_status="failed" if failed else "completed",resume_mode=mode,
                      quality_status="not_run" if failed else final.get("quality_status", "unknown"))
         task_repository.finalize_task(
             task_id, dict(
             status=final["execution_status"],
+            resume_mode=mode,
             quality_status=final.get("quality_status", "unknown"),
             forced_output=bool(final.get("forced_output", final.get("forced_pass"))),
             error_code=final.get("error_code"),

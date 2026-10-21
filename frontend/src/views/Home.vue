@@ -34,10 +34,10 @@ async function onSubmit() {
   submitting.value = true
   try {
     const result = documentIds.value.length ? await submitTask(value, documentIds.value) : await submitTask(value)
-    ElMessage.success(`任务已提交：${result.task_id}`)
+    ElMessage.success(`任务已进入队列：${result.task_id}`)
     router.push(`/tasks/${result.task_id}`)
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.detail || '提交失败，请检查后端服务')
+    ElMessage.error(e?.response?.data?.error?.message || e?.response?.data?.detail || '提交失败，请检查后端服务')
   } finally {
     submitting.value = false
   }

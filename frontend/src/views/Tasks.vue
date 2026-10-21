@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import TaskControls from '../components/TaskControls.vue'
+import { onMounted, onBeforeUnmount, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { deleteTask, fetchTasks, resumeTask, type TaskSummary } from '../api/tasks'
+import { deleteTask, fetchTasks, type TaskSummary, type ExecutionStatus } from '../api/tasks'
 
 const router = useRouter()
 
@@ -12,10 +13,12 @@ const total = ref(0)
 const query = reactive({
   page: 1,
   page_size: 10,
-  status: '' as '' | 'running' | 'paused' | 'completed' | 'failed'
+  status: '' as '' | ExecutionStatus
 })
 
 const statusMeta: Record<string, { label: string; type: 'primary' | 'success' | 'danger' | 'warning' | 'info' }> = {
+  queued: { label: '排队中', type: 'warning' },
+  cancelled: { label: '已取消', type: 'info' },
   running: { label: '执行中', type: 'primary' },
   paused: { label: '已暂停', type: 'warning' },
   completed: { label: '已完成', type: 'success' },
@@ -26,7 +29,10 @@ function statusOf(status: string) {
   return statusMeta[status] ?? { label: status, type: 'info' as const }
 }
 
+let generation = 0
+let timer: ReturnType<typeof setInterval> | null = null
 async function load() {
+  const version = ++generation
   loading.value = true
   try {
     const result = await fetchTasks({
@@ -34,16 +40,18 @@ async function load() {
       page_size: query.page_size,
       status: query.status || undefined
     })
+    if (version !== generation) return
     tasks.value = result.items
     total.value = result.total
   } catch {
+    if (version !== generation) return
     ElMessage.error('获取任务列表失败，请检查后端服务')
   } finally {
-    loading.value = false
+    if (version === generation) loading.value = false
   }
 }
 
-function onStatusChange(status: '' | 'running' | 'paused' | 'completed' | 'failed') {
+function onStatusChange(status: '' | ExecutionStatus) {
   query.status = status
   query.page = 1
   void load()
@@ -74,37 +82,13 @@ async function confirmDelete(task: TaskSummary) {
   }
 }
 
-// ---------------- 断点续跑（仅 已暂停 可恢复） ----------------
-
-const resumingId = ref('')
-
-async function onResume(row: TaskSummary) {
-  try {
-    await ElMessageBox.confirm(
-      '该任务因服务中断已自动暂停。确认从最近 checkpoint 断点续跑，继续完成剩余步骤吗？',
-      '恢复任务',
-      {
-        type: 'warning',
-        confirmButtonText: '断点续跑',
-        cancelButtonText: '取消'
-      }
-    )
-  } catch {
-    return
-  }
-  resumingId.value = row.task_id
-  try {
-    await resumeTask(row.task_id)
-    ElMessage.success(`任务 ${row.task_id} 已恢复执行`)
-    openDetail(row)
-  } catch (e: any) {
-    ElMessage.error(e?.response?.data?.detail || '恢复失败，请检查后端服务')
-  } finally {
-    resumingId.value = ''
-  }
-}
-
-onMounted(load)
+onMounted(() => {
+  void load()
+  timer = setInterval(() => {
+    if (!loading.value && tasks.value.some(task => ['queued', 'running'].includes(task.status))) void load()
+  }, 2000)
+})
+onBeforeUnmount(() => { generation++; if (timer) clearInterval(timer) })
 </script>
 
 <template>
@@ -122,6 +106,8 @@ onMounted(load)
 
     <el-tabs :model-value="query.status" @tab-change="onStatusChange">
       <el-tab-pane label="全部" name="" />
+      <el-tab-pane label="排队中" name="queued" />
+      <el-tab-pane label="已取消" name="cancelled" />
       <el-tab-pane label="执行中" name="running" />
       <el-tab-pane label="已暂停" name="paused" />
       <el-tab-pane label="已完成" name="completed" />
@@ -149,17 +135,11 @@ onMounted(load)
         </template>
       </el-table-column>
       <el-table-column prop="created_at" label="提交时间" width="170" />
-      <el-table-column label="操作" width="220">
+      <el-table-column label="操作" min-width="280">
         <template #default="{ row }">
           <el-button link type="primary" @click.stop="openDetail(row)">查看</el-button>
           <el-button link type="danger" @click.stop="confirmDelete(row)">删除</el-button>
-          <el-button
-            v-if="row.status === 'paused'"
-            link
-            type="warning"
-            :loading="resumingId === row.task_id"
-            @click.stop="onResume(row)"
-          >恢复</el-button>
+          <TaskControls :task-id="row.task_id" :status="row.status" @changed="load" />
         </template>
       </el-table-column>
     </el-table>

@@ -1,6 +1,6 @@
 """LangGraph 多智能体工作流的共享状态定义。
 """
-from typing import TypedDict, List, Dict, Optional
+from typing import TypedDict, List, Dict, Optional, Literal
 from services.task_outcome import ExecutionStatus, QualityStatus
 
 
@@ -28,6 +28,7 @@ class AgentState(TypedDict):
     retrievals: List[Dict]
     evidence: List[Dict]      # 服务端任务内来源映射
     task_id: str              # 任务唯一 id（由 API 层生成，形如 task_ab12cd34）
+    resume_mode: Literal["checkpoint", "restart"] | None
     execution_status: ExecutionStatus
     quality_status: QualityStatus
     forced_output: bool

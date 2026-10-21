@@ -199,3 +199,21 @@ def test_startup_failure_releases_instance_lock(monkeypatch):
         lock.release()
     asyncio.run(scenario())
     mcp_manager.close.assert_awaited_once()
+
+
+def test_claimed_corrupt_payload_does_not_leave_dead_worker_running():
+    from unittest.mock import AsyncMock
+    database.init_db()
+    async def scenario():
+        runner = AsyncMock()
+        service = TaskService(runner=runner)
+        task = await service.submit("损坏任务")
+        with database.get_connection() as conn:
+            conn.execute("UPDATE tasks SET document_ids='invalid-json' WHERE task_id=?",(task["task_id"],))
+        await service.handles[task["task_id"]]
+        with database.get_connection() as conn:
+            state = conn.execute("SELECT execution_status,error_code FROM tasks WHERE task_id=?",(task["task_id"],)).fetchone()
+        assert tuple(state) == ("failed","TASK_EXECUTION_FAILED")
+        assert runner.call_count == 0
+        await service.close()
+    asyncio.run(scenario())

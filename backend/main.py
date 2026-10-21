@@ -45,7 +45,7 @@ async def lifespan(app: FastAPI):
     instance.acquire()
     try:
         # 意外中断兜底（paused 状态）：上次进程退出遗留的 running 任务统一置为 paused，
-        # 用户可点「恢复执行」从 SqliteSaver(checkpoints.db) 断点续跑
+        # 恢复时核对SqliteSaver待执行节点；不可续跑时明确从头重试
         try:
             interrupted = task_repository.mark_interrupted_tasks_as_paused()
             if interrupted:
@@ -101,7 +101,7 @@ app.add_middleware(
     allow_origins=cors_origins(),
     allow_credentials=False,
     allow_methods=["*"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
 )
 
 @app.api_route("/healthz", methods=["GET", "HEAD"], include_in_schema=False)

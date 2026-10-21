@@ -19,6 +19,15 @@ DB_PATH = Path(__file__).resolve().parents[1] / "data.db"
 
 # 建表 SQL（幂等：IF NOT EXISTS 保证重复执行不报错）
 _SCHEMA = """
+-- 幂等动作凭据仅存键摘要，不保存原始请求头。
+CREATE TABLE IF NOT EXISTS task_actions (
+    key_digest TEXT PRIMARY KEY,
+    action TEXT NOT NULL,
+    target TEXT NOT NULL,
+    request_hash TEXT NOT NULL,
+    result_task_id TEXT NOT NULL,
+    response TEXT NOT NULL
+);
 -- T07逐调用账本；旧任务没有历史调用证据，不回填零用量。
 CREATE TABLE IF NOT EXISTS model_usage (
     call_id TEXT PRIMARY KEY,
@@ -37,6 +46,8 @@ CREATE TABLE IF NOT EXISTS memory_entries (
 CREATE TABLE IF NOT EXISTS tasks (
     task_id             TEXT PRIMARY KEY,   -- 任务唯一 id（API 层生成，形如 task_ab12cd34）
     run_token           TEXT,
+    resume_requested    INTEGER NOT NULL DEFAULT 0,
+    resume_mode         TEXT,
     topic               TEXT NOT NULL,
     regenerated_from    TEXT,      -- 用户提交的研究主题
     status              TEXT NOT NULL DEFAULT 'running',  -- running | paused（服务中断）| completed | failed
@@ -101,6 +112,8 @@ CREATE TABLE IF NOT EXISTS evaluation_reports (
 # 注意：加列必须同步修改 _SCHEMA、task_repository 的 _JSON_FIELDS/_ALLOWED_UPDATE、
 # workflow.run_task 落库与前端类型，五处缺一不可（见 CLAUDE.md 约定 12）。
 _MIGRATIONS = [
+    "ALTER TABLE tasks ADD COLUMN resume_requested INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE tasks ADD COLUMN resume_mode TEXT",
     "ALTER TABLE tasks ADD COLUMN run_token TEXT",
     "ALTER TABLE tasks ADD COLUMN regenerated_from TEXT",
     "ALTER TABLE tasks ADD COLUMN document_ids TEXT NOT NULL DEFAULT '[]'",

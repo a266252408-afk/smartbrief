@@ -53,7 +53,7 @@ test('只读可查看未知Token、预算原因与失败尝试，模型文本不
   await expect(panel).toContainText('MODEL_TIMEOUT')
   await expect(panel.locator('img, script')).toHaveCount(0)
   expect(await page.evaluate(() => (window as unknown as Record<string, unknown>).__usageInjected)).toBeUndefined()
-  await page.screenshot({ path: '../docs/verification/T07-03-usage.png', fullPage: true })
+  await page.screenshot({ path: '../docs/verification/T08-03-usage.png', fullPage: true })
   expect(state.unexpected).toEqual([])
 })
 

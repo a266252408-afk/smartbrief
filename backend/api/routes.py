@@ -380,22 +380,13 @@ async def resume_task(task_id: str):
     适用：任务因后端重启/中断被自动标记为 paused（或 failed 但有节点快照）。
     已完成任务返回 400（无需恢复）；无快照时自动从头执行兜底。
     """
-    task = task_repository.get_task(task_id)
-    if task is None:
-        raise HTTPException(status_code=404, detail=f"任务不存在：{task_id}")
-    if task["status"] == "completed":
-        raise HTTPException(status_code=400, detail="任务已完成，无需恢复")
-    if task["status"] == "cancelled":
-        raise HTTPException(status_code=400, detail="已取消任务不可恢复")
     from services.task_service import get_task_service, TaskControlError
     try:
-        service = get_task_service()
-        if task["status"] not in {"queued", "running"}:
-            task_repository.update_task(task_id, status="queued", error=None)
-            service.schedule(task_id, resume=True)
-        return {"task_id": task_id, "status": task_repository.get_task(task_id)["status"], "resumed": True}
+        result = await get_task_service().resume(task_id)
+        return {"task_id": task_id, "status": result["status"], "resumed": True}
     except TaskControlError as exc:
-        raise HTTPException(status_code=exc.status, detail=str(exc)) from None
+        raise HTTPException(status_code=400 if exc.status == 409 else exc.status,detail=str(exc)) from None
+
 
 
 # ---------------------------------------------------------------- 知识库管理（RAG）
