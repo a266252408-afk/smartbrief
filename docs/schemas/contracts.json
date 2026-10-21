@@ -1615,6 +1615,91 @@
           "type": "string"
         }
       }
+    },
+    "BackupFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 0,
+          "title": "Size",
+          "type": "integer"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "size",
+        "sha256"
+      ],
+      "title": "BackupFile",
+      "type": "object"
+    },
+    "BackupManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "data_schema_version": {
+          "minimum": 0,
+          "title": "Data Schema Version",
+          "type": "integer"
+        },
+        "code_tag": {
+          "minLength": 1,
+          "title": "Code Tag",
+          "type": "string"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "timezone": {
+          "const": "Asia/Shanghai",
+          "default": "Asia/Shanghai",
+          "title": "Timezone",
+          "type": "string"
+        },
+        "consistency": {
+          "const": "stopped_with_instance_lock",
+          "default": "stopped_with_instance_lock",
+          "title": "Consistency",
+          "type": "string"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/$defs/BackupFile"
+          },
+          "minItems": 1,
+          "title": "Files",
+          "type": "array"
+        },
+        "checks": {
+          "additionalProperties": true,
+          "title": "Checks",
+          "type": "object"
+        }
+      },
+      "required": [
+        "data_schema_version",
+        "code_tag",
+        "created_at",
+        "files",
+        "checks"
+      ],
+      "title": "BackupManifest",
+      "type": "object"
     }
   }
 }

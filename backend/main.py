@@ -37,14 +37,14 @@ async def lifespan(app: FastAPI):
     （30 个术语）写入 ChromaDB rag_collection（幂等：已就绪自动跳过）。
     测试/CI 可通过环境变量 SMARTBRIEF_RAG_SEED=0 关闭（避免离线环境网络调用）。
     """
-    # 初始化 SQLite 业务库（tasks / task_logs / evaluation_reports 表）
-    database.init_db()
     from services.task_service import get_task_service
     from services.instance_lock import InstanceLock
     service = get_task_service()
     instance = InstanceLock(database.DB_PATH.with_suffix(".runner.lock"))
     instance.acquire()
     try:
+        # 持有实例锁后才迁移，避免与停写备份或另一实例启动交错。
+        database.init_db()
         # 意外中断兜底（paused 状态）：上次进程退出遗留的 running 任务统一置为 paused，
         # 恢复时核对SqliteSaver待执行节点；不可续跑时明确从头重试
         try:

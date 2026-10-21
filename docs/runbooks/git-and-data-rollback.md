@@ -26,6 +26,8 @@ git worktree add --detach ../smartbrief-rollback-check sb-T03-verified
 
 ## C. 一致性数据备份（T10 前人工执行原则）
 
+T10本地脚本与清单格式现已落地，具体命令见[停写备份与副本恢复](data-backup-restore.md)；容器链路依2026-10-21用户指令延后，仍待验。以下停写与版本配对原则继续适用。
+
 1. 阻止新任务/评测，等待或取消在途工作；停止该实例后端与 MCP，确认没有写入进程。不要把在线运行中的 SQLite 和 Chroma 普通复制拼成“同一时点”备份。
 2. 在仓库外新建只读保护的备份目录，复制业务库、检查点（存在 WAL/SHM 时一起保留）、完整 Chroma 目录、上传目录与三个非密钥运行配置。密钥单独安全保存，不进 Git 和常规备份包。
 3. 清单记录 code_tag、SQLite schema_version、文件相对路径/大小/SHA256、备份时间/时区与停写方式；实际打开副本执行 SQLite integrity_check，并核对任务/日志/评测行数。
