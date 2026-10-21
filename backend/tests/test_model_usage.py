@@ -115,7 +115,7 @@ def test_persistence_failure_blocks_or_fails_call(setup_usage, monkeypatch, fail
     assert setup_usage.call_count == failure_at - 1
     if failure_at == 2:
         row = usage_repository.list_usage("write_failure")[0]
-        assert row["error_code"] == "USAGE_INTERRUPTED" and not row["usage_known"]
+        assert row["status"] == "running" and row["error_code"] is None and not row["usage_known"]
 
 
 def test_migration_idempotent_preserves_old_reports(tmp_path):

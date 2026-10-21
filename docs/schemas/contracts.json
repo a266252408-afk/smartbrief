@@ -432,6 +432,7 @@
         },
         "status": {
           "enum": [
+            "running",
             "success",
             "failed",
             "cancelled",
@@ -548,7 +549,84 @@
         "created_at"
       ],
       "title": "ModelUsage",
-      "type": "object"
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "usage_known": {
+                "const": true
+              }
+            },
+            "required": [
+              "usage_known"
+            ]
+          },
+          "then": {
+            "properties": {
+              "input_tokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "output_tokens": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "input_tokens",
+              "output_tokens"
+            ]
+          },
+          "else": {
+            "properties": {
+              "input_tokens": {
+                "type": "null"
+              },
+              "output_tokens": {
+                "type": "null"
+              },
+              "estimated_cost": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "estimated_cost": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "estimated_cost"
+            ]
+          },
+          "then": {
+            "properties": {
+              "usage_known": {
+                "const": true
+              },
+              "currency": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "currency",
+              "usage_known"
+            ]
+          },
+          "else": {
+            "properties": {
+              "currency": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
     },
     "EvaluationResult": {
       "type": "object",
@@ -970,6 +1048,105 @@
         }
       },
       "additionalProperties": false
+    },
+    "UsageReport": {
+      "additionalProperties": false,
+      "properties": {
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/ModelUsage"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "call_count": {
+          "title": "Call Count",
+          "type": "integer"
+        },
+        "blocked_count": {
+          "title": "Blocked Count",
+          "type": "integer"
+        },
+        "unknown_calls": {
+          "title": "Unknown Calls",
+          "type": "integer"
+        },
+        "input_tokens": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Input Tokens"
+        },
+        "output_tokens": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Output Tokens"
+        },
+        "duration_ms": {
+          "title": "Duration Ms",
+          "type": "number"
+        },
+        "estimated_costs": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Estimated Costs",
+          "type": "object"
+        },
+        "cost_complete": {
+          "title": "Cost Complete",
+          "type": "boolean"
+        },
+        "budget_limit_tokens": {
+          "title": "Budget Limit Tokens",
+          "type": "integer"
+        },
+        "budget_charged_tokens": {
+          "title": "Budget Charged Tokens",
+          "type": "integer"
+        },
+        "budget_remaining_tokens": {
+          "title": "Budget Remaining Tokens",
+          "type": "integer"
+        },
+        "budget_estimated": {
+          "title": "Budget Estimated",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "task_id",
+        "items",
+        "call_count",
+        "blocked_count",
+        "unknown_calls",
+        "input_tokens",
+        "output_tokens",
+        "duration_ms",
+        "estimated_costs",
+        "cost_complete",
+        "budget_limit_tokens",
+        "budget_charged_tokens",
+        "budget_remaining_tokens",
+        "budget_estimated"
+      ],
+      "title": "UsageReport",
+      "type": "object"
     }
   }
 }

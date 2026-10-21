@@ -16,7 +16,7 @@ class ModelUsage(BaseModel):
     task_id: str = Field(min_length=1)
     agent: str = Field(min_length=1)
     model: str = Field(min_length=1)
-    status: Literal["success", "failed", "cancelled", "budget_exceeded"]
+    status: Literal["running", "success", "failed", "cancelled", "budget_exceeded"]
     duration_ms: float = Field(ge=0)
     input_tokens: int | None = Field(default=None, ge=0)
     output_tokens: int | None = Field(default=None, ge=0)
@@ -84,15 +84,15 @@ def usage_scope(agent: str, *, task=False, state=False, standalone=False):
     return decorate
 
 
-async def measured_call(create, kwargs, *, policy, attempt=1):
+async def measured_call(create, kwargs, *, policy, attempt=1, price=None):
     """每次调用前落占位、结束后记录；写入失败不得冒充完成。"""
     context = usage_context.get()
     if context is None:
         return await create(**kwargs)
     entry = ModelUsage(call_id=uuid4().hex, task_id=context[0], agent=context[1],
-                       model=kwargs["model"], status="failed", duration_ms=0.0,
+                       model=kwargs["model"], status="running", duration_ms=0.0,
                        attempt=attempt, created_at=datetime.now(timezone.utc).isoformat(),
-                       error_code="USAGE_INTERRUPTED")
+                       error_code=None)
     from services.budget import reserve, reservation
     entry.reserved_tokens = reservation(kwargs, policy)
     reserve(entry, policy)
@@ -105,6 +105,7 @@ async def measured_call(create, kwargs, *, policy, attempt=1):
     except Exception as exc:
         from openai import APIConnectionError, APIStatusError, APITimeoutError
         timeout = isinstance(exc, (TimeoutError, APITimeoutError))
+        entry.status = "failed"
         entry.error_code = "MODEL_TIMEOUT" if timeout else "MODEL_FAILED"
         error = ModelCallError("模型调用超时" if timeout else "模型调用失败")
         error.code = entry.error_code
@@ -118,6 +119,8 @@ async def measured_call(create, kwargs, *, policy, attempt=1):
         incoming, outgoing = value("prompt_tokens"), value("completion_tokens")
         if all(type(n) is int and n >= 0 for n in (incoming, outgoing)):
             entry.input_tokens, entry.output_tokens, entry.usage_known = incoming, outgoing, True
+        from services.usage_summary import apply_price
+        apply_price(entry, price)
         return response
     finally:
         entry.duration_ms = (perf_counter() - start) * 1000

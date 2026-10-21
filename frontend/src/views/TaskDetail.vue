@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import UsagePanel from '../components/UsagePanel.vue'
 import RetrievalPanel from '../components/RetrievalPanel.vue'
 import QualityBadge from '../components/QualityBadge.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -427,6 +428,8 @@ watch(() => route.params.taskId, async value => {
         </div>
       </div>
     </el-card>
+
+    <UsagePanel v-if="detail" :task-id="taskId" :running="isRunning" />
 
     <RetrievalPanel v-if="detail" :records="detail.retrievals" :document-ids="detail.document_ids" />
 

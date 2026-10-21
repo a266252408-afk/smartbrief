@@ -215,7 +215,7 @@ export interface ModelUsage {
   task_id: string
   agent: string
   model: string
-  status: 'success' | 'failed' | 'cancelled' | 'budget_exceeded'
+  status: 'running' | 'success' | 'failed' | 'cancelled' | 'budget_exceeded'
   duration_ms: number
   input_tokens: number | null
   output_tokens: number | null
@@ -226,4 +226,27 @@ export interface ModelUsage {
   reserved_tokens: number
   created_at: string
   error_code: string | null
+}
+
+export interface UsageReport {
+  task_id: string
+  items: ModelUsage[]
+  call_count: number
+  blocked_count: number
+  unknown_calls: number
+  input_tokens: number | null
+  output_tokens: number | null
+  duration_ms: number
+  estimated_costs: Record<string, number>
+  cost_complete: boolean
+  budget_limit_tokens: number
+  budget_charged_tokens: number
+  budget_remaining_tokens: number
+  budget_estimated: boolean
+}
+
+export async function fetchTaskUsage(taskId: string): Promise<UsageReport> {
+  const client = createHttp({ baseURL: '/api/v2', timeout: 15000 })
+  const { data } = await client.get(`/tasks/${encodeURIComponent(taskId)}/usage`)
+  return data.data as UsageReport
 }

@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes import router
 from api.memory_routes import router as memory_router
+from api.usage_routes import router as usage_router
 from api.task_outcomes import router as task_outcome_router, knowledge_router
 from api.security import authenticate, AuthSession
 from services.security import cors_origins
@@ -105,6 +106,7 @@ app.include_router(router)
 app.include_router(task_outcome_router)
 app.include_router(knowledge_router)
 app.include_router(memory_router)
+app.include_router(usage_router)
 
 
 if __name__ == "__main__":

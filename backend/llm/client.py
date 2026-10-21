@@ -49,6 +49,8 @@ async def chat(messages: list, tools: list | None = None, tool_choice: str | Non
     """
     client = get_client()
     policy = ModelPolicy.from_env()
+    from services.usage_summary import configured_price
+    price = configured_price(get_model())
     kwargs = {"model": get_model(), "messages": messages}
     if tools:
         kwargs["tools"] = tools
@@ -58,7 +60,7 @@ async def chat(messages: list, tools: list | None = None, tool_choice: str | Non
     kwargs["timeout"] = policy.timeout_seconds
     for attempt in range(1, policy.max_retries + 2):
         try:
-            return await measured_call(client.chat.completions.create, kwargs, attempt=attempt, policy=policy)
+            return await measured_call(client.chat.completions.create, kwargs, attempt=attempt, policy=policy, price=price)
         except ModelCallError as exc:
             if not exc.retryable or attempt > policy.max_retries:
                 raise

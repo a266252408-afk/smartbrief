@@ -63,3 +63,11 @@ SQLite memory_entries是可信准入/生命周期权威登记，Chroma memory_co
 v2 memory提供分页、五状态过滤和管理员墓碑删除；索引删除失败也不恢复召回资格。原任务删除与记忆失效同SQLite事务。regenerate创建新任务并保存不可变regenerated_from，原报告和仍合格的原记忆保留；新任务重新检索所选文档并独立审核准入。v1响应形状保持，memory/status.count明确统计合格active记录，关闭时仍0。
 
 知识库按需打开管理视图，未知模型版本/时间不捏造；索引故障明确不可用而非空库。只读可查询不可删除或重新生成。任务详情支持重新生成与来源任务展示，路由切换重启轮询并拒收旧ID迟到响应。在线效果未评测，具体边界与凭据见T06 SDD和verification/T06.json。
+
+## 模型用量与预算（T07）
+
+所有报告Agent通过ContextVar绑定task_id/agent；单智能体对话使用独立chat_UUID。llm/client只调用OpenAI兼容SDK，SDK重试为0，业务层按MODEL_MAX_RETRIES重试超时/连接/429/5xx；每次尝试有唯一call_id、attempt、模型、耗时、结果与固定错误码。调用前SQLite原子写占位及预留，结束后写入供应商usage，取消也记账；失败/崩溃保留unknown，不记录prompt或密钥。仓储/预算持久化失败和预算不足传播到工作流失败终态，不由Agent降级吞掉。
+
+MAX_TASK_TOKENS默认20000，MODEL_COMPLETION_RESERVE默认2048，MODEL_TIMEOUT_SECONDS默认60，MODEL_MAX_RETRIES默认1。消息及工具UTF-8字节数加完成预留用于调用前保守估算；成功已知Token后按供应商值结算，未知/失败按预留扣账，旧未知无预留按当前预算扣满。同任务并发事务保护，恢复读取持久化账本。分词器和供应商用量可能不同，不能宣称严格Token或金额封顶。
+
+MODEL_PRICES_JSON可按模型指定每百万输入/输出单价与三字母币种，无默认值；费用按调用时配置估算并持久化，价格变化不重估历史，不同币种分开统计。v2 tasks/{id}/usage统一包对管理员/只读开放，未知任务404、损坏/不可用503；旧任务无记录显示未知而非零，v1形状保留。TaskDetail按需查看和轮询，切任务/卸载拒绝迟到响应；JSON导出只含结构化账本，费用部分已知时不称总额。
