@@ -44,6 +44,15 @@ class TaskCreateRequest(DocumentSelection):
     topic: str = Field(min_length=1, max_length=200)
 
 
+class TaskCancelled(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    task_id: str
+    status: Literal["cancelled"] = "cancelled"
+    execution_status: Literal["cancelled"] = "cancelled"
+    cancelled: Literal[True] = True
+    already_cancelled: bool
+
+
 class TaskService:
     def __init__(self, *, max_concurrency=2, runner=None):
         if type(max_concurrency) is not int or max_concurrency < 1:
@@ -85,10 +94,14 @@ class TaskService:
         return handle
 
     async def _execute(self, task_id, resume):
+        from services.execution_context import execution_lease
+        context = None
         try:
             async with self.semaphore:
-                if not controls.claim(task_id):
+                token = controls.claim(task_id)
+                if not token:
                     return
+                context = execution_lease.set((task_id,token))
                 task = task_repository.get_task(task_id)
                 if self.runner is None:
                     from graph.workflow import run_task
@@ -101,7 +114,8 @@ class TaskService:
                         error_code="WORKFLOW_RESULT_MISSING", error="工作流未持久化终态")
         except asyncio.CancelledError:
             try:
-                controls.pause(task_id)
+                if context is not None:
+                    controls.pause(task_id, token)
             except Exception:
                 logger.warning("任务 %s 暂停状态不可用，留待启动时复核", task_id)
         except Exception:
@@ -113,6 +127,21 @@ class TaskService:
                         error_code="TASK_EXECUTION_FAILED", error="任务执行失败")
             except Exception:
                 logger.warning("任务 %s 状态写入不可用，不能标记成功", task_id)
+        finally:
+            if context is not None:
+                execution_lease.reset(context)
+
+    async def cancel(self, task_id):
+        try:
+            already = controls.cancel(task_id)
+        except TaskControlError:
+            raise
+        except Exception:
+            raise TaskControlError("TASK_CANCEL_FAILED","取消状态持久化失败") from None
+        handle = self.handles.get(task_id)
+        if handle is not None:
+            handle.cancel()
+        return TaskCancelled(task_id=task_id,already_cancelled=already).model_dump()
 
     async def wait(self, task_id):
         handle = self.handles.get(task_id)

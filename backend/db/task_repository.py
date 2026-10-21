@@ -65,6 +65,7 @@ def _row_to_task(row) -> dict | None:
     if row is None:
         return None
     task = dict(row)
+    task.pop("run_token", None)  # 内部写入租约不进入v1/v2产品响应。
     task["plan"] = _loads(task.get("plan"), [])                 # JSON -> list
     task["completed_steps"] = _loads(task.get("completed_steps"), [])  # JSON -> list
     task["research_data"] = _loads(task.get("research_data"), {})       # JSON -> dict
@@ -98,7 +99,7 @@ def create_task(task_id: str, topic: str, *, document_ids: list[str] | None = No
         )
 
 
-def update_task(task_id: str, **fields) -> None:
+def update_task(task_id: str, *, _connection=None, _require_running=False, **fields) -> None:
     """更新任务字段（自动 JSON 序列化，并刷新 updated_at）。
 
     实现说明：**动态拼 SET 子句** —— 只更新传入的字段；
@@ -138,8 +139,39 @@ def update_task(task_id: str, **fields) -> None:
         params.append(_dumps(value) if key in _JSON_FIELDS else value)
     sets.append("updated_at = datetime('now','localtime')")   # 顺便刷新更新时间
     params.append(task_id)
-    with get_connection() as conn:
-        conn.execute(f"UPDATE tasks SET {', '.join(sets)} WHERE task_id = ?", params)
+    from services.execution_context import execution_lease, ExecutionStopped
+    lease = execution_lease.get()
+    guarded = lease is not None and lease[0] == task_id
+    where = "task_id = ?"
+    if guarded:
+        where += " AND run_token = ?"
+        params.append(lease[1])
+    if guarded or _require_running:
+        where += " AND execution_status = 'running'"
+    def apply(conn):
+        changed = conn.execute(f"UPDATE tasks SET {', '.join(sets)} WHERE {where}", params).rowcount
+        if not changed and (guarded or _require_running):
+            raise ExecutionStopped("执行租约已失效，拒绝迟到写入")
+    if _connection is not None:
+        apply(_connection)
+    else:
+        with get_connection() as conn:
+            apply(conn)
+
+
+def finalize_task(task_id, fields, logs):
+    """最终状态与完整图日志同事务；恢复重读不追加重复历史日志。"""
+    from services.execution_context import ExecutionPersistenceError
+    try:
+        with get_connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            update_task(task_id, _connection=conn, _require_running=True, **fields)
+            conn.execute("DELETE FROM task_logs WHERE task_id=?",(task_id,))
+            for log in logs:
+                conn.execute("INSERT INTO task_logs(task_id,step_id,log_type,content) VALUES (?,?,?,?)",
+                    (task_id,log.get("step_id",0),log.get("type","Thought"),str(log.get("content",""))))
+    except Exception:
+        raise ExecutionPersistenceError("任务结果或日志持久化失败") from None
 
 
 def get_task(task_id: str) -> dict | None:

@@ -67,6 +67,8 @@ def usage_scope(agent: str, *, task=False, state=False, standalone=False):
     def decorate(function):
         @wraps(function)
         async def wrapped(*args, **kwargs):
+            from services.execution_context import assert_active
+            assert_active()
             parent = usage_context.get()
             task_id = parent[0] if parent else None
             if task:
@@ -97,10 +99,19 @@ async def measured_call(create, kwargs, *, policy, attempt=1, price=None):
     entry.reserved_tokens = reservation(kwargs, policy)
     reserve(entry, policy)
     start = perf_counter()
+    async def guarded_create():
+        from services.execution_context import assert_active
+        assert_active()
+        response = await create(**kwargs)
+        assert_active()
+        return response
     try:
-        response = await asyncio.wait_for(create(**kwargs), policy.timeout_seconds)
+        response = await asyncio.wait_for(guarded_create(), policy.timeout_seconds)
     except asyncio.CancelledError:
         entry.status, entry.error_code = "cancelled", "MODEL_CANCELLED"
+        raise
+    except UsagePersistenceError:
+        entry.status, entry.error_code = "failed", "MODEL_FAILED"
         raise
     except Exception as exc:
         from openai import APIConnectionError, APIStatusError, APITimeoutError

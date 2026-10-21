@@ -8,6 +8,15 @@ from services.task_service import get_task_service, TaskControlError, TaskCreate
 router = APIRouter(prefix="/api/v2/tasks")
 
 
+@router.post("/{task_id}/cancel")
+async def cancel(request: Request, task_id: str):
+    try:
+        result = await get_task_service().cancel(task_id)
+    except TaskControlError as exc:
+        return failure(request, exc.status, exc.code, str(exc))
+    return {"data":result,"meta":{"request_id":request.state.request_id}}
+
+
 @router.post("")
 async def create(request: Request):
     try:

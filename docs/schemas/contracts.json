@@ -1183,6 +1183,43 @@
       ],
       "title": "TaskAccepted",
       "type": "object"
+    },
+    "TaskCancelled": {
+      "additionalProperties": false,
+      "properties": {
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "status": {
+          "const": "cancelled",
+          "default": "cancelled",
+          "title": "Status",
+          "type": "string"
+        },
+        "execution_status": {
+          "const": "cancelled",
+          "default": "cancelled",
+          "title": "Execution Status",
+          "type": "string"
+        },
+        "cancelled": {
+          "const": true,
+          "default": true,
+          "title": "Cancelled",
+          "type": "boolean"
+        },
+        "already_cancelled": {
+          "title": "Already Cancelled",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "task_id",
+        "already_cancelled"
+      ],
+      "title": "TaskCancelled",
+      "type": "object"
     }
   }
 }

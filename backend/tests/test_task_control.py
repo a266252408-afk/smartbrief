@@ -176,7 +176,7 @@ def test_failed_pause_and_service_cache_are_explicit(monkeypatch):
         task = await service.submit("暂停写入失败")
         await asyncio.sleep(0.01)
         with monkeypatch.context() as scoped:
-            scoped.setattr(controls,"pause",lambda _: (_ for _ in ()).throw(RuntimeError("SECRET")))
+            scoped.setattr(controls,"pause",lambda *a: (_ for _ in ()).throw(RuntimeError("SECRET")))
             await service.close()
         assert task_repository.get_task(task["task_id"])["status"] == "running"
         assert get_task_service() is not service

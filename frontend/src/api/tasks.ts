@@ -257,3 +257,11 @@ export interface TaskAccepted {
   status: 'queued'
   execution_status: 'queued'
 }
+
+export interface TaskCancelled {
+  task_id: string
+  status: 'cancelled'
+  execution_status: 'cancelled'
+  cancelled: true
+  already_cancelled: boolean
+}

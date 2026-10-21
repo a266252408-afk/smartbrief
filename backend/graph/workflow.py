@@ -92,22 +92,6 @@ def _initial_state(task_id: str, topic: str) -> AgentState:
     }
 
 
-async def _persist_logs(task_id: str, react_logs: list) -> None:
-    """将图内生成的 ReAct 日志批量落库（task_logs 表）。
-
-    实现说明：图执行期间 LLM 的 Thought/Action/Observation 都存在
-    state["react_logs"] 里（内存），图跑完后统一写进 SQLite。
-    这样前端轮询 /tasks/{id}/status 才能查到日志流。
-    """
-    for log in react_logs or []:
-        task_repository.append_log(
-            task_id,
-            step_id=log.get("step_id", 0),
-            log_type=log.get("type", "Thought"),
-            content=str(log.get("content", "")),
-        )
-
-
 async def _remember_task(task_id: str, topic: str, final_report: str) -> None:
     """任务成功后把 (topic, final_report) 写入长期记忆（容错，不阻断流程）。
 
@@ -172,9 +156,8 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
         final_report = None if failed else final["draft_content"]
         final.update(execution_status="failed" if failed else "completed",
                      quality_status="not_run" if failed else final.get("quality_status", "unknown"))
-        await _persist_logs(task_id, final.get("react_logs", []))   # 日志落库
-        task_repository.update_task(                  # 最终状态落库
-            task_id,
+        task_repository.finalize_task(
+            task_id, dict(
             status=final["execution_status"],
             quality_status=final.get("quality_status", "unknown"),
             forced_output=bool(final.get("forced_output", final.get("forced_pass"))),
@@ -199,6 +182,7 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
             forced_pass=bool(final.get("forced_pass")),
             # 长期记忆命中
             memory_hits=final.get("memory_hits", []),
+            ), final.get("react_logs", []),
         )
         # 仅审核通过的报告准入新记忆；旧记忆治理留T06。
         if failed:
@@ -209,6 +193,7 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
     except Exception as exc:
         logger.exception("任务 %s 执行失败", task_id)
         from services.usage_service import ModelCallError
+        from services.execution_context import ExecutionPersistenceError
         task_repository.update_task(task_id, status="failed", quality_status="not_run", passed=False,
-                                    forced_output=False, error_code=(exc.code if isinstance(exc, ModelCallError) else final.get("error_code")) or "TASK_EXECUTION_FAILED", error=str(exc))  # 失败也落库，前端可展示
+                                    forced_output=False, error_code=(exc.code if isinstance(exc, (ModelCallError, ExecutionPersistenceError)) else final.get("error_code")) or "TASK_EXECUTION_FAILED", error=str(exc))  # 失败也落库，前端可展示
         raise
