@@ -13,7 +13,9 @@ from api.usage_routes import router as usage_router
 from api.task_control_routes import router as task_control_router
 from api.evaluation_routes import router as evaluation_router
 from api.task_outcomes import router as task_outcome_router, knowledge_router
+from api.demo_routes import router as demo_router
 from api.security import authenticate, AuthSession
+from app_version import APP_VERSION
 from services.security import cors_origins
 from db import database
 from db import evaluation_repository
@@ -94,7 +96,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="SmartBrief API",
     description="多智能体报告生成平台，支持研究规划、联网检索、审核返工、知识库与记忆、自动化评测。",
-    version="0.1.0",
+    version=APP_VERSION,
     lifespan=lifespan,
 )
 
@@ -129,6 +131,7 @@ app.include_router(memory_router)
 app.include_router(usage_router)
 app.include_router(task_control_router)
 app.include_router(evaluation_router)
+app.include_router(demo_router)
 
 
 if __name__ == "__main__":

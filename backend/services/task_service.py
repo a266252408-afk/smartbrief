@@ -164,7 +164,13 @@ class TaskService:
             if context is not None:
                 execution_lease.reset(context)
 
+    def _reject_demo(self, task_id):
+        from services.demo_data import is_demo_task
+        if is_demo_task(task_repository.get_task(task_id)):
+            raise TaskControlError("DEMO_NOT_EXECUTABLE","演示样例不启动真实生成，仅用于展示",409)
+
     async def cancel(self, task_id, *, key=None):
+        self._reject_demo(task_id)
         digest = key_digest(key)
         try:
             result = TaskCancelled.model_validate(controls.cancel(task_id,key=digest)).model_dump()
@@ -180,6 +186,7 @@ class TaskService:
     async def resume(self, task_id, *, key=None):
         if self.closing:
             raise TaskControlError("TASK_SERVICE_STOPPED","任务服务正在关闭")
+        self._reject_demo(task_id)
         from memory.checkpointer import resumable_mode
         digest = key_digest(key)
         try:
@@ -197,6 +204,7 @@ class TaskService:
     async def regenerate(self, task_id, *, key=None):
         if self.closing:
             raise TaskControlError("TASK_SERVICE_STOPPED","任务服务正在关闭")
+        self._reject_demo(task_id)
         from services.task_regeneration import prepare_regeneration
         result = await asyncio.to_thread(prepare_regeneration,task_id,key_digest(key))
         if result is not None:

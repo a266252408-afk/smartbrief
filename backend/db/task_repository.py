@@ -8,20 +8,23 @@ memory_hits 保存长期记忆命中，供前端详情页展示。
 import json
 from typing import Any
 
+from app_version import APP_VERSION
 from db.database import get_connection
+from services.task_metadata import validate_metadata
 from services.task_outcome import TaskOutcome
 from services.evidence import validate_sources
 from services.citations import Citation
 
 _JSON_FIELDS = ("plan", "completed_steps", "research_data", "review_comments",
-                "review_history", "memory_hits", "document_ids", "retrievals", "evidence", "citations", "citation_errors")
+                "review_history", "memory_hits", "document_ids", "retrievals", "evidence", "citations",
+                "citation_errors", "metadata")
 # 允许更新的字段白名单：防止调用方误传脏字段（如 task_id / created_at）
 _ALLOWED_UPDATE = {"status", "topic", "plan", "current_step_index", "completed_steps",
                    "resume_mode",
                    "research_data", "draft_content", "final_report", "error",
                    "review_comments", "review_history", "iteration", "max_iterations",
                    "passed", "forced_pass", "memory_hits", "document_ids", "retrievals", "evidence", "citations", "citation_errors",
-                   "execution_status", "quality_status", "forced_output", "error_code"}
+                   "metadata", "execution_status", "quality_status", "forced_output", "error_code"}
 
 
 def _dumps(value: Any) -> str | None:
@@ -79,25 +82,28 @@ def _row_to_task(row) -> dict | None:
     task["document_ids"] = json.loads(task.get("document_ids") or "[]")
     task["retrievals"] = json.loads(task.get("retrievals") or "[]")
     task["evidence"] = _loads(task.get("evidence"), [])
+    task["metadata"] = _loads(task.get("metadata"), {})
     if "forced_output" in task:
         task["forced_output"] = bool(task["forced_output"])
     return task
 
 
-def create_task(task_id: str, topic: str, *, document_ids: list[str] | None = None, regenerated_from: str | None = None, initial_status: str = "running", _connection=None) -> None:
+def create_task(task_id: str, topic: str, *, document_ids: list[str] | None = None, regenerated_from: str | None = None, initial_status: str = "running", metadata: dict | None = None, _connection=None) -> None:
     """插入一条任务初始记录（status 默认 running）。
 
     由 API 层在提交任务时调用（后台工作流启动之前），
     保证前端立刻能在任务列表里看到这条"执行中"记录。
+    新任务记录生成版本；演示导入可显式传入带样例标识的元数据。
     """
     from services.retrieval_service import DocumentSelection
     selected = DocumentSelection(document_ids=document_ids or []).document_ids
     if initial_status not in {"queued", "running"}:
         raise ValueError("初始任务必须排队或运行")
+    meta = validate_metadata(metadata if metadata is not None else {"generator_version": APP_VERSION})
     def insert(conn):
         conn.execute(
-            "INSERT INTO tasks (task_id, topic, document_ids, regenerated_from,status,execution_status) VALUES (?, ?, ?, ?,?,?)",
-            (task_id, topic, _dumps(selected), regenerated_from,initial_status,initial_status),
+            "INSERT INTO tasks (task_id, topic, document_ids, regenerated_from,status,execution_status,metadata) VALUES (?, ?, ?, ?,?,?,?)",
+            (task_id, topic, _dumps(selected), regenerated_from,initial_status,initial_status,_dumps(meta)),
         )
     if _connection is not None:
         insert(_connection)
@@ -138,6 +144,8 @@ def update_task(task_id: str, *, _connection=None, _require_running=False, **fie
         updates["evidence"] = validate_sources(task_id, updates["evidence"])
     if "citations" in updates:
         updates["citations"] = [Citation.model_validate(c).model_dump() for c in updates["citations"]]
+    if "metadata" in updates:
+        updates["metadata"] = validate_metadata(updates["metadata"])
     sets = []
     params: list = []
     for key, value in updates.items():
@@ -209,17 +217,22 @@ def mark_interrupted_tasks_as_paused(
     return cur.rowcount
 
 
-def append_log(task_id: str, step_id: int, log_type: str, content: str) -> None:
+def append_log(task_id: str, step_id: int, log_type: str, content: str, *, _connection=None) -> None:
     """追加一条 ReAct 日志（task_logs 表）。
 
     日志类型 log_type 取值为 Thought / Action / Observation，
     前端任务详情页据此区分卡片颜色并分组展示。
     """
-    with get_connection() as conn:
+    def insert(conn):
         conn.execute(
             "INSERT INTO task_logs (task_id, step_id, log_type, content) VALUES (?, ?, ?, ?)",
             (task_id, step_id, log_type, content),
         )
+    if _connection is not None:
+        insert(_connection)
+    else:
+        with get_connection() as conn:
+            insert(conn)
 
 
 def get_logs(task_id: str) -> list[dict]:
@@ -271,7 +284,7 @@ def list_tasks(
         # 2) 再查本页数据（按时间排序，LIMIT/OFFSET 分页）
         rows = conn.execute(
             f"SELECT task_id, topic, status, plan, current_step_index, completed_steps, "
-            f"resume_mode, execution_status, quality_status, forced_output, error_code, created_at, updated_at FROM tasks {where} "
+            f"resume_mode, execution_status, quality_status, forced_output, error_code, metadata, created_at, updated_at FROM tasks {where} "
             f"ORDER BY created_at {direction}, task_id {direction} LIMIT ? OFFSET ?",
             params + [limit, offset],
         ).fetchall()

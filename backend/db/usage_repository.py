@@ -10,11 +10,16 @@ def _decode(row):
     return entry.model_dump()
 
 
-def save(entry):
-    with get_connection() as conn:
+def save(entry, *, _connection=None):
+    def insert(conn):
         conn.execute("INSERT INTO model_usage(call_id,task_id,data) VALUES (?,?,?) "
                      "ON CONFLICT(call_id) DO UPDATE SET data=excluded.data WHERE model_usage.task_id=excluded.task_id",
                      (entry.call_id, entry.task_id, entry.model_dump_json()))
+    if _connection is not None:
+        insert(_connection)
+    else:
+        with get_connection() as conn:
+            insert(conn)
 
 
 def list_usage(task_id: str) -> list[dict]:

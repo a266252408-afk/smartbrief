@@ -1,0 +1,76 @@
+{
+  "sample_id": "service-recovery",
+  "sample_version": "1.0",
+  "task_id": "demo-service-recovery",
+  "scenario": "recovery",
+  "title": "服务中断恢复演示（演示样例）",
+  "description": "异常流程：服务中断后任务进入已暂停，保留已完成步骤与失败原因；恢复入口仅用于展示，不会执行真实生成。",
+  "task": {
+    "topic": "服务中断恢复演示（演示样例）",
+    "status": "paused",
+    "execution_status": "paused",
+    "quality_status": "pending",
+    "forced_output": false,
+    "error_code": "SERVICE_INTERRUPTED",
+    "error": "演示数据：服务中断后任务进入已暂停状态；恢复入口仅用于展示，不会执行真实生成。",
+    "plan": [
+      {"id": 1, "agent": "researcher", "task": "检索离线演示资料", "depends_on": []},
+      {"id": 2, "agent": "writer", "task": "撰写报告", "depends_on": [1]}
+    ],
+    "completed_steps": [1],
+    "current_step_index": 1,
+    "research_data": {},
+    "draft_content": "",
+    "final_report": null,
+    "review_comments": [],
+    "review_history": [],
+    "iteration": 0,
+    "max_iterations": 3,
+    "passed": null,
+    "forced_pass": false,
+    "memory_hits": [],
+    "document_ids": [],
+    "retrievals": [],
+    "evidence": [
+      {
+        "source_id": "S1",
+        "task_id": "demo-service-recovery",
+        "kind": "web",
+        "title": "演示资料：中断前已完成的检索结果",
+        "excerpt": "演示数据：该来源在服务中断前已保存。",
+        "retrieved_at": "2026-10-20T00:00:00Z",
+        "url": "https://example.invalid/demo/interrupted",
+        "document_id": null,
+        "chunk_id": null,
+        "page": null,
+        "score": null,
+        "source_deleted": false
+      }
+    ]
+  },
+  "logs": [
+    {"step_id": 0, "log_type": "Thought", "content": "演示样例：规划研究步骤，不调用在线模型。"},
+    {"step_id": 1, "log_type": "Action", "content": "读取演示来源 S1。"},
+    {"step_id": 1, "log_type": "Observation", "content": "已保存演示来源，随后服务中断。"},
+    {"step_id": 0, "log_type": "Observation", "content": "服务中断：任务已暂停，可查看恢复说明。"}
+  ],
+  "usage": [
+    {
+      "call_id": "demo-service-recovery-1",
+      "task_id": "demo-service-recovery",
+      "agent": "researcher",
+      "model": "demo/offline-fixture",
+      "status": "failed",
+      "duration_ms": 0.0,
+      "input_tokens": null,
+      "output_tokens": null,
+      "usage_known": false,
+      "estimated_cost": null,
+      "currency": null,
+      "attempt": 1,
+      "reserved_tokens": 0,
+      "created_at": "2026-10-20T00:00:00+00:00",
+      "error_code": "MODEL_TIMEOUT"
+    }
+  ]
+}

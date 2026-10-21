@@ -1,0 +1,94 @@
+{
+  "sample_id": "normal-report",
+  "sample_version": "1.0",
+  "task_id": "demo-normal-report",
+  "scenario": "normal",
+  "title": "2026 年智能手表市场简报（演示样例）",
+  "description": "正常报告流程：两条离线演示来源、审核通过、用量未知；不代表在线生成成绩。",
+  "task": {
+    "topic": "2026 年智能手表市场简报（演示样例）",
+    "status": "completed",
+    "execution_status": "completed",
+    "quality_status": "passed",
+    "forced_output": false,
+    "error_code": null,
+    "error": null,
+    "plan": [
+      {"id": 1, "agent": "researcher", "task": "检索离线演示资料", "depends_on": []},
+      {"id": 2, "agent": "writer", "task": "基于演示资料撰写报告", "depends_on": [1]}
+    ],
+    "completed_steps": [1, 2],
+    "current_step_index": 2,
+    "research_data": {},
+    "draft_content": "## 结论摘要\n本演示样例基于两条公开资料，说明智能手表市场关注点；不代表真实在线生成成绩。[S1][S2]\n\n## 关键数据\n- 演示数据：出货量同比增长 8%。[S1]\n\n## 说明\n本报告为离线演示样例，引用仅验证来源映射，不代表事实已核实。",
+    "final_report": "## 结论摘要\n本演示样例基于两条公开资料，说明智能手表市场关注点；不代表真实在线生成成绩。[S1][S2]\n\n## 关键数据\n- 演示数据：出货量同比增长 8%。[S1]\n\n## 说明\n本报告为离线演示样例，引用仅验证来源映射，不代表事实已核实。",
+    "review_comments": ["结构完整，演示资料引用有效。"],
+    "review_history": [
+      {"round": 1, "passed": true, "quality_status": "passed", "comments": ["结构完整，演示资料引用有效。"]}
+    ],
+    "iteration": 0,
+    "max_iterations": 3,
+    "passed": true,
+    "forced_pass": false,
+    "memory_hits": [],
+    "document_ids": [],
+    "retrievals": [],
+    "evidence": [
+      {
+        "source_id": "S1",
+        "task_id": "demo-normal-report",
+        "kind": "web",
+        "title": "演示资料：智能手表市场摘要",
+        "excerpt": "演示数据：出货量同比增长 8%。",
+        "retrieved_at": "2026-10-20T00:00:00Z",
+        "url": "https://example.invalid/demo/smartwatch-market",
+        "document_id": null,
+        "chunk_id": null,
+        "page": null,
+        "score": null,
+        "source_deleted": false
+      },
+      {
+        "source_id": "S2",
+        "task_id": "demo-normal-report",
+        "kind": "web",
+        "title": "演示资料：智能手表健康功能",
+        "excerpt": "演示数据：健康监测仍是主要购买动因。",
+        "retrieved_at": "2026-10-20T00:00:00Z",
+        "url": "https://example.invalid/demo/smartwatch-health",
+        "document_id": null,
+        "chunk_id": null,
+        "page": null,
+        "score": null,
+        "source_deleted": false
+      }
+    ]
+  },
+  "logs": [
+    {"step_id": 0, "log_type": "Thought", "content": "演示样例：规划研究步骤，不调用在线模型。"},
+    {"step_id": 1, "log_type": "Action", "content": "读取两条离线演示资料。"},
+    {"step_id": 1, "log_type": "Observation", "content": "获得两条演示来源 S1、S2。"},
+    {"step_id": 2, "log_type": "Thought", "content": "基于演示来源撰写报告并标注引用。"},
+    {"step_id": 0, "log_type": "Thought", "content": "开始审核草稿（第 1 次审核）"},
+    {"step_id": 0, "log_type": "Observation", "content": "审核通过：演示引用可回溯。"}
+  ],
+  "usage": [
+    {
+      "call_id": "demo-normal-report-1",
+      "task_id": "demo-normal-report",
+      "agent": "writer",
+      "model": "demo/offline-fixture",
+      "status": "success",
+      "duration_ms": 0.0,
+      "input_tokens": null,
+      "output_tokens": null,
+      "usage_known": false,
+      "estimated_cost": null,
+      "currency": null,
+      "attempt": 1,
+      "reserved_tokens": 0,
+      "created_at": "2026-10-20T00:00:00+00:00",
+      "error_code": null
+    }
+  ]
+}

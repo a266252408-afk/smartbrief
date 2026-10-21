@@ -17,7 +17,7 @@ from data_paths import runtime_path
 
 # 业务 SQLite 库文件（backend/data.db）
 DB_PATH = runtime_path('data.db')
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # 建表 SQL（幂等：IF NOT EXISTS 保证重复执行不报错）
 _SCHEMA = """
@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     retrievals          TEXT NOT NULL DEFAULT '[]',
     evidence            TEXT NOT NULL DEFAULT '[]',  -- 任务内来源，不反推历史证据
     memory_hits         TEXT,          -- JSON 数组（本次任务的长期记忆命中 [{"topic","score",...}]）
+    metadata            TEXT NOT NULL DEFAULT '{}',  -- T11生成版本与显式演示标识；旧任务为空对象
     created_at          TEXT DEFAULT (datetime('now','localtime')),  -- 创建时间
     updated_at          TEXT DEFAULT (datetime('now','localtime'))   -- 最后更新时间
 );
@@ -131,6 +132,7 @@ _MIGRATIONS = [
     "ALTER TABLE tasks ADD COLUMN evidence TEXT NOT NULL DEFAULT '[]'",
     "ALTER TABLE tasks ADD COLUMN citations TEXT NOT NULL DEFAULT '[]'",
     "ALTER TABLE tasks ADD COLUMN citation_errors TEXT NOT NULL DEFAULT '[]'",
+    "ALTER TABLE tasks ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}'",
 ]
 
 
@@ -165,7 +167,7 @@ def init_db(db_path: Path | None = None) -> None:
         conn.executescript('BEGIN IMMEDIATE;\n' + _SCHEMA)
         conn.execute('CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)')
         recorded = {row[0] for row in conn.execute('SELECT version FROM schema_migrations')}
-        if recorded - {1, 2}:
+        if recorded - {1, 2, 3}:
             raise RuntimeError('迁移账本版本高于当前代码')
         for sql in _MIGRATIONS:             # 旧库补列（已存在则跳过）
             try:
@@ -174,6 +176,6 @@ def init_db(db_path: Path | None = None) -> None:
                 if "duplicate column name" not in str(exc):
                     raise
         migrate_quality(conn)
-        for number, name in ((1, '兼容旧库及双状态迁移'), (2, '完整持久化基线与版本账本')):
+        for number, name in ((1, '兼容旧库及双状态迁移'), (2, '完整持久化基线与版本账本'), (3, '任务元数据与演示标识')):
             conn.execute('INSERT OR IGNORE INTO schema_migrations(version,name) VALUES (?,?)', (number, name))
         conn.execute(f'PRAGMA user_version={SCHEMA_VERSION}')

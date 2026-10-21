@@ -92,4 +92,4 @@ T04新增tasks.evidence JSON列（历史默认空列表，不反推来源），�
 
 `DATA_DIR`在后端进程启动时读取。不设置时兼容原backend目录；设置时必须为非空绝对路径，例如`D:/SmartBriefData`。运行根下保存`data.db`、`checkpoints.db`、`data/chroma_db/`、`data/uploads/`、三个运行配置JSON与`skills_pool/`。代码的模板/术语仍从`backend/data/templates`及`backend/data/terminologies.txt`只读加载；环境密钥继续由环境变量或backend/.env提供，不复制进数据根。切换目录不会自动迁移旧数据，必须停服务后按备份恢复手册恢复到新目录再设置DATA_DIR。
 
-T10数据版本为2，`schema_migrations`记录应用版本和UTC时间；旧库建表、补列、质量回填与版本记录同一事务，二次启动不重复记录，未来版本拒绝启动。真实数据升级前先停写并验证备份；旧代码切换不能替代配套数据恢复。2026-10-21用户要求Docker决策延后，容器重建/恢复成绩保持待验。
+T10数据版本为2，`schema_migrations`记录应用版本和UTC时间；旧库建表、补列、质量回填与版本记录同一事务，二次启动不重复记录，未来版本拒绝启动。T11将数据版本升为3，新增`tasks.metadata`（默认空对象）记录生成版本与显式演示标识，旧任务保持空对象。真实数据升级前先停写并验证备份；旧代码切换不能替代配套数据恢复。2026-10-21用户要求Docker决策延后，容器重建/恢复成绩保持待验。

@@ -1,0 +1,105 @@
+{
+  "sample_id": "document-trace",
+  "sample_version": "1.0",
+  "task_id": "demo-document-trace",
+  "scenario": "document",
+  "title": "蓝鲸项目交付资料核验（演示样例）",
+  "description": "上传文档溯源流程：检索命中演示片段，正文引用可回溯到文档、片段与页码。",
+  "task": {
+    "topic": "蓝鲸项目交付资料核验（演示样例）",
+    "status": "completed",
+    "execution_status": "completed",
+    "quality_status": "passed",
+    "forced_output": false,
+    "error_code": null,
+    "error": null,
+    "plan": [
+      {"id": 1, "agent": "researcher", "task": "检索选定的演示上传文档", "depends_on": []},
+      {"id": 2, "agent": "writer", "task": "基于文档片段撰写核验结论", "depends_on": [1]}
+    ],
+    "completed_steps": [1, 2],
+    "current_step_index": 2,
+    "research_data": {},
+    "draft_content": "## 检索结果\n根据演示上传资料，项目交付 137 台设备。[S1]\n\n## 说明\n本报告为演示数据，用于展示文档片段与来源回溯。",
+    "final_report": "## 检索结果\n根据演示上传资料，项目交付 137 台设备。[S1]\n\n## 说明\n本报告为演示数据，用于展示文档片段与来源回溯。",
+    "review_comments": ["文档引用可回溯，演示数据标识完整。"],
+    "review_history": [
+      {"round": 1, "passed": true, "quality_status": "passed", "comments": ["文档引用可回溯，演示数据标识完整。"]}
+    ],
+    "iteration": 0,
+    "max_iterations": 3,
+    "passed": true,
+    "forced_pass": false,
+    "memory_hits": [],
+    "document_ids": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+    "retrievals": [
+      {
+        "task_id": "demo-document-trace",
+        "document_ids": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+        "query": "蓝鲸项目交付数量",
+        "options": {"top_k": 5, "threshold": 0.35, "context_budget": 6000},
+        "status": "matched",
+        "error_code": null,
+        "evidence": [
+          {
+            "source_id": "S1",
+            "task_id": "demo-document-trace",
+            "kind": "document",
+            "title": "演示资料：蓝鲸项目交付记录.txt",
+            "excerpt": "演示数据：蓝鲸项目交付 137 台设备。",
+            "retrieved_at": "2026-10-20T00:00:00Z",
+            "url": null,
+            "document_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "chunk_id": "demo-chunk-137",
+            "page": 2,
+            "score": 0.95,
+            "source_deleted": false
+          }
+        ]
+      }
+    ],
+    "evidence": [
+      {
+        "source_id": "S1",
+        "task_id": "demo-document-trace",
+        "kind": "document",
+        "title": "演示资料：蓝鲸项目交付记录.txt",
+        "excerpt": "演示数据：蓝鲸项目交付 137 台设备。",
+        "retrieved_at": "2026-10-20T00:00:00Z",
+        "url": null,
+        "document_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "chunk_id": "demo-chunk-137",
+        "page": 2,
+        "score": 0.95,
+        "source_deleted": false
+      }
+    ]
+  },
+  "logs": [
+    {"step_id": 0, "log_type": "Thought", "content": "演示样例：检索选定的演示文档，不访问真实上传目录。"},
+    {"step_id": 1, "log_type": "Action", "content": "检索演示文档片段。"},
+    {"step_id": 1, "log_type": "Observation", "content": "命中 demo-chunk-137，页码 2，相似度 0.95。"},
+    {"step_id": 2, "log_type": "Thought", "content": "写作时保留文档、片段与页码引用。"},
+    {"step_id": 0, "log_type": "Thought", "content": "开始审核草稿（第 1 次审核）"},
+    {"step_id": 0, "log_type": "Observation", "content": "审核通过：文档来源可回溯。"}
+  ],
+  "usage": [
+    {
+      "call_id": "demo-document-trace-1",
+      "task_id": "demo-document-trace",
+      "agent": "researcher",
+      "model": "demo/offline-fixture",
+      "status": "success",
+      "duration_ms": 0.0,
+      "input_tokens": null,
+      "output_tokens": null,
+      "usage_known": false,
+      "estimated_cost": null,
+      "currency": null,
+      "attempt": 1,
+      "reserved_tokens": 0,
+      "created_at": "2026-10-20T00:00:00+00:00",
+      "error_code": null
+    }
+  ]
+}

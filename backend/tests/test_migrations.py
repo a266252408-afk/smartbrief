@@ -12,15 +12,16 @@ def test_version_ledger_is_idempotent_and_preserves_report(tmp_path):
     with sqlite3.connect(path) as conn:
         conn.execute("INSERT INTO tasks(task_id,topic,final_report,quality_status) VALUES('t','主题','原报告','unknown')")
         first = conn.execute('SELECT * FROM schema_migrations').fetchall()
-        assert [r[0] for r in first] == [1, 2]
+        assert [r[0] for r in first] == [1, 2, 3]
         assert conn.execute('PRAGMA user_version').fetchone()[0] == database.SCHEMA_VERSION
+        assert conn.execute('SELECT metadata FROM tasks WHERE task_id=?', ('t',)).fetchone()[0] == '{}'
     database.init_db(path)
     with sqlite3.connect(path) as conn:
         assert conn.execute('SELECT * FROM schema_migrations').fetchall() == first
-        assert conn.execute('SELECT final_report,quality_status FROM tasks').fetchone() == ('原报告','unknown')
+        assert conn.execute('SELECT final_report,quality_status,metadata FROM tasks').fetchone() == ('原报告','unknown','{}')
 
 
-@pytest.mark.parametrize('version', [3, 999])
+@pytest.mark.parametrize('version', [4, 999])
 def test_future_schema_rejected_without_changes(tmp_path, version):
     path = tmp_path / 'future.db'
     with sqlite3.connect(path) as conn:

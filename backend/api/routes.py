@@ -647,6 +647,8 @@ async def task_report(task_id: str):
         "retrievals": get_retrievals(task_id)["retrievals"],
         "citations": task.get("citations", []),
         "citation_errors": task.get("citation_errors", []),
+        "metadata": task.get("metadata", {}),
+        "generator_version": (task.get("metadata") or {}).get("generator_version"),
         "charts": [],  # 当前未生成独立图表，保留响应字段供后续扩展。
         "executive_summary": {
             "total_time": total_time,

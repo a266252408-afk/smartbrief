@@ -1700,6 +1700,185 @@
       ],
       "title": "BackupManifest",
       "type": "object"
+    },
+    "TaskMetadata": {
+      "type": "object",
+      "properties": {
+        "demo": {
+          "type": "boolean",
+          "default": false
+        },
+        "generator_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "demo_sample_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "demo_sample_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "demo": {
+                "const": true
+              }
+            },
+            "required": [
+              "demo"
+            ]
+          },
+          "then": {
+            "required": [
+              "demo_sample_id",
+              "demo_sample_version"
+            ]
+          }
+        }
+      ],
+      "description": "T11已实现：generator_version记录生成版本；demo=true必须带样例标识与版本，演示数据不得冒充在线生成。"
+    },
+    "DemoSample": {
+      "type": "object",
+      "required": [
+        "sample_id",
+        "task_id",
+        "title",
+        "description",
+        "scenario",
+        "sample_version",
+        "imported"
+      ],
+      "properties": {
+        "sample_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{2,39}$"
+        },
+        "task_id": {
+          "type": "string",
+          "pattern": "^demo-[a-z0-9-]{3,48}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "scenario": {
+          "enum": [
+            "normal",
+            "document",
+            "recovery"
+          ]
+        },
+        "sample_version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+$"
+        },
+        "imported": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "description": "T11已实现：显式样例摘要；imported仅表示本地任务是否存在，不代表在线生成。"
+    },
+    "DemoImportRequest": {
+      "type": "object",
+      "properties": {
+        "sample_ids": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false,
+      "description": "T11已实现：缺省或null导入全部样例；未知/重复编号拒绝。"
+    },
+    "DemoImported": {
+      "type": "object",
+      "required": [
+        "sample_id",
+        "task_id",
+        "title",
+        "description",
+        "scenario",
+        "sample_version",
+        "imported"
+      ],
+      "properties": {
+        "sample_id": {
+          "type": "string"
+        },
+        "task_id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "scenario": {
+          "enum": [
+            "normal",
+            "document",
+            "recovery"
+          ]
+        },
+        "sample_version": {
+          "type": "string"
+        },
+        "imported": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "description": "T11已实现：单个样例导入结果；skipped中的imported仍为true表示数据已存在。"
+    },
+    "DemoImportResult": {
+      "type": "object",
+      "required": [
+        "imported",
+        "skipped"
+      ],
+      "properties": {
+        "imported": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DemoImported"
+          }
+        },
+        "skipped": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DemoImported"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "description": "T11已实现：事务化导入结果；非演示任务冲突整批回滚。"
     }
   }
 }
