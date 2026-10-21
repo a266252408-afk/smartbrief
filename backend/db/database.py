@@ -112,6 +112,7 @@ CREATE TABLE IF NOT EXISTS evaluation_reports (
 # 注意：加列必须同步修改 _SCHEMA、task_repository 的 _JSON_FIELDS/_ALLOWED_UPDATE、
 # workflow.run_task 落库与前端类型，五处缺一不可（见 CLAUDE.md 约定 12）。
 _MIGRATIONS = [
+    "ALTER TABLE evaluation_reports ADD COLUMN metadata TEXT",
     "ALTER TABLE tasks ADD COLUMN resume_requested INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE tasks ADD COLUMN resume_mode TEXT",
     "ALTER TABLE tasks ADD COLUMN run_token TEXT",

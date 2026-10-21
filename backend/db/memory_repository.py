@@ -1,7 +1,14 @@
 """记忆登记账本；与向量分离，旧向量不会自动取得可信资格。"""
 import json
-from db.database import get_connection
+from db.database import get_connection as business_connection
 from services.memory_policy import MemoryEntry
+
+
+def get_connection():
+    """合成评测使用独立记忆登记，不读写用户准入记录。"""
+    from evaluation.context import evaluation_context
+    context = evaluation_context.get()
+    return context.memory_connection() if context is not None else business_connection()
 
 
 def get(memory_id: str) -> MemoryEntry | None:

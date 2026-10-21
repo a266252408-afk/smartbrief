@@ -4,6 +4,12 @@ import { createHttp } from './http'
 
 /** 单个用例的执行结果 */
 export interface EvalCaseResult {
+  case_id?: string
+  citation_valid_rate?: number | null
+  input_tokens?: number | null
+  output_tokens?: number | null
+  estimated_costs?: Record<string, number>
+  cost_complete?: boolean
   case_index: number
   topic: string
   keywords: string[]
@@ -29,6 +35,20 @@ export interface EvalCaseResult {
 
 /** 评测指标汇总（实测值 + 目标值 + 达标判定） */
 export interface EvalMetrics {
+  quality?: {
+    metric_version: number
+    quality_pass_rate: number
+    execution_completion_rate: number
+    pending_cases: number
+    citation_valid_rate: number | null
+    input_tokens: number | null
+    output_tokens: number | null
+    estimated_costs: Record<string, number>
+    cost_complete: boolean
+    p95_completed_seconds: number | null
+    failure_categories: Record<string, number>
+    manual_fact_check: { status: string; sample_size: number; accuracy: number | null }
+  }
   summary: {
     metric_version?: number
     execution_success_rate?: number
@@ -49,6 +69,7 @@ export interface EvalMetrics {
 
 /** 评测报告（详情接口返回） */
 export interface EvalReport {
+  metadata?: EvalMetadata | null
   eval_id: string
   /** running（执行中）/ completed / failed */
   status: 'running' | 'completed' | 'failed'
@@ -64,6 +85,7 @@ export interface EvalReport {
 
 /** 评测报告摘要（列表项，不含大文本） */
 export interface EvalReportSummary {
+  metadata?: EvalMetadata | null
   eval_id: string
   status: EvalReport['status']
   total_cases: number
@@ -71,6 +93,22 @@ export interface EvalReportSummary {
   error: string | null
   created_at: string
   updated_at: string
+}
+
+export interface EvalMetadata {
+  mode: 'offline' | 'online'
+  suite_version: string
+  dataset_hash: string
+  code_commit: string | null
+  code_tag: string | null
+  code_dirty: boolean | null
+  model: string
+  prompt_version: string
+  feature_flags: { rag: boolean; memory: boolean; review: boolean }
+  randomness: string
+  memory_protocol: string
+  evidence_scope: string
+  online_experiment: { status: string; results: null }
 }
 
 /** 评测列表响应 */

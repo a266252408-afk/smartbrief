@@ -4,6 +4,7 @@ import json
 from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
+import sqlite3
 
 from evaluation.context import evaluation_context
 
@@ -33,6 +34,12 @@ class OfflineDependencies:
         if collection not in self.stores:
             self.stores[collection] = ChromaVectorStore(SyntheticEmbeddings(), str(self.directory / 'vectors'), collection)
         return self.stores[collection]
+
+    def memory_connection(self):
+        connection = sqlite3.connect(self.directory / 'memory.db', check_same_thread=False)
+        connection.row_factory = sqlite3.Row
+        connection.execute('CREATE TABLE IF NOT EXISTS memory_entries(memory_id TEXT PRIMARY KEY,data TEXT NOT NULL)')
+        return connection
 
     async def search(self, query):
         scenario = self.case['scenario']
@@ -84,7 +91,7 @@ async def execute_case(dependencies):
             dependencies.vector_store('rag_collection').add_documents([
                 Document(page_content='## 合成协议结构\n## 资料与限制', metadata={'category':'template', 'source':'synthetic.md'}),
                 Document(page_content='合成指标：仅供协议测试的固定值。', metadata={'category':'terminology', 'source':'synthetic.txt'})])
-        result = await service.submit(dependencies.case['topic'])
+        result = await service.submit('[离线协议] ' + dependencies.case['topic'])
         task_id = result['task_id']
         if dependencies.case['scenario'] == 'cancel':
             await asyncio.wait_for(dependencies.entered_writer.wait(), 10)

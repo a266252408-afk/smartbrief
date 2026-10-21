@@ -43,10 +43,15 @@ def _row_to_eval(row) -> dict | None:
     record = dict(row)
     record["results"] = _loads(record.get("results"), [])   # JSON -> list（用例明细）
     record["metrics"] = _loads(record.get("metrics"), {})   # JSON -> dict（指标汇总）
+    # 新归档严格解析；损坏不能伪装成旧记录或空结果。
+    if record.get('metadata') is not None:
+        record['metadata'] = json.loads(record['metadata'])
+        record['results'] = json.loads(row['results'] or '[]')
+        record['metrics'] = json.loads(row['metrics'] or '{}')
     return record
 
 
-def create(eval_id: str, total_cases: int) -> None:
+def create(eval_id: str, total_cases: int, *, metadata=None) -> None:
     """插入一条评测初始记录（status 默认 running）。
 
     由评测 runner 在开始前调用，保证前端提交后立刻能查到
@@ -54,8 +59,8 @@ def create(eval_id: str, total_cases: int) -> None:
     """
     with get_connection() as conn:
         conn.execute(
-            "INSERT INTO evaluation_reports (eval_id, total_cases) VALUES (?, ?)",
-            (eval_id, total_cases),
+            "INSERT INTO evaluation_reports (eval_id, total_cases, metadata) VALUES (?, ?, ?)",
+            (eval_id, total_cases, _dumps(metadata)),
         )
 
 
@@ -78,6 +83,11 @@ def _update(eval_id: str, **fields) -> None:
 def set_progress(eval_id: str, completed_cases: int) -> None:
     """更新已完成用例数（评测执行中前端进度条轮询的数据源）。"""
     _update(eval_id, completed_cases=completed_cases)
+
+
+def save_partial(eval_id, results, metrics):
+    """每案例原子保存已完成部分；不会更新不可变版本凭据。"""
+    _update(eval_id, completed_cases=len(results), results=results, metrics=metrics)
 
 
 def finish(eval_id: str, results: list[dict], metrics: dict, report_md: str) -> None:
@@ -147,10 +157,12 @@ def list_reports(limit: int = 10, offset: int = 0) -> tuple[list[dict], int]:
     with get_connection() as conn:
         total = conn.execute("SELECT COUNT(*) FROM evaluation_reports").fetchone()[0]
         rows = conn.execute(
-            "SELECT eval_id, status, total_cases, completed_cases, error, "
+            "SELECT eval_id, status, total_cases, completed_cases, error, metadata, "
             "created_at, updated_at FROM evaluation_reports "
             "ORDER BY created_at DESC, eval_id DESC LIMIT ? OFFSET ?",
             (limit, offset),
         ).fetchall()
     items = [dict(r) for r in rows]
+    for item in items:
+        item['metadata'] = json.loads(item['metadata']) if item['metadata'] is not None else None
     return items, total
