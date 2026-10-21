@@ -2,7 +2,6 @@
 知识库管理（上传/列表/检索）、长期记忆检索、任务断点恢复。
 """
 import asyncio
-from uuid import uuid4
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
@@ -11,7 +10,7 @@ from agents import single_agent
 from db import evaluation_repository
 from db import task_repository
 from evaluation import runner as eval_runner
-from graph import workflow
+from graph import workflow as workflow
 from memory import long_term_memory
 from mcp_client.mcp_client import mcp_manager
 from rag import store as rag_store
@@ -320,13 +319,13 @@ async def run_skill(name: str, req: SkillRunRequest):
 @router.post("/generate")
 async def generate_task(req: GenerateRequest):
     """提交任务：创建任务记录并异步执行 LangGraph 工作流，立即返回 task_id。"""
-    task_id = f"task_{uuid4().hex[:8]}"
     topic = req.topic.strip()
-    # 先写入任务初始记录（running），再后台执行（前端轮询 status 可见）
-    task_repository.create_task(task_id, topic)
-    task_repository.update_task(task_id, document_ids=req.document_ids)
-    asyncio.create_task(workflow.run_task(task_id, topic))
-    return {"task_id": task_id, "status": "running", "topic": topic}
+    from services.task_service import get_task_service, TaskControlError
+    try:
+        result = await get_task_service().submit(topic, req.document_ids)
+    except TaskControlError as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from None
+    return {key: result[key] for key in ("task_id", "status", "topic")}
 
 
 @router.get("/tasks")
@@ -386,10 +385,17 @@ async def resume_task(task_id: str):
         raise HTTPException(status_code=404, detail=f"任务不存在：{task_id}")
     if task["status"] == "completed":
         raise HTTPException(status_code=400, detail="任务已完成，无需恢复")
-    # 重置为 running（曾在 failed 的任务也可重跑），清除旧错误信息
-    task_repository.update_task(task_id, status="running", error=None)
-    asyncio.create_task(workflow.run_task(task_id, task["topic"], resume=True))
-    return {"task_id": task_id, "status": "running", "resumed": True}
+    if task["status"] == "cancelled":
+        raise HTTPException(status_code=400, detail="已取消任务不可恢复")
+    from services.task_service import get_task_service, TaskControlError
+    try:
+        service = get_task_service()
+        if task["status"] not in {"queued", "running"}:
+            task_repository.update_task(task_id, status="queued", error=None)
+            service.schedule(task_id, resume=True)
+        return {"task_id": task_id, "status": task_repository.get_task(task_id)["status"], "resumed": True}
+    except TaskControlError as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from None
 
 
 # ---------------------------------------------------------------- 知识库管理（RAG）

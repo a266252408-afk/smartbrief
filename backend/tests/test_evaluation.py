@@ -206,7 +206,9 @@ def test_run_single_case_failure_records_error(runner_db):
     with patch.object(runner.workflow, "run_task", new=boom):
         result = asyncio.run(runner._run_single_case(runner.TEST_CASES[0], 1))
     assert result["success"] is False
-    assert "模拟 LLM 故障" in result["error"]
+    assert result["error"] == "任务执行失败"
+    assert result["failure_category"] == "TASK_EXECUTION_FAILED"
+    assert "模拟 LLM 故障" not in result["error"]
 
 
 def test_start_evaluation_and_execute(runner_db):

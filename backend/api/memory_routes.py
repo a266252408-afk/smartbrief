@@ -46,6 +46,11 @@ async def delete_memory(request: Request, memory_id: str):
 
 @router.post("/tasks/{task_id}/regenerate")
 async def regenerate(request: Request, task_id: str):
+    from services.task_service import get_task_service, TaskControlError
+    try:
+        service = get_task_service()
+    except TaskControlError as exc:
+        return failure(request, exc.status, exc.code, str(exc))
     try:
         result = await asyncio.to_thread(task_regeneration.prepare_regeneration,task_id)
     except task_regeneration.TaskNotTerminal:
@@ -54,6 +59,5 @@ async def regenerate(request: Request, task_id: str):
         return failure(request,503,"TASK_CREATE_FAILED","新任务创建失败")
     if result is None:
         return failure(request,404,"TASK_NOT_FOUND","原任务不存在")
-    from graph import workflow
-    asyncio.create_task(workflow.run_task(result["task_id"],result["topic"]))
+    service.schedule(result["task_id"])
     return success(request,result)

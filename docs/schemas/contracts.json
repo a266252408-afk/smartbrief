@@ -700,16 +700,8 @@
       "additionalProperties": false
     },
     "TaskCreateRequest": {
-      "type": "object",
-      "required": [
-        "topic"
-      ],
+      "additionalProperties": false,
       "properties": {
-        "topic": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 200
-        },
         "document_ids": {
           "items": {
             "pattern": "^[a-f0-9]{32}$",
@@ -717,11 +709,20 @@
           },
           "maxItems": 20,
           "title": "Document Ids",
-          "type": "array",
-          "uniqueItems": true
+          "type": "array"
+        },
+        "topic": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Topic",
+          "type": "string"
         }
       },
-      "additionalProperties": false
+      "required": [
+        "topic"
+      ],
+      "title": "TaskCreateRequest",
+      "type": "object"
     },
     "EvaluationRequest": {
       "type": "object",
@@ -1019,7 +1020,11 @@
           "type": "string"
         },
         "status": {
-          "const": "running"
+          "enum": [
+            "queued",
+            "running"
+          ],
+          "description": "T08起真实排队；running为T06历史兼容"
         },
         "regenerated_from": {
           "type": "string",
@@ -1146,6 +1151,37 @@
         "budget_estimated"
       ],
       "title": "UsageReport",
+      "type": "object"
+    },
+    "TaskAccepted": {
+      "additionalProperties": false,
+      "properties": {
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "topic": {
+          "title": "Topic",
+          "type": "string"
+        },
+        "status": {
+          "const": "queued",
+          "default": "queued",
+          "title": "Status",
+          "type": "string"
+        },
+        "execution_status": {
+          "const": "queued",
+          "default": "queued",
+          "title": "Execution Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "topic"
+      ],
+      "title": "TaskAccepted",
       "type": "object"
     }
   }

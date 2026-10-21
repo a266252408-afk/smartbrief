@@ -1,5 +1,8 @@
 """任务管理 API 测试（/generate、/tasks、/tasks/{id}/status）。"""
 from unittest.mock import AsyncMock, patch
+import asyncio
+import threading
+import time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -23,19 +26,34 @@ def client(tmp_path, monkeypatch):
 
 
 def test_generate_creates_task_and_returns_id(client):
+    started, release = threading.Event(), threading.Event()
+    async def controlled(task_id, topic, resume=False):
+        started.set()
+        while not release.is_set():
+            await asyncio.sleep(0.01)
+        task_repository.update_task(task_id, status="completed")
     with patch(
-        "api.routes.workflow.run_task", new=AsyncMock(return_value={"task_id": "t"})
+        "api.routes.workflow.run_task", new=AsyncMock(side_effect=controlled)
     ):
-        resp = client.post("/api/v1/generate", json={"topic": "智能手表 2025 市场"})
+        try:
+            resp = client.post("/api/v1/generate", json={"topic": "智能手表 2025 市场"})
+            assert started.wait(2)
+            assert task_repository.get_task(resp.json()["task_id"])["status"] == "running"
+        finally:
+            release.set()
     assert resp.status_code == 200
     body = resp.json()
     assert body["task_id"].startswith("task_")
-    assert body["status"] == "running"
+    assert body["status"] == "queued"
     assert body["topic"] == "智能手表 2025 市场"
-    # 任务已落库（running 初始状态）
+    # 排队接收后由受控工作流持久化完成，不把空mock当成功。
+    for _ in range(100):
+        if task_repository.get_task(body["task_id"])["status"] == "completed":
+            break
+        time.sleep(0.01)
     task = task_repository.get_task(body["task_id"])
     assert task is not None
-    assert task["status"] == "running"
+    assert task["status"] == "completed"
 
 
 def test_generate_validation_error(client):

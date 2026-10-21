@@ -81,7 +81,7 @@ def _row_to_task(row) -> dict | None:
     return task
 
 
-def create_task(task_id: str, topic: str, *, document_ids: list[str] | None = None, regenerated_from: str | None = None) -> None:
+def create_task(task_id: str, topic: str, *, document_ids: list[str] | None = None, regenerated_from: str | None = None, initial_status: str = "running") -> None:
     """插入一条任务初始记录（status 默认 running）。
 
     由 API 层在提交任务时调用（后台工作流启动之前），
@@ -89,10 +89,12 @@ def create_task(task_id: str, topic: str, *, document_ids: list[str] | None = No
     """
     from services.retrieval_service import DocumentSelection
     selected = DocumentSelection(document_ids=document_ids or []).document_ids
+    if initial_status not in {"queued", "running"}:
+        raise ValueError("初始任务必须排队或运行")
     with get_connection() as conn:
         conn.execute(
-            "INSERT INTO tasks (task_id, topic, document_ids, regenerated_from) VALUES (?, ?, ?, ?)",
-            (task_id, topic, _dumps(selected), regenerated_from),
+            "INSERT INTO tasks (task_id, topic, document_ids, regenerated_from,status,execution_status) VALUES (?, ?, ?, ?,?,?)",
+            (task_id, topic, _dumps(selected), regenerated_from,initial_status,initial_status),
         )
 
 

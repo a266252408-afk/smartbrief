@@ -11,7 +11,7 @@ from uuid import uuid4
 from db import evaluation_repository
 from db import task_repository
 from evaluation import metrics
-from graph import workflow
+from graph import workflow as workflow
 
 logger = logging.getLogger(__name__)
 
@@ -39,10 +39,13 @@ async def _run_single_case(case: dict, case_index: int) -> dict:
     关键词覆盖率（报告全文子串匹配）/ 记忆命中数（memory_hits 长度）。
     """
     task_id = f"task_{uuid4().hex[:8]}"
-    task_repository.create_task(task_id, case["topic"])
+    task_repository.create_task(task_id, case["topic"], initial_status="queued")
     started = time.monotonic()
     try:
-        await workflow.run_task(task_id, case["topic"])
+        from services.task_service import get_task_service
+        service = get_task_service()
+        service.schedule(task_id)
+        await service.wait(task_id)
         duration = time.monotonic() - started
         task = task_repository.get_task(task_id)
         logs = task_repository.get_logs(task_id)
@@ -65,7 +68,7 @@ async def _run_single_case(case: dict, case_index: int) -> dict:
             "keyword_coverage": metrics.compute_keyword_coverage(report_text, case["keywords"]),
             "memory_hits": len((task or {}).get("memory_hits") or []),
             "forced_pass": bool((task or {}).get("forced_pass")),
-            "error": None,
+            "error": None if execution_success else (task or {}).get("error"),
         }
     except Exception as exc:  # 单用例失败不中断整轮评测（失败也计入成功率分母）
         logger.exception("评测用例 %d 执行失败", case_index)

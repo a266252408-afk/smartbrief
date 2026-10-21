@@ -39,7 +39,7 @@ export interface TaskSummary extends TaskOutcome {
   task_id: string
   topic: string
   /** running 执行中 / paused 已暂停（服务中断遗留）/ completed 已完成 / failed 失败 */
-  status: 'running' | 'paused' | 'completed' | 'failed'
+  status: ExecutionStatus
   plan: Array<{ id: number; agent: string; task: string; depends_on: number[] }>
   current_step_index: number
   completed_steps: number[]
@@ -249,4 +249,11 @@ export async function fetchTaskUsage(taskId: string): Promise<UsageReport> {
   const client = createHttp({ baseURL: '/api/v2', timeout: 15000 })
   const { data } = await client.get(`/tasks/${encodeURIComponent(taskId)}/usage`)
   return data.data as UsageReport
+}
+
+export interface TaskAccepted {
+  task_id: string
+  topic: string
+  status: 'queued'
+  execution_status: 'queued'
 }

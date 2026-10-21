@@ -17,6 +17,7 @@ Thumbs.db
 
 # 运行期数据 / 密钥
 backend/data.db
+backend/*.runner.lock
 backend/checkpoints.db
 backend/*.db-wal
 backend/*.db-shm
