@@ -99,7 +99,8 @@ def resume(task_id, mode, key=None):
             raise TaskControlError("TASK_NOT_FOUND","任务不存在",404)
         state = row["execution_status"]
         if state in {"completed","cancelled"}:
-            raise TaskControlError("TASK_NOT_RESUMABLE","已完成或已取消任务不可恢复",409)
+            message = "任务已完成，无需恢复" if state == "completed" else "已取消任务不可恢复"
+            raise TaskControlError("TASK_NOT_RESUMABLE",message,409)
         fresh = state in {"paused","failed"}
         if fresh:
             conn.execute("UPDATE tasks SET status='queued',execution_status='queued',run_token=NULL,resume_requested=1, "

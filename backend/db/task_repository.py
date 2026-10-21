@@ -189,7 +189,7 @@ def get_task(task_id: str) -> dict | None:
 
 
 def mark_interrupted_tasks_as_paused(
-    message: str = "服务中断：任务已暂停；恢复时将检查快照，必要时从头重试",
+    message: str = "服务中断：任务已暂停，可点击「恢复执行」；将检查快照，必要时从头重试",
 ) -> int:
     """后端重启后清理：把上次进程遗留的 running 任务统一置为 paused。
 

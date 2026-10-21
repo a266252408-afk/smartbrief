@@ -4,6 +4,9 @@
 conftest autouse 已把 Chroma / Checkpointer / RAG seed 隔离到 tmp_path。
 """
 from unittest.mock import AsyncMock, patch
+import asyncio
+import threading
+import time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -134,15 +137,17 @@ def test_memory_search_endpoint(client):
 
 def test_resume_task_running(client):
     task_repository.create_task("task_resume1", "储能市场")
+    workflow_mock = AsyncMock(return_value={"task_id": "task_resume1", "status": "completed"})
     with patch(
         "api.routes.workflow.run_task",
-        new=AsyncMock(return_value={"task_id": "task_resume1", "status": "completed"}),
+        new=workflow_mock,
     ):
         resp = client.post("/api/v1/tasks/task_resume1/resume")
     assert resp.status_code == 200
     body = resp.json()
     assert body["resumed"] is True
     assert body["status"] == "running"
+    workflow_mock.assert_not_awaited()  # 已运行任务不得重复派发。
 
 
 def test_resume_task_completed_rejected(client):
@@ -177,19 +182,32 @@ def test_mark_interrupted_tasks_as_paused(client):
 
 
 def test_resume_task_paused(client):
-    """paused（意外中断）任务是恢复执行的主入口：断点续跑并重置为 running。"""
+    """paused恢复先排队，再唯一领取；缺检查点明确从头重试。"""
     task_repository.create_task("task_paused1", "中断的储能任务")
     task_repository.mark_interrupted_tasks_as_paused()
     assert task_repository.get_task("task_paused1")["status"] == "paused"
-    with patch(
-        "api.routes.workflow.run_task",
-        new=AsyncMock(return_value={"task_id": "task_paused1", "status": "completed"}),
-    ):
-        resp = client.post("/api/v1/tasks/task_paused1/resume")
+    started, release = threading.Event(), threading.Event()
+    async def controlled(task_id, topic, resume=False):
+        assert resume is True
+        started.set()
+        while not release.is_set():
+            await asyncio.sleep(0.01)
+        task_repository.update_task(task_id,status="completed",quality_status="unknown",final_report="离线恢复夹具")
+    with patch("api.routes.workflow.run_task",new=AsyncMock(side_effect=controlled)):
+        try:
+            resp = client.post("/api/v1/tasks/task_paused1/resume")
+            assert resp.status_code == 200 and resp.json()["status"] == "queued"
+            assert started.wait(2)
+            refreshed = task_repository.get_task("task_paused1")
+            assert refreshed["status"] == "running" and refreshed["error"] is None
+            assert refreshed["resume_mode"] == "restart" and refreshed["quality_status"] == "pending"
+        finally:
+            release.set()
     assert resp.status_code == 200
     assert resp.json()["resumed"] is True
-    assert resp.json()["status"] == "running"
-    # error 已清除，状态回到 running
-    refreshed = task_repository.get_task("task_paused1")
-    assert refreshed["status"] == "running"
-    assert refreshed["error"] is None
+    assert resp.json()["status"] == "queued"
+    for _ in range(100):
+        if task_repository.get_task("task_paused1")["status"] == "completed":
+            break
+        time.sleep(0.01)
+    assert task_repository.get_task("task_paused1")["status"] == "completed"

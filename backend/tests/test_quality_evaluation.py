@@ -8,7 +8,8 @@ from evaluation import runner, metrics
 @pytest.mark.parametrize('quality,forced,expected', [('passed',False,True),('rejected',True,False),('unavailable',False,False),('unknown',False,False),('passed',True,False)])
 def test_case_quality_success(tmp_path, monkeypatch, quality, forced, expected):
     database.init_db(tmp_path/'eval.db')
-    async def workflow(task_id, topic):
+    async def workflow(task_id, topic, resume=False):
+        assert resume is False
         repo.update_task(task_id,status='completed',quality_status=quality,forced_output=forced,final_report='报告')
     monkeypatch.setattr(runner.workflow,'run_task',workflow)
     result=asyncio.run(runner._run_single_case({'topic':'主题','keywords':['报告']},1))
