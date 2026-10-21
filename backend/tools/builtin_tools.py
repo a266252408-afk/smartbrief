@@ -9,11 +9,11 @@ import json
 import operator
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
+from data_paths import runtime_path
 
 # ---------------------------------------------------------------- 配置持久化
 
-CONFIG_PATH = Path(__file__).resolve().parents[1] / "tool_config.json"
+CONFIG_PATH = runtime_path('tool_config.json')
 
 
 def _load_config() -> dict:

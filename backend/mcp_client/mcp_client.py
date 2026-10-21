@@ -27,6 +27,7 @@ import sys
 from contextlib import AsyncExitStack
 from pathlib import Path
 from uuid import uuid4
+from data_paths import runtime_path
 
 from mcp import ClientSession, types
 from mcp.client.sse import sse_client
@@ -48,7 +49,7 @@ BUILTIN_SERVER_SCRIPT = (
 BUILTIN_SERVER_ID = "builtin-web-search"
 BUILTIN_SERVER_NAME = "web_search_server"
 
-CONFIG_PATH = Path(__file__).resolve().parents[1] / "mcp_config.json"
+CONFIG_PATH = runtime_path('mcp_config.json')
 
 TIMEOUT_SECONDS = 5
 

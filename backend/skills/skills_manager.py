@@ -25,9 +25,10 @@ from services.execution_policy import python_enabled, scripts_enabled, require_p
 from skills import registry as _registry
 from skills.base_skill import BaseSkill, SkillInput, SkillOutput
 from skills.builtin_skills import BUILTIN_SKILLS
+from data_paths import runtime_path
 
-SKILLS_POOL_DIR = Path(__file__).resolve().parents[1] / "skills_pool"
-SKILL_CONFIG_PATH = Path(__file__).resolve().parents[1] / "skill_config.json"
+SKILLS_POOL_DIR = runtime_path('skills_pool')
+SKILL_CONFIG_PATH = runtime_path('skill_config.json')
 MAX_ZIP_SIZE = 2 * 1024 * 1024  # 单个 zip 上限 2MB
 
 VALID_CATEGORIES = ("search", "analysis", "writing", "review", "other")

@@ -61,7 +61,7 @@ def test_legacy_backup_restore_and_idempotent_upgrade(tmp_path):
     database.init_db(restored)
     with sqlite3.connect(restored) as conn:
         rows = {row[0]: row[1:] for row in conn.execute("SELECT task_id, execution_status, quality_status, forced_output FROM tasks")}
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == database.SCHEMA_VERSION
     assert rows["unknown"] == ("completed", "unknown", 0)
     assert rows["rejected"] == ("completed", "rejected", 1)
     assert rows["failed"] == ("failed", "not_run", 0)

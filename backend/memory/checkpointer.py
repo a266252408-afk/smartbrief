@@ -19,11 +19,12 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
+from data_paths import runtime_path
 
 logger = logging.getLogger(__name__)
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
-CHECKPOINT_DB = BACKEND_DIR / "checkpoints.db"     # 默认：backend/checkpoints.db
+CHECKPOINT_DB = runtime_path('checkpoints.db')
 
 # 降级路径的进程内 MemorySaver 单例（供 open_checkpointer 与只读查询共用，
 # 保证同一进程内"写快照 → 检测/恢复"使用同一实例）

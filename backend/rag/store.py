@@ -23,6 +23,7 @@ from rag.chunkers import RecursiveChunker
 from rag.embeddings import Embeddings, create_embeddings
 from rag.loaders import Document, DocumentLoader
 from rag.vectorstores import ChromaVectorStore
+from data_paths import runtime_path
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +32,8 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = BACKEND_DIR / "data"
 TEMPLATES_DIR = DATA_DIR / "templates"
 TERMINOLOGIES_FILE = DATA_DIR / "terminologies.txt"
-CHROMA_PERSIST_DIR = DATA_DIR / "chroma_db"
-UPLOADS_DIR = DATA_DIR / "uploads"
+CHROMA_PERSIST_DIR = runtime_path('data/chroma_db')
+UPLOADS_DIR = runtime_path('data/uploads')
 
 RAG_COLLECTION = "rag_collection"
 MEMORY_COLLECTION = "memory_collection"

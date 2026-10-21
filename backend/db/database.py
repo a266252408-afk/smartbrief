@@ -13,9 +13,11 @@ import sqlite3
 from pathlib import Path
 
 from db.quality_migration import migrate_quality
+from data_paths import runtime_path
 
 # 业务 SQLite 库文件（backend/data.db）
-DB_PATH = Path(__file__).resolve().parents[1] / "data.db"
+DB_PATH = runtime_path('data.db')
+SCHEMA_VERSION = 2
 
 # 建表 SQL（幂等：IF NOT EXISTS 保证重复执行不报错）
 _SCHEMA = """
@@ -154,9 +156,17 @@ def init_db(db_path: Path | None = None) -> None:
     global DB_PATH
     if db_path is not None:
         DB_PATH = Path(db_path)             # 覆盖全局库路径（模块级单例）
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(DB_PATH) as conn:
-        conn.executescript(_SCHEMA)         # 批量执行建表 SQL（IF NOT EXISTS → 幂等）
-        conn.execute("BEGIN IMMEDIATE")  # 旧库补列与回填共同提交，失败全部回滚
+        version = conn.execute('PRAGMA user_version').fetchone()[0]
+        if version > SCHEMA_VERSION:
+            raise RuntimeError('数据版本高于当前代码，禁止降级打开；请恢复匹配版本的数据副本')
+        # BEGIN必须在executescript内部，避免其隐式提交使建表脱离事务。
+        conn.executescript('BEGIN IMMEDIATE;\n' + _SCHEMA)
+        conn.execute('CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)')
+        recorded = {row[0] for row in conn.execute('SELECT version FROM schema_migrations')}
+        if recorded - {1, 2}:
+            raise RuntimeError('迁移账本版本高于当前代码')
         for sql in _MIGRATIONS:             # 旧库补列（已存在则跳过）
             try:
                 conn.execute(sql)
@@ -164,3 +174,6 @@ def init_db(db_path: Path | None = None) -> None:
                 if "duplicate column name" not in str(exc):
                     raise
         migrate_quality(conn)
+        for number, name in ((1, '兼容旧库及双状态迁移'), (2, '完整持久化基线与版本账本')):
+            conn.execute('INSERT OR IGNORE INTO schema_migrations(version,name) VALUES (?,?)', (number, name))
+        conn.execute(f'PRAGMA user_version={SCHEMA_VERSION}')
