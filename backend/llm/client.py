@@ -36,7 +36,9 @@ def get_client() -> AsyncOpenAI:
 
 def get_model() -> str:
     """当前使用的模型名。"""
-    return os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    from evaluation.context import evaluation_context
+    context = evaluation_context.get()
+    return context.model if context is not None else os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 
 async def chat(messages: list, tools: list | None = None, tool_choice: str | None = None):
@@ -47,10 +49,13 @@ async def chat(messages: list, tools: list | None = None, tool_choice: str | Non
     :param tool_choice: 可选 "auto" / "none"
     :return: ChatCompletion 响应对象（含 content / tool_calls）
     """
-    client = get_client()
-    policy = ModelPolicy.from_env()
+    from evaluation.context import evaluation_context
+    context = evaluation_context.get()
+    create = context.create if context is not None else get_client().chat.completions.create
+    policy = (ModelPolicy(max_task_tokens=1 if context.case['scenario'] == 'budget' else 200000,
+                          timeout_seconds=10, max_retries=0) if context is not None else ModelPolicy.from_env())
     from services.usage_summary import configured_price
-    price = configured_price(get_model())
+    price = None if context is not None else configured_price(get_model())
     kwargs = {"model": get_model(), "messages": messages}
     if tools:
         kwargs["tools"] = tools
@@ -60,7 +65,7 @@ async def chat(messages: list, tools: list | None = None, tool_choice: str | Non
     kwargs["timeout"] = policy.timeout_seconds
     for attempt in range(1, policy.max_retries + 2):
         try:
-            return await measured_call(client.chat.completions.create, kwargs, attempt=attempt, policy=policy, price=price)
+            return await measured_call(create, kwargs, attempt=attempt, policy=policy, price=price)
         except ModelCallError as exc:
             if not exc.retryable or attempt > policy.max_retries:
                 raise

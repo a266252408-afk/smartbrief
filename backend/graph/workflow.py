@@ -140,7 +140,11 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
         # 短期记忆 Checkpointer：以 async with 进入 SqliteSaver 连接生命周期
         # （新版 langgraph-checkpoint-sqlite 的 API），compile + invoke 全程持有连接，
         # 图每次节点执行后自动向 checkpoints.db 落快照（缺依赖时降级 MemorySaver）。
-        async with cp_mod.open_checkpointer() as (cp, _kind):
+        from evaluation.context import evaluation_context
+        context = evaluation_context.get()
+        checkpoint = str(context.directory / 'checkpoints.db') if context is not None else None
+        opener = cp_mod.open_checkpointer(checkpoint) if context is not None else cp_mod.open_checkpointer()
+        async with opener as (cp, _kind):
             graph = build_graph(checkpointer=cp)
             config = {"configurable": {"thread_id": task_id}}
             mode = None

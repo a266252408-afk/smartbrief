@@ -1,0 +1,225 @@
+{
+  "suite_version": "protocol-1",
+  "cases": [
+    {
+      "case_id": "C01",
+      "category": "regular",
+      "topic": "便携储能北美市场",
+      "keywords": [
+        "合成",
+        "协议"
+      ],
+      "scenario": "normal",
+      "source_note": "项目自建合成协议案例；example.invalid仅作测试来源，不是真实研究证据"
+    },
+    {
+      "case_id": "C02",
+      "category": "regular",
+      "topic": "家用储能欧洲市场",
+      "keywords": [
+        "合成",
+        "协议"
+      ],
+      "scenario": "normal",
+      "source_note": "项目自建合成协议案例；example.invalid仅作测试来源，不是真实研究证据"
+    },
+    {
+      "case_id": "C03",
+      "category": "regular",
+      "topic": "智能手表中国市场",
+      "keywords": [
+        "合成",
+        "协议"
+      ],
+      "scenario": "normal",
+      "source_note": "项目自建合成协议案例；example.invalid仅作测试来源，不是真实研究证据"
+    },
+    {
+      "case_id": "C04",
+      "category": "regular",
+      "topic": "新能源汽车全球市场",
+      "keywords": [
+        "合成",
+        "协议"
+      ],
+      "scenario": "normal",
+      "source_note": "项目自建合成协议案例；example.invalid仅作测试来源，不是真实研究证据"
+    },
+    {
+      "case_id": "C05",
+      "category": "regular",
+      "topic": "屋顶光伏美国市场",
+      "keywords": [
+        "合成",
+        "协议"
+      ],
+      "scenario": "normal",
+      "source_note": "项目自建合成协议案例；example.invalid仅作测试来源，不是真实研究证据"
+    },
+    {
+      "case_id": "C06",
+      "category": "regular",
+      "topic": "智能音箱市场",
+      "keywords": [
+        "合成",
+        "协议"
+      ],
+      "scenario": "normal",
+      "source_note": "项目自建合成协议案例；example.invalid仅作测试来源，不是真实研究证据"
+    },
+    {
+      "case_id": "C07",
+      "category": "regular",
+      "topic": "智能门锁市场",
+      "keywords": [
+        "合成",
+        "协议"
+      ],
+      "scenario": "normal",
+      "source_note": "项目自建合成协议案例；example.invalid仅作测试来源，不是真实研究证据"
+    },
+    {
+      "case_id": "C08",
+      "category": "regular",
+      "topic": "工业无人机市场",
+      "keywords": [
+        "合成",
+        "协议"
+      ],
+      "scenario": "normal",
+      "source_note": "项目自建合成协议案例；example.invalid仅作测试来源，不是真实研究证据"
+    },
+    {
+      "case_id": "C09",
+      "category": "regular",
+      "topic": "教育平板市场",
+      "keywords": [
+        "合成",
+        "协议"
+      ],
+      "scenario": "normal",
+      "source_note": "项目自建合成协议案例；example.invalid仅作测试来源，不是真实研究证据"
+    },
+    {
+      "case_id": "C10",
+      "category": "regular",
+      "topic": "电动牙刷市场",
+      "keywords": [
+        "合成",
+        "协议"
+      ],
+      "scenario": "normal",
+      "source_note": "项目自建合成协议案例；example.invalid仅作测试来源，不是真实研究证据"
+    },
+    {
+      "case_id": "C11",
+      "category": "uncovered",
+      "topic": "社区无障碍导览服务",
+      "keywords": [
+        "合成",
+        "协议"
+      ],
+      "scenario": "normal",
+      "source_note": "项目自建合成协议案例；example.invalid仅作测试来源，不是真实研究证据"
+    },
+    {
+      "case_id": "C12",
+      "category": "uncovered",
+      "topic": "古籍数字修复服务",
+      "keywords": [
+        "合成",
+        "协议"
+      ],
+      "scenario": "normal",
+      "source_note": "项目自建合成协议案例；example.invalid仅作测试来源，不是真实研究证据"
+    },
+    {
+      "case_id": "C13",
+      "category": "uncovered",
+      "topic": "湿地公民科学项目",
+      "keywords": [
+        "合成",
+        "协议"
+      ],
+      "scenario": "normal",
+      "source_note": "项目自建合成协议案例；example.invalid仅作测试来源，不是真实研究证据"
+    },
+    {
+      "case_id": "C14",
+      "category": "evidence",
+      "topic": "无可用资料",
+      "keywords": [
+        "合成",
+        "协议"
+      ],
+      "scenario": "no_sources",
+      "source_note": "项目自建合成协议案例；example.invalid仅作测试来源，不是真实研究证据"
+    },
+    {
+      "case_id": "C15",
+      "category": "evidence",
+      "topic": "资料相互冲突",
+      "keywords": [
+        "合成",
+        "协议"
+      ],
+      "scenario": "conflict",
+      "source_note": "项目自建合成协议案例；example.invalid仅作测试来源，不是真实研究证据"
+    },
+    {
+      "case_id": "C16",
+      "category": "evidence",
+      "topic": "供应商不返回用量",
+      "keywords": [
+        "合成",
+        "协议"
+      ],
+      "scenario": "unknown_usage",
+      "source_note": "项目自建合成协议案例；example.invalid仅作测试来源，不是真实研究证据"
+    },
+    {
+      "case_id": "C17",
+      "category": "fault",
+      "topic": "供应商超时",
+      "keywords": [
+        "合成",
+        "协议"
+      ],
+      "scenario": "model_timeout",
+      "source_note": "项目自建合成协议案例；example.invalid仅作测试来源，不是真实研究证据"
+    },
+    {
+      "case_id": "C18",
+      "category": "fault",
+      "topic": "审核返回非法结构",
+      "keywords": [
+        "合成",
+        "协议"
+      ],
+      "scenario": "review_invalid",
+      "source_note": "项目自建合成协议案例；example.invalid仅作测试来源，不是真实研究证据"
+    },
+    {
+      "case_id": "C19",
+      "category": "fault",
+      "topic": "调用预算不足",
+      "keywords": [
+        "合成",
+        "协议"
+      ],
+      "scenario": "budget",
+      "source_note": "项目自建合成协议案例；example.invalid仅作测试来源，不是真实研究证据"
+    },
+    {
+      "case_id": "C20",
+      "category": "fault",
+      "topic": "运行中取消",
+      "keywords": [
+        "合成",
+        "协议"
+      ],
+      "scenario": "cancel",
+      "source_note": "项目自建合成协议案例；example.invalid仅作测试来源，不是真实研究证据"
+    }
+  ]
+}

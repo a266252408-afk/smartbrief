@@ -1325,6 +1325,69 @@
           }
         }
       ]
+    },
+    "EvaluationCase": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "pattern": "^C[0-9]{2}$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "category": {
+          "enum": [
+            "regular",
+            "uncovered",
+            "evidence",
+            "fault"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "topic": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Topic",
+          "type": "string"
+        },
+        "keywords": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Keywords",
+          "type": "array"
+        },
+        "scenario": {
+          "enum": [
+            "normal",
+            "no_sources",
+            "conflict",
+            "unknown_usage",
+            "model_timeout",
+            "review_invalid",
+            "budget",
+            "cancel"
+          ],
+          "title": "Scenario",
+          "type": "string"
+        },
+        "source_note": {
+          "minLength": 1,
+          "title": "Source Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "category",
+        "topic",
+        "keywords",
+        "scenario",
+        "source_note"
+      ],
+      "title": "EvaluationCase",
+      "type": "object"
     }
   }
 }

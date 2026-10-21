@@ -80,7 +80,9 @@ async def _run_search(query: str, step_id: int, logs: list) -> dict:
     """
     logs.append({"type": "Action", "content": f"web_search(query={query!r})", "step_id": step_id})
     try:
-        result = await mcp_manager.call_tool("web_search", {"query": query})   # 调 MCP 工具
+        from evaluation.context import evaluation_context
+        context = evaluation_context.get()
+        result = await context.search(query) if context is not None else await mcp_manager.call_tool("web_search", {"query": query})
         obs_text = evidence_context({"search": {"observations": [{"result": result}]}}, budget=2400)
         logs.append({"type": "Observation", "content": obs_text, "step_id": step_id})
         return result

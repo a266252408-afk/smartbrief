@@ -56,6 +56,10 @@ def _get_embeddings() -> Embeddings:
 
 def get_store(persist_dir: Optional[str] = None, collection: str = RAG_COLLECTION) -> ChromaVectorStore:
     """获取（缓存）指定集合的 ChromaVectorStore 实例。"""
+    from evaluation.context import evaluation_context
+    context = evaluation_context.get()
+    if context is not None:
+        return context.vector_store(collection)
     persist = persist_dir or str(CHROMA_PERSIST_DIR)
     key = f"{persist}::{collection}"
     if key not in _stores:
