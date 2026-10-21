@@ -96,6 +96,7 @@ export interface EvalReportSummary {
 }
 
 export interface EvalMetadata {
+  source_hash?: string | null
   mode: 'offline' | 'online'
   suite_version: string
   dataset_hash: string
@@ -123,27 +124,40 @@ const http = createHttp({
   baseURL: '/api/v1',
   timeout: 15000
 })
+const v2 = createHttp({ baseURL: '/api/v2', timeout: 15000 })
 
 /** 触发自动化评测（后台执行已配置的冒烟用例，立即返回 eval_id） */
-export async function runEvaluation(): Promise<{ eval_id: string; status: string; total_cases: number }> {
-  const { data } = await http.post('/evaluation/run')
-  return data as { eval_id: string; status: string; total_cases: number }
+export async function runEvaluation(featureFlags = { rag: true, memory: true, review: true }): Promise<{ eval_id: string; status: string; total_cases: number }> {
+  const { data } = await v2.post('/evaluations', { suite_version: 'protocol-1', mode: 'offline', feature_flags: featureFlags })
+  return data.data
 }
 
 /** 历史评测报告列表 */
 export async function fetchEvalReports(params: { page?: number; page_size?: number } = {}): Promise<EvalReportListResult> {
-  const { data } = await http.get('/evaluation/reports', { params })
-  return data as EvalReportListResult
+  const { data } = await v2.get('/evaluations', { params })
+  return data.data as EvalReportListResult
 }
 
 /** 评测报告详情（执行中返回进度，完成后返回结果与指标） */
 export async function fetchEvalReport(evalId: string): Promise<EvalReport> {
-  const { data } = await http.get(`/evaluation/reports/${evalId}`)
-  return data as EvalReport
+  const { data } = await v2.get(`/evaluations/${encodeURIComponent(evalId)}`)
+  return data.data as EvalReport
 }
 
 /** 删除历史评测报告（运行中的评测后端返回 400，前端提示） */
 export async function deleteEvalReport(evalId: string): Promise<{ eval_id: string; deleted: boolean }> {
   const { data } = await http.delete(`/evaluation/reports/${evalId}`)
   return data as { eval_id: string; deleted: boolean }
+}
+
+export interface EvaluationComparison {
+  changed_feature: string
+  quality_pass_rate_delta: number
+  execution_completion_rate_delta: number
+  interpretation: string
+}
+
+export async function compareEvaluations(evalId: string, baseline: string): Promise<EvaluationComparison> {
+  const { data } = await v2.get(`/evaluations/${encodeURIComponent(evalId)}/comparison`, { params: { baseline } })
+  return data.data
 }

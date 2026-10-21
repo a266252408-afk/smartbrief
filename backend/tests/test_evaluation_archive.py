@@ -31,6 +31,7 @@ def test_real_twenty_case_offline_report(tmp_path, monkeypatch):
     assert quality['citation_valid_rate'] == 1.0 and quality['estimated_costs'] == {}
     assert quality['failure_categories']['BUDGET_EXCEEDED'] == 1
     assert quality['failure_categories']['TASK_CANCELLED'] == 1
+    assert quality['failure_categories']['MODEL_TIMEOUT'] == 1
     assert quality['manual_fact_check']['accuracy'] is None
     assert '合成模型' in record['report_md'] and '在线实验：pending' in record['report_md']
     assert repo.get(record['eval_id']) == record

@@ -36,6 +36,9 @@ async def _retrieve_terms(task: str) -> list:
 
     :return: 术语定义文本列表；RAG 不可用时返回 []（不影响撰写）
     """
+    from evaluation.context import enabled
+    if not enabled('rag'):
+        return []
     try:
         return await asyncio.to_thread(rag_store.search_rag_terms, task)
     except Exception:

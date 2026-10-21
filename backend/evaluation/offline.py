@@ -46,6 +46,8 @@ class OfflineDependencies:
         items = [] if scenario == 'no_sources' else [dict(title='合成协议资料A', url='https://example.invalid/protocol/a', snippet='合成样本：指标为12%，不是真实市场数据。')]
         if scenario == 'conflict':
             items.append(dict(title='合成协议资料B', url='https://example.invalid/protocol/b', snippet='合成冲突样本：同指标为24%，须保留分歧。'))
+        if scenario == 'unknown_usage':
+            items[0]['snippet'] += '第二资料缺失，未覆盖内容待补充。'
         return dict(query=query, source='synthetic-protocol', results=items)
 
     async def create(self, **kwargs):
@@ -67,6 +69,8 @@ class OfflineDependencies:
             text += '数据待补充：没有可用来源。' if scenario == 'no_sources' else '合成样本指标12%。[S1]'
             if scenario == 'conflict':
                 text += '\n\n另一合成资料指标24%，两者冲突，不能合并为事实。[S2]'
+            if scenario == 'unknown_usage':
+                text += '\n\n资料不完整：第二资料缺失，未覆盖内容数据待补充。'
         elif agent == 'reviewer':
             text = '无效审核返回' if scenario == 'review_invalid' else json.dumps(dict(passed=True, comments=[]))
         else:

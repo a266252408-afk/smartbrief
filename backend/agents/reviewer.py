@@ -43,6 +43,11 @@ async def reviewer_node(state: dict) -> dict:
                 "forced_pass": False, "forced_output": False,
                 "error_code": state.get("error_code") or "DRAFT_UNAVAILABLE",
                 "error": "报告写作失败", "react_logs": logs}
+    from evaluation.context import enabled
+    if not enabled('review'):
+        logs.append(dict(type='Observation',content='本轮评测关闭审核；质量未执行，不作为通过',step_id=0))
+        return dict(quality_status='not_run',passed=False,forced_pass=False,forced_output=False,
+                    error_code='REVIEW_DISABLED',react_logs=logs)
     evidence = await asyncio.to_thread(refresh_document_sources, state.get("evidence", []))
     check = check_citations(state.get("task_id", ""), draft, evidence, state.get("required_citations", []))
     required = sorted(set(state.get("required_citations", [])) | {c["source_id"] for c in check["citations"] if c["valid"]})

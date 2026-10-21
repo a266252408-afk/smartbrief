@@ -127,6 +127,9 @@ def _build_few_shot(hit: Dict) -> str:
 
 async def _recall_memory(topic: str) -> List[Dict]:
     """长期记忆检索（线程池包装同步 ChromaDB 调用，便于测试 patch 隔离）。"""
+    from evaluation.context import enabled
+    if not enabled('memory'):
+        return []
     try:
         return await asyncio.to_thread(long_term_memory.recall, topic)
     except Exception as exc:                      # 记忆子系统异常不阻断规划
@@ -136,6 +139,9 @@ async def _recall_memory(topic: str) -> List[Dict]:
 
 async def _template_reference(topic: str) -> str:
     """隔离模板资料区，索引/嵌入不可用时明确降级且不泄露外部错误。"""
+    from evaluation.context import enabled
+    if not enabled('rag'):
+        return ''
     try:
         headings = await asyncio.to_thread(rag_store.search_template_structure, topic)
     except Exception:

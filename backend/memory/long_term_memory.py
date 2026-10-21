@@ -17,7 +17,9 @@ _MEMORY_ENABLED = os.getenv("MEMORY_ENABLED", "true").lower() not in {"0", "fals
 
 
 def is_enabled() -> bool:
-    return _MEMORY_ENABLED
+    from evaluation.context import evaluation_context
+    context = evaluation_context.get()
+    return context.flags['memory'] if context is not None else _MEMORY_ENABLED
 
 
 def set_enabled(enabled: bool) -> None:
@@ -32,7 +34,7 @@ def _now() -> str:
 def remember(topic: str, final_report: str, task_id: Optional[str] = None,
              persist_dir: Optional[str] = None) -> bool:
     """只接收已落库的合格原报告；稳定版本ID使崩溃重试幂等。"""
-    if not _MEMORY_ENABLED or not task_id or not (final_report or "").strip():
+    if not is_enabled() or not task_id or not (final_report or "").strip():
         return False
     try:
         task, reason = eligibility(task_id)
@@ -89,7 +91,7 @@ def _active(entry: MemoryEntry) -> bool:
 
 def recall(topic: str, k: int = 3, persist_dir: Optional[str] = None) -> List[dict]:
     """仅可信登记集合可召回；旧向量不因字段看似成功而取得资格。"""
-    if not _MEMORY_ENABLED:
+    if not is_enabled():
         return []
     try:
         active = {e.memory_id:e for e in registry.entries() if e.status == "active" and _active(e)}

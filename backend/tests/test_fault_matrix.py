@@ -52,6 +52,8 @@ def test_real_fault_matrix(tmp_path, monkeypatch, index, state, quality):
             assert task['forced_output'] and not task['passed']
         if index == 14:
             assert len(task['evidence']) == 2 and '[S2]' in task['final_report']
+        if index == 15:
+            assert len(task['evidence']) == 1 and '资料不完整' in task['final_report']
         if index == 18:
             assert task['error_code'] == 'BUDGET_EXCEEDED' and not dependencies.calls
         if index == 19:

@@ -170,5 +170,6 @@ def build_markdown(eval_id: str, results: list[dict], metrics_data: dict) -> str
             f"{r.get('duration_seconds', '-')} | {r.get('react_loops', '-')} | "
             f"{r.get('keyword_coverage', 0) * 100:.1f}% | {r.get('memory_hits', 0)} |"
         )
-    lines += ["", f"> 本轮执行 {summary['total_cases']} 个用例，指标口径见 `evaluation/metrics.py`。默认单用例仅用于冒烟验证。", ""]
+    scope = '合成协议结果不代表在线效果；人工事实抽查pending。' if summary.get('metric_version') == 3 else '默认单用例仅用于冒烟验证。'
+    lines += ["", f"> 本轮执行 {summary['total_cases']} 个用例，指标口径见 `evaluation/metrics.py` 与v3 `evaluation/quality.py`。{scope}", ""]
     return "\n".join(lines)

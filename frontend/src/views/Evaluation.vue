@@ -1,10 +1,12 @@
 <script setup lang="ts">
 /** 评测中心：运行评测 → 进度条 → 五维雷达图 + 指标卡 + 用例明细 + 历史对比 */
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import * as echarts from 'echarts'
+import EvaluationProtocol from '../components/EvaluationProtocol.vue'
+import { authRole } from '../api/session'
 import {
   runEvaluation,
   fetchEvalReports,
@@ -24,10 +26,16 @@ const selectedId = ref('')          // 当前选中的评测 id
 const report = ref<EvalReport | null>(null)
 const loading = ref(false)
 const pollTimer = ref<number | null>(null)
+const featureFlags = ref({ rag: true, memory: true, review: true })
+const listError = ref(false)
+let detailVersion = 0
+let disposed = false
 
 async function loadList() {
   try {
     const result = await fetchEvalReports({ page: 1, page_size: 20 })
+    if (disposed) return
+    listError.value = false
     reports.value = result.items
     // 列表里有执行中的评测 → 自动选中并轮询
     const active = result.items.find((r) => r.status === 'running')
@@ -39,21 +47,25 @@ async function loadList() {
       select(result.items[0].eval_id)
     }
   } catch {
+    listError.value = true
     ElMessage.error('获取评测历史失败，请检查后端服务')
   }
 }
 
 async function loadDetail(evalId: string) {
+  const version = ++detailVersion
   loading.value = true
   try {
-    report.value = await fetchEvalReport(evalId)
+    const result = await fetchEvalReport(evalId)
+    if (disposed || version !== detailVersion || evalId !== selectedId.value) return
+    report.value = result
     running.value = report.value.status === 'running'
     if (running.value) startPolling()
     else stopPolling()
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.detail || '获取评测详情失败')
+    if (!disposed && version === detailVersion) ElMessage.error(e?.response?.data?.error?.message || '获取评测详情失败')
   } finally {
-    loading.value = false
+    if (!disposed && version === detailVersion) loading.value = false
   }
 }
 
@@ -115,6 +127,8 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  disposed = true
+  detailVersion++
   stopPolling()
   radarChart.value?.dispose()
 })
@@ -122,15 +136,15 @@ onBeforeUnmount(() => {
 // ---------------- 运行评测 ----------------
 
 async function onRun() {
-  if (running.value || starting.value) return
+  if (running.value || starting.value || authRole.value !== 'admin') return
   starting.value = true
   try {
-    const result = await runEvaluation()
-    ElMessage.success(`评测已启动：${result.eval_id}（共 ${result.total_cases} 个用例，约 5-10 分钟）`)
+    const result = await runEvaluation({ ...featureFlags.value })
+    ElMessage.success(`离线协议评测已启动：${result.eval_id}（${result.total_cases} 例）`)
     running.value = true
     select(result.eval_id)
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.detail || '评测启动失败，请检查后端服务')
+    ElMessage.error(e?.response?.data?.error?.message || '评测启动失败，请检查后端服务')
   } finally {
     starting.value = false
   }
@@ -148,8 +162,8 @@ const metricCards = computed(() => {
   const target = report.value!.metrics.targets
   const met = report.value!.metrics.met
   return [
-    ...(s.metric_version === 2 ? [{ key: 'execution_success_rate', label: '执行完成率', value: pct(s.execution_success_rate ?? 0), target: '独立展示', met: true }] : []),
-    { key: 'success_rate', label: s.metric_version === 2 ? '质量通过率' : '旧版执行成功率', value: pct(s.success_rate), target: pct(target.success_rate), met: met.success_rate },
+    ...((s.metric_version ?? 0) >= 2 ? [{ key: 'execution_success_rate', label: '执行完成率', value: pct(s.execution_success_rate ?? 0), target: '独立展示', met: true }] : []),
+    { key: 'success_rate', label: (s.metric_version ?? 0) >= 2 ? '质量通过率' : '旧版执行成功率', value: pct(s.success_rate), target: pct(target.success_rate), met: met.success_rate },
     { key: 'avg_duration_seconds', label: '平均执行耗时', value: `${s.avg_duration_seconds.toFixed(1)}s`, target: `${target.avg_duration_seconds.toFixed(1)}s`, met: met.avg_duration_seconds },
     { key: 'p95_duration_seconds', label: 'P95 耗时', value: `${s.p95_duration_seconds.toFixed(1)}s`, target: '—', met: true },
     { key: 'avg_react_loops', label: '平均 ReAct 循环', value: `${s.avg_react_loops.toFixed(1)} 次`, target: `${target.avg_react_loops.toFixed(1)} 次`, met: met.avg_react_loops },
@@ -172,7 +186,7 @@ const radarOption = computed(() => {
     tooltip: {},
     radar: {
       indicator: [
-        { name: s.metric_version === 2 ? '质量通过率' : '旧版执行成功率', max: 100 },
+        { name: (s.metric_version ?? 0) >= 2 ? '质量通过率' : '旧版执行成功率', max: 100 },
         { name: '关键词覆盖率', max: 100 },
         { name: '记忆命中率', max: 100 },
         { name: '耗时达标分', max: 100 },
@@ -201,16 +215,23 @@ const radarOption = computed(() => {
   }
 })
 
-const radarChart = ref<echarts.ECharts | null>(null)
+const radarChart = shallowRef<echarts.ECharts | null>(null)
 const radarEl = ref<HTMLElement>()
 
-watch(radarOption, async () => {
-  if (!radarOption.value) return
-  await nextTick()
-  if (!radarEl.value) return
+watch([radarOption, radarEl], () => {
+  if (disposed) return
+  if (!radarOption.value || !radarEl.value) {
+    radarChart.value?.dispose()
+    radarChart.value = null
+    return
+  }
+  if (radarChart.value && radarChart.value.getDom() !== radarEl.value) {
+    radarChart.value.dispose()
+    radarChart.value = null
+  }
   radarChart.value ??= echarts.init(radarEl.value)
   radarChart.value.setOption(radarOption.value)
-})
+}, { flush: 'post' })
 
 /** Markdown 报告（report_md）渲染为富文本 */
 const reportMdHtml = computed(() => {
@@ -266,19 +287,27 @@ function statusOf(status: string) {
         <h2>评测中心</h2>
         <p class="hint">
           执行已配置的评测用例，分别统计执行完成率与质量通过率、耗时、行动次数、关键词覆盖率与记忆命中率。
-          默认单用例用于冒烟验证，指标目标不代表实测成绩
+          protocol-1 固定20例合成协议测试；在线实验需另行授权，人工事实抽查 pending。指标目标不代表实测成绩。
         </p>
       </div>
       <el-button
         type="primary"
         size="large"
         :loading="starting"
-        :disabled="running"
+        :disabled="running || authRole !== 'admin'"
         @click="onRun"
       >
-        {{ running ? '评测执行中…' : '运行评测' }}
+        {{ running ? '评测执行中…' : '运行离线协议评测' }}
       </el-button>
     </div>
+    <div class="experiment-options">
+      <el-checkbox v-model="featureFlags.rag" :disabled="running || authRole !== 'admin'">RAG</el-checkbox>
+      <el-checkbox v-model="featureFlags.memory" :disabled="running || authRole !== 'admin'">长期记忆</el-checkbox>
+      <el-checkbox v-model="featureFlags.review" :disabled="running || authRole !== 'admin'">审核</el-checkbox>
+      <p class="hint">对照保持同一数据集、模型、提示与源码，每次只改变一个开关；固定响应的差值不能证明在线增益。</p>
+    </div>
+    <el-alert v-if="listError" title="评测历史读取失败，请刷新重试" type="error" :closable="false" />
+    <EvaluationProtocol v-if="report" :report="report" :reports="reports" />
 
     <!-- 历史评测列表 -->
     <el-card shadow="never" class="eval-list-card">
@@ -309,13 +338,13 @@ function statusOf(status: string) {
             <el-button
               link
               type="danger"
-              :disabled="row.status === 'running'"
+              :disabled="row.status === 'running' || authRole !== 'admin'"
               @click="confirmDelete(row)"
             >删除</el-button>
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!reports.length" description="暂无评测记录，点击「运行评测」开始" :image-size="70" />
+      <el-empty v-if="!reports.length && !listError" description="暂无评测记录" :image-size="70" />
     </el-card>
 
     <!-- 运行中进度 -->
@@ -332,7 +361,7 @@ function statusOf(status: string) {
       />
       <p class="hint progress-tip">
         已完成 {{ report.completed_cases }} / {{ report.total_cases }} 个用例
-        （{{ report.eval_id }}，约 5-10 分钟）
+        （{{ report.eval_id }}；部分进度与结果持续保存）
       </p>
     </el-card>
 
@@ -397,7 +426,7 @@ function statusOf(status: string) {
       <el-card shadow="never" class="case-card">
         <template #header>
           <div class="md-header">
-            <span class="card-title">用例明细（{{ summary?.success_cases }}/{{ summary?.total_cases }} {{ summary?.metric_version === 2 ? '质量通过' : '旧版执行成功' }}）</span>
+            <span class="card-title">用例明细（{{ summary?.success_cases }}/{{ summary?.total_cases }} {{ (summary?.metric_version ?? 0) >= 2 ? '质量通过' : '旧版执行成功' }}）</span>
             <el-switch v-model="showCases" size="small" active-text="显示" inactive-text="隐藏" />
           </div>
         </template>
@@ -421,7 +450,7 @@ function statusOf(status: string) {
             </template>
           </el-table-column>
           <el-table-column prop="memory_hits" label="记忆命中" width="90" />
-          <el-table-column label="强制通过" width="90">
+          <el-table-column label="强制输出" width="90">
             <template #default="{ row }">
               <el-tag v-if="row.forced_pass" type="warning" size="small">⚠️ 是</el-tag>
               <span v-else class="hint">—</span>

@@ -899,45 +899,31 @@
       "type": "object"
     },
     "EvaluationRequest": {
-      "type": "object",
-      "required": [
-        "suite_version",
-        "feature_flags",
-        "mode"
-      ],
+      "additionalProperties": false,
       "properties": {
         "suite_version": {
-          "type": "string",
-          "minLength": 1
+          "title": "Suite Version",
+          "type": "string"
         },
         "mode": {
           "enum": [
             "offline",
             "online"
-          ]
+          ],
+          "title": "Mode",
+          "type": "string"
         },
         "feature_flags": {
-          "type": "object",
-          "required": [
-            "rag",
-            "memory",
-            "review"
-          ],
-          "properties": {
-            "rag": {
-              "type": "boolean"
-            },
-            "memory": {
-              "type": "boolean"
-            },
-            "review": {
-              "type": "boolean"
-            }
-          },
-          "additionalProperties": false
+          "$ref": "#/$defs/FeatureFlags"
         }
       },
-      "additionalProperties": false
+      "required": [
+        "suite_version",
+        "mode",
+        "feature_flags"
+      ],
+      "title": "EvaluationRequest",
+      "type": "object"
     },
     "AuthSession": {
       "type": "object",
@@ -1561,6 +1547,74 @@
       ],
       "title": "EvaluationCase",
       "type": "object"
+    },
+    "FeatureFlags": {
+      "additionalProperties": false,
+      "properties": {
+        "rag": {
+          "title": "Rag",
+          "type": "boolean"
+        },
+        "memory": {
+          "title": "Memory",
+          "type": "boolean"
+        },
+        "review": {
+          "title": "Review",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "rag",
+        "memory",
+        "review"
+      ],
+      "title": "FeatureFlags",
+      "type": "object"
+    },
+    "EvaluationComparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "current_id",
+        "baseline_id",
+        "changed_feature",
+        "mode",
+        "quality_pass_rate_delta",
+        "execution_completion_rate_delta",
+        "interpretation"
+      ],
+      "properties": {
+        "current_id": {
+          "type": "string"
+        },
+        "baseline_id": {
+          "type": "string"
+        },
+        "changed_feature": {
+          "enum": [
+            "rag",
+            "memory",
+            "review"
+          ]
+        },
+        "mode": {
+          "const": "offline"
+        },
+        "quality_pass_rate_delta": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1
+        },
+        "execution_completion_rate_delta": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1
+        },
+        "interpretation": {
+          "type": "string"
+        }
+      }
     }
   }
 }

@@ -11,6 +11,7 @@ from api.routes import router
 from api.memory_routes import router as memory_router
 from api.usage_routes import router as usage_router
 from api.task_control_routes import router as task_control_router
+from api.evaluation_routes import router as evaluation_router
 from api.task_outcomes import router as task_outcome_router, knowledge_router
 from api.security import authenticate, AuthSession
 from services.security import cors_origins
@@ -77,7 +78,11 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         try:
-            await service.close()
+            from services.evaluation_service import close as close_evaluation
+            try:
+                await close_evaluation()
+            finally:
+                await service.close()
         finally:
             try:
                 await mcp_manager.close()
@@ -123,6 +128,7 @@ app.include_router(knowledge_router)
 app.include_router(memory_router)
 app.include_router(usage_router)
 app.include_router(task_control_router)
+app.include_router(evaluation_router)
 
 
 if __name__ == "__main__":
