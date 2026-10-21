@@ -16,8 +16,13 @@ export function safeSourceUrl(value: unknown): string | null {
   } catch { return null }
 }
 
+export interface ReportMeta {
+  generatorVersion?: string | null
+  demo?: boolean
+}
+
 /** 显示、Word与PDF共用同一净化结果；引用有效不代表事实已核实。 */
-export function renderReport(markdown: string, sources: Evidence[] = [], taskId: string, citations: Citation[] = [], quality?: QualityStatus): string {
+export function renderReport(markdown: string, sources: Evidence[] = [], taskId: string, citations: Citation[] = [], quality?: QualityStatus, meta: ReportMeta = {}): string {
   const scoped = sources.filter(s => s.task_id === taskId && /^S[1-9][0-9]*$/.test(s.source_id))
   const known = new Map(scoped.map(s => [s.source_id, s]))
   const duplicates = new Set(scoped.filter((s, i) => scoped.findIndex(x => x.source_id === s.source_id) !== i).map(s => s.source_id))
@@ -48,7 +53,10 @@ export function renderReport(markdown: string, sources: Evidence[] = [], taskId:
       `<p>收集时间：${escapeHtml(s.retrieved_at)}</p></article>`
   }).join('')
   const appendix = `<section class="source-appendix"><h3>来源与证据片段</h3><p>引用检查仅验证来源映射，不代表事实已核实。</p>${cards || '<p>暂无可追溯来源，数据待补充。</p>'}</section>`
-  const html = DOMPurify.sanitize(`<p class="report-quality">报告质量：${qualityInfo(quality).label}</p>${body}${appendix}`, {
+  const version = meta.generatorVersion ? escapeHtml(meta.generatorVersion) : '未记录'
+  const origin = meta.demo ? '演示数据（不代表在线生成）' : '任务记录'
+  const metaLine = `<p class="report-meta">生成版本：${version} · 数据类型：${origin} · 可追溯来源：${scoped.length} 条</p>`
+  const html = DOMPurify.sanitize(`<p class="report-quality">报告质量：${qualityInfo(quality).label}</p>${metaLine}${body}${appendix}`, {
     ADD_ATTR: ['target'], FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'img']
   })
   const doc = new DOMParser().parseFromString(html, 'text/html')

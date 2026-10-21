@@ -2,7 +2,13 @@
 from fastapi import APIRouter, Request
 
 from api.memory_routes import failure, success
-from services.demo_data import DemoImportError, DemoImportRequest, import_samples, list_samples
+from services.demo_data import (
+    DemoImportError,
+    DemoImportRequest,
+    environment_status,
+    import_samples,
+    list_samples,
+)
 
 router = APIRouter(prefix="/api/v2/demo")
 
@@ -16,6 +22,15 @@ async def samples(request: Request):
     except Exception:
         return failure(request, 503, "DEMO_DATA_UNAVAILABLE", "演示样例暂不可用")
     return success(request, {"items": items})
+
+
+@router.get("/environment")
+async def environment(request: Request):
+    try:
+        data = environment_status()
+    except Exception:
+        return failure(request, 503, "ENVIRONMENT_UNAVAILABLE", "运行环境状态暂不可用")
+    return success(request, data)
 
 
 @router.post("/import")

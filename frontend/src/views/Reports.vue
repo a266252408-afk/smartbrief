@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /** 报告中心：已生成报告的列表页 —— 查看（跳转报告展示页）/ 删除 */
 import QualityBadge from '../components/QualityBadge.vue'
+import DemoBadge from '../components/DemoBadge.vue'
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -132,6 +133,7 @@ onMounted(load)
         <el-table-column prop="topic" label="报告主题" min-width="220">
           <template #default="{ row }">
             <span class="topic-cell">{{ row.topic }}</span>
+            <DemoBadge :metadata="row.metadata" />
           </template>
         </el-table-column>
         <el-table-column prop="task_id" label="任务 ID" width="150">

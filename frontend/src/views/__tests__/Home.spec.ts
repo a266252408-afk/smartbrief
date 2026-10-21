@@ -7,6 +7,7 @@ import { submitTask } from '../../api/tasks'
 const { push } = vi.hoisted(() => ({ push: vi.fn() }))
 vi.mock('vue-router', () => ({ useRouter: () => ({ push }) }))
 vi.mock('../../api/tasks', () => ({ submitTask: vi.fn() }))
+vi.mock('../../components/DemoPanel.vue', () => ({ default: { template: '<div data-testid="demo-panel-stub" />' } }))
 
 let wrapper: VueWrapper
 beforeEach(() => {

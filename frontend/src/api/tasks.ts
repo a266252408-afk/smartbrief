@@ -33,10 +33,19 @@ export interface Citation {
   reason: string | null
 }
 
+/** 任务元数据；旧任务为空对象，不能据此推断演示或生成版本。 */
+export interface TaskMetadata {
+  demo?: boolean
+  generator_version?: string | null
+  demo_sample_id?: string | null
+  demo_sample_version?: string | null
+}
+
 /** 任务摘要（列表项） */
 export interface TaskSummary extends TaskOutcome {
   resume_mode?: 'checkpoint' | 'restart' | null
   regenerated_from?: string | null
+  metadata?: TaskMetadata
   task_id: string
   topic: string
   /** running 执行中 / paused 已暂停（服务中断遗留）/ completed 已完成 / failed 失败 */
@@ -123,6 +132,8 @@ export interface GenerateResult {
 /** 任务报告（「报告展示」页数据源） */
 export interface TaskReport extends TaskOutcome {
   regenerated_from?: string | null
+  metadata?: TaskMetadata
+  generator_version?: string | null
   document_ids?: string[]
   retrievals?: RetrievalRecord[]
   sources?: Evidence[]

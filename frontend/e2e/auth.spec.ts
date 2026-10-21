@@ -19,6 +19,11 @@ test('无效令牌、只读拒绝写入和401重新认证', async ({ page }) => 
       await route.fulfill({ status:403, json:{ error:{ message:'只读令牌无权执行此操作' } } })
     } else if (path === '/api/v1/tasks') {
       await route.fulfill({ status:401, json:{ detail:'凭证已失效' } })
+    } else if (path === '/api/v2/demo/environment') {
+      await route.fulfill({ json: { data: { demo_available: true, demo_count: 0, llm_configured: false,
+        embedding_configured: false, execution_mode: 'offline', message: '离线夹具' }, meta: { request_id: 'fixture' } } })
+    } else if (path === '/api/v2/demo/samples') {
+      await route.fulfill({ json: { data: { items: [] }, meta: { request_id: 'fixture' } } })
     } else { unexpected.push(path); await route.fulfill({ status:500 }) }
   })
   await page.goto('/home')

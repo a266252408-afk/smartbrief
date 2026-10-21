@@ -150,6 +150,16 @@ class DemoImportResult(BaseModel):
     skipped: list[DemoImported]
 
 
+class DemoEnvironment(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    demo_available: StrictBool
+    demo_count: int = Field(ge=0)
+    llm_configured: StrictBool
+    embedding_configured: StrictBool
+    execution_mode: Literal["online", "offline"]
+    message: str = Field(min_length=1, max_length=300)
+
+
 def load_samples(directory: Path | None = None) -> list[DemoSample]:
     root = Path(directory) if directory is not None else DEMO_DIR
     files = sorted(root.glob("*.json")) if root.is_dir() else []
@@ -184,6 +194,27 @@ def list_samples(directory: Path | None = None) -> list[dict]:
 def is_demo_task(task: dict | None) -> bool:
     metadata = (task or {}).get("metadata") or {}
     return metadata.get("demo") is True
+
+
+def environment_status() -> dict:
+    """运行环境提示：只报告是否配置，不回显任何 Key 或模型名。"""
+    import os
+    try:
+        count, available = len(load_samples()), True
+    except DemoImportError:
+        count, available = 0, False
+    llm = bool(os.getenv("OPENAI_API_KEY", "").strip())
+    embedding = bool(os.getenv("EMBEDDING_API_KEY", "").strip())
+    if llm:
+        message = "模型 Key 已配置：可在线生成，也可导入演示样例对照；演示样例不代表在线成绩。"
+    else:
+        message = "未配置模型 Key：可导入演示样例查看完整页面，在线生成不可用。"
+    if not embedding:
+        message += " 未配置嵌入 Key：上传文档检索不可用。"
+    return DemoEnvironment(demo_available=available, demo_count=count, llm_configured=llm,
+                           embedding_configured=embedding,
+                           execution_mode="online" if llm else "offline",
+                           message=message).model_dump()
 
 
 def _insert(conn, sample: DemoSample) -> None:

@@ -26,6 +26,10 @@ async function setup(page: Page, mode: 'queue' | 'checkpoint' | 'restart', reado
       if (mode === 'queue' && !readonly && reads === 3) await new Promise(resolve => setTimeout(resolve, 1500))
       await route.fulfill({ json: snapshot })
     }
+    else if (path === '/api/v2/demo/environment') await route.fulfill({ json: { data: { demo_available: true,
+      demo_count: 0, llm_configured: false, embedding_configured: false, execution_mode: 'offline',
+      message: '离线夹具' }, meta: { request_id: 'fixture' } } })
+    else if (path === '/api/v2/demo/samples') await route.fulfill({ json: { data: { items: [] }, meta: { request_id: 'fixture' } } })
     else if (path === '/api/v2/tasks') {
       mutations.push(path)
       expect(req.headers()['idempotency-key']).toMatch(/^[a-f0-9]{32}$/)

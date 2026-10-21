@@ -1879,6 +1879,45 @@
       },
       "additionalProperties": false,
       "description": "T11已实现：事务化导入结果；非演示任务冲突整批回滚。"
+    },
+    "DemoEnvironment": {
+      "type": "object",
+      "required": [
+        "demo_available",
+        "demo_count",
+        "llm_configured",
+        "embedding_configured",
+        "execution_mode",
+        "message"
+      ],
+      "properties": {
+        "demo_available": {
+          "type": "boolean"
+        },
+        "demo_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "llm_configured": {
+          "type": "boolean"
+        },
+        "embedding_configured": {
+          "type": "boolean"
+        },
+        "execution_mode": {
+          "enum": [
+            "online",
+            "offline"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        }
+      },
+      "additionalProperties": false,
+      "description": "T11已实现：只报告配置状态与演示可用性，不回显密钥或模型名；offline不阻止离线演示。"
     }
   }
 }

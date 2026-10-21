@@ -11,6 +11,8 @@ let wrapper: VueWrapper
 const fixture: TaskReport = {
   task_id: 't', title: '测试报告', content_markdown: '正文声明[S1]。未知来源[S999]。',
   execution_status: 'completed', quality_status: 'rejected', forced_output: false, error_code: 'CITATION_INVALID',
+  generator_version: 'demo-1.0',
+  metadata: { demo: true, generator_version: 'demo-1.0', demo_sample_id: 'normal-report', demo_sample_version: '1.0' },
   sources: [{ source_id: 'S1', task_id: 't', kind: 'web', title: '明确来源', excerpt: '原始证据片段',
     url: 'https://example.invalid/evidence', retrieved_at: '2026-10-20T00:00:00Z', source_deleted: false }],
   citations: [{ source_id: 'S1', claim: '正文声明', valid: true, reason: null }, { source_id: 'S999', claim: '未知来源', valid: false, reason: '来源不存在' }],
@@ -29,6 +31,8 @@ describe('报告引用和导出保留来源', () => {
     expect(wrapper.get('#source-S1').text()).toContain('原始证据片段')
     expect(wrapper.get('#source-S1 a').attributes('href')).toBe('https://example.invalid/evidence')
     expect(wrapper.get('.citation-invalid').text()).toContain('S999')
+    expect(wrapper.get('[data-testid="demo-badge"]').text()).toBe('演示数据')
+    expect(wrapper.get('[data-testid="demo-notice"]').text()).toContain('不代表在线生成成绩')
     expect(wrapper.find('a[href="#source-S999"]').exists()).toBe(false)
   })
   it('PDF导出输入包含正文、来源编号、URL、片段和校验限制', async () => {
@@ -39,6 +43,9 @@ describe('报告引用和导出保留来源', () => {
     expect(input.textContent).toContain('原始证据片段')
     expect(input.innerHTML).toContain('https://example.invalid/evidence')
     expect(input.textContent).toContain('不代表事实已核实')
+    expect(input.textContent).toContain('生成版本：demo-1.0')
+    expect(input.textContent).toContain('演示数据（不代表在线生成）')
+    expect(input.textContent).toContain('可追溯来源：1 条')
     expect(pdf.save).toHaveBeenCalled()
   })
   it('Word下载的HTML包含来源映射并保持未知引用标记', async () => {
@@ -51,6 +58,8 @@ describe('报告引用和导出保留来源', () => {
     expect(text).toContain('原始证据片段')
     expect(text).toContain('source-S1')
     expect(text).toContain('S999')
+    expect(text).toContain('生成版本：demo-1.0')
+    expect(text).toContain('演示数据（不代表在线生成）')
     vi.unstubAllGlobals()
   })
 })

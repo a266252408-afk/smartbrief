@@ -3,6 +3,7 @@ import TaskControls from '../components/TaskControls.vue'
 import UsagePanel from '../components/UsagePanel.vue'
 import RetrievalPanel from '../components/RetrievalPanel.vue'
 import QualityBadge from '../components/QualityBadge.vue'
+import DemoBadge from '../components/DemoBadge.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -75,6 +76,10 @@ onBeforeUnmount(() => { refreshVersion++; stopPolling() })
 // ---------------- 派生数据 ----------------
 
 const isRunning = computed(() => ['queued', 'running'].includes(detail.value?.status ?? ''))
+
+/** 演示样例禁止从页面触发真实生成；恢复样例单独说明真实恢复入口。 */
+const isDemo = computed(() => detail.value?.metadata?.demo === true)
+const isRecoveryDemo = computed(() => isDemo.value && detail.value?.metadata?.demo_sample_id === 'service-recovery')
 
 /** 状态标签（含paused：服务中断后由后端启动扫描自动标记） */
 const statusInfo = computed<{ label: string; type: 'primary' | 'warning' | 'success' | 'danger' | 'info' }>(() => {
@@ -240,7 +245,10 @@ const reportEl = ref<HTMLElement>()
 const reportHtml = computed(() => {
   const md = detail.value?.draft_content ?? ''
   if (!md) return ''
-  return renderReport(md, detail.value?.evidence, taskId.value, detail.value?.citations, detail.value?.quality_status)
+  return renderReport(md, detail.value?.evidence, taskId.value, detail.value?.citations, detail.value?.quality_status, {
+    generatorVersion: detail.value?.metadata?.generator_version,
+    demo: isDemo.value
+  })
 })
 
 /** 导出 Word：生成 .doc（HTML 兼容格式，Word 可直接打开） */
@@ -311,17 +319,31 @@ watch(() => route.params.taskId, async value => {
             {{ statusInfo.label }}
           </el-tag>
           <QualityBadge v-if="detail" :quality="detail.quality_status" :forced="detail.forced_output" />
+          <DemoBadge :metadata="detail?.metadata" />
           <span v-if="detail?.error" class="error-text">{{ detail.error }}</span>
         </p>
       </div>
       <div class="header-actions">
-        <TaskControls v-if="detail" :task-id="taskId" :status="detail.status" @changed="onControlled" />
-        <el-button v-if="detail && !['running', 'queued'].includes(detail.execution_status)" :disabled="authRole === 'readonly'" :loading="regenerating" @click="onRegenerate">重新生成</el-button>
+        <TaskControls v-if="detail && !isDemo" :task-id="taskId" :status="detail.status" @changed="onControlled" />
+        <el-button v-if="detail && !isDemo && !['running', 'queued'].includes(detail.execution_status)" :disabled="authRole === 'readonly'" :loading="regenerating" @click="onRegenerate">重新生成</el-button>
         <el-button :loading="loading" @click="refresh">刷新</el-button>
       </div>
     </div>
 
     <el-empty v-if="notFound" description="任务不存在或已被删除" />
+
+    <el-alert
+      v-if="detail && isDemo"
+      data-testid="demo-notice"
+      title="演示数据：不会启动真实生成"
+      :description="isRecoveryDemo
+        ? '该样例展示服务中断后的已暂停状态。真实任务在服务或配置修复后，可从任务控制区点击「恢复任务」；演示样例禁止恢复、取消或重新生成。'
+        : '该样例为显式导入的历史数据，用于展示来源、质量与用量状态；不代表在线模型成绩，也不能从本页触发重新生成。'"
+      type="warning"
+      show-icon
+      :closable="false"
+      class="demo-alert"
+    />
 
     <!-- A2A 审核循环：循环次数 + 审核状态 + 意见气泡 + 强制输出警告 -->
     <el-card v-if="detail && showReviewPanel" shadow="never" class="review-card">
@@ -544,6 +566,9 @@ watch(() => route.params.taskId, async value => {
 }
 .status-tag {
   margin-left: 8px;
+}
+.demo-alert {
+  margin-bottom: 16px;
 }
 .error-text {
   color: #f56c6c;

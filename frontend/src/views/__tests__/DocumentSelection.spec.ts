@@ -8,6 +8,7 @@ import { fetchDocuments } from '../../api/knowledge'
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 vi.mock('../../api/tasks', () => ({ submitTask: vi.fn() }))
 vi.mock('../../api/knowledge', () => ({ fetchDocuments: vi.fn() }))
+vi.mock('../../components/DemoPanel.vue', () => ({ default: { template: '<div data-testid="demo-panel-stub" />' } }))
 afterEach(() => vi.restoreAllMocks())
 
 it('只列出有ID的上传资料，提交选取的文档ID', async () => {

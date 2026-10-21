@@ -2,6 +2,7 @@
 import RetrievalPanel from '../components/RetrievalPanel.vue'
 /** 报告展示页：Markdown 渲染 + 图表图片 + 执行摘要 */
 import QualityBadge from '../components/QualityBadge.vue'
+import DemoBadge from '../components/DemoBadge.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -41,7 +42,10 @@ onMounted(load)
 const reportHtml = computed(() => {
   const md = report.value?.content_markdown ?? ''
   if (!md) return ''
-  return renderReport(md, report.value?.sources, taskId, report.value?.citations, report.value?.quality_status)
+  return renderReport(md, report.value?.sources, taskId, report.value?.citations, report.value?.quality_status, {
+    generatorVersion: report.value?.generator_version ?? report.value?.metadata?.generator_version,
+    demo: report.value?.metadata?.demo === true
+  })
 })
 
 /** 执行摘要卡（耗时可能为空 → 显示 —） */
@@ -108,6 +112,7 @@ function exportWord() {
         <h2 class="report-title">{{ report?.title || '报告展示' }}</h2>
         <p class="hint"><code>{{ taskId }}</code>
           <QualityBadge v-if="report" :quality="report.quality_status" :forced="report.forced_output" />
+          <DemoBadge :metadata="report?.metadata" />
         </p>
       </div>
       <div v-if="report" class="report-actions">
@@ -117,6 +122,17 @@ function exportWord() {
     </div>
 
     <el-empty v-if="notFound" description="报告不存在或任务尚未完成" />
+
+    <el-alert
+      v-if="report?.metadata?.demo"
+      data-testid="demo-notice"
+      title="演示数据：不代表在线生成成绩"
+      description="该报告来自显式导入的演示样例；来源、质量与用量状态仅用于展示页面流程。"
+      type="warning"
+      show-icon
+      :closable="false"
+      class="demo-alert"
+    />
 
     <template v-if="report">
       <!-- 执行摘要卡 -->
@@ -179,6 +195,9 @@ function exportWord() {
 .report-actions {
   display: flex;
   gap: 8px;
+}
+.demo-alert {
+  margin-bottom: 16px;
 }
 .summary-row {
   margin-bottom: 16px;

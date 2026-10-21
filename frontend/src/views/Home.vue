@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { submitTask } from '../api/tasks'
 import { fetchDocuments, type KnowledgeDocument } from '../api/knowledge'
+import DemoPanel from '../components/DemoPanel.vue'
 
 const router = useRouter()
 const topic = ref('')
@@ -79,6 +80,8 @@ async function onSubmit() {
         <el-button size="large" @click="router.push('/tasks')">历史任务</el-button>
       </div>
     </el-card>
+
+    <DemoPanel />
 
     <el-row :gutter="16" class="feature-row">
       <el-col :span="8">

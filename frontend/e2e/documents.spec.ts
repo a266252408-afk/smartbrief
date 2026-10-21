@@ -28,6 +28,10 @@ test('选择上传资料，详情与报告展示检索片段，Word保留文档�
       { document_id: 'b'.repeat(32), source: '模板.md', category: 'template', chunk_count: 1 },
       { source: '旧资料.txt', category: 'upload', chunk_count: 1 }
     ] } })
+    else if (path === '/api/v2/demo/environment') await route.fulfill({ json: { data: { demo_available: true,
+      demo_count: 0, llm_configured: false, embedding_configured: false, execution_mode: 'offline',
+      message: '离线夹具' }, meta: { request_id: 'fixture' } } })
+    else if (path === '/api/v2/demo/samples') await route.fulfill({ json: { data: { items: [] }, meta: { request_id: 'fixture' } } })
     else if (path === '/api/v2/tasks') {
       submitted = route.request().postDataJSON()
       await route.fulfill({ status: 202, json: { data: { task_id: task.task_id, status: 'queued', execution_status: 'queued', topic: task.topic }, meta: { request_id: 'fixture' } } })
