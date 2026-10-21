@@ -24,6 +24,7 @@ class ModelUsage(BaseModel):
     estimated_cost: float | None = Field(default=None, ge=0)
     currency: str | None = None
     attempt: int = Field(default=1, ge=1)
+    reserved_tokens: int = Field(default=0, ge=0)
     created_at: str = Field(min_length=1)
     error_code: Literal["USAGE_INTERRUPTED", "MODEL_FAILED", "MODEL_CANCELLED", "MODEL_TIMEOUT", "BUDGET_EXCEEDED"] | None = None
 
@@ -46,6 +47,7 @@ usage_context: ContextVar[tuple[str, str] | None] = ContextVar("model_usage", de
 class ModelCallError(RuntimeError):
     """只暴露固定原因，禁止供应商异常原文进入日志。"""
     code = "MODEL_FAILED"
+    retryable = False
 
 
 class UsagePersistenceError(ModelCallError):
@@ -82,7 +84,7 @@ def usage_scope(agent: str, *, task=False, state=False, standalone=False):
     return decorate
 
 
-async def measured_call(create, kwargs, *, attempt=1):
+async def measured_call(create, kwargs, *, policy, attempt=1):
     """每次调用前落占位、结束后记录；写入失败不得冒充完成。"""
     context = usage_context.get()
     if context is None:
@@ -91,16 +93,23 @@ async def measured_call(create, kwargs, *, attempt=1):
                        model=kwargs["model"], status="failed", duration_ms=0.0,
                        attempt=attempt, created_at=datetime.now(timezone.utc).isoformat(),
                        error_code="USAGE_INTERRUPTED")
-    persist(entry)
+    from services.budget import reserve, reservation
+    entry.reserved_tokens = reservation(kwargs, policy)
+    reserve(entry, policy)
     start = perf_counter()
     try:
-        response = await create(**kwargs)
+        response = await asyncio.wait_for(create(**kwargs), policy.timeout_seconds)
     except asyncio.CancelledError:
         entry.status, entry.error_code = "cancelled", "MODEL_CANCELLED"
         raise
-    except Exception:
-        entry.error_code = "MODEL_FAILED"
-        raise ModelCallError("模型调用失败") from None
+    except Exception as exc:
+        from openai import APIConnectionError, APIStatusError, APITimeoutError
+        timeout = isinstance(exc, (TimeoutError, APITimeoutError))
+        entry.error_code = "MODEL_TIMEOUT" if timeout else "MODEL_FAILED"
+        error = ModelCallError("模型调用超时" if timeout else "模型调用失败")
+        error.code = entry.error_code
+        error.retryable = timeout or isinstance(exc, APIConnectionError) or isinstance(exc, APIStatusError) and (exc.status_code == 429 or exc.status_code >= 500)
+        raise error from None
     else:
         entry.status, entry.error_code = "success", None
         usage = getattr(response, "usage", None)

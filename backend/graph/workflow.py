@@ -208,6 +208,7 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
         return final
     except Exception as exc:
         logger.exception("任务 %s 执行失败", task_id)
+        from services.usage_service import ModelCallError
         task_repository.update_task(task_id, status="failed", quality_status="not_run", passed=False,
-                                    forced_output=False, error_code=final.get("error_code") or "TASK_EXECUTION_FAILED", error=str(exc))  # 失败也落库，前端可展示
+                                    forced_output=False, error_code=(exc.code if isinstance(exc, ModelCallError) else final.get("error_code")) or "TASK_EXECUTION_FAILED", error=str(exc))  # 失败也落库，前端可展示
         raise

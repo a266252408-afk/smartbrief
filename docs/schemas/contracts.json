@@ -507,6 +507,12 @@
           "title": "Attempt",
           "type": "integer"
         },
+        "reserved_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Reserved Tokens",
+          "type": "integer"
+        },
         "created_at": {
           "minLength": 1,
           "title": "Created At",

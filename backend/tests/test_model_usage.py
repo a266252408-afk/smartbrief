@@ -93,17 +93,24 @@ def test_contract_rejects_fake_usage(change):
 def test_persistence_failure_blocks_or_fails_call(setup_usage, monkeypatch, failure_at):
     from services.usage_service import UsagePersistenceError
     original = usage_repository.save
+    original_reserve = usage_repository.reserve
     writes = []
-    def failing(entry):
+    def check():
         writes.append(1)
         if len(writes) == failure_at:
             raise RuntimeError("SECRET_DATABASE_PATH")
+    def failing(entry):
+        check()
         original(entry)
+    def failing_reserve(entry, limit):
+        check()
+        return original_reserve(entry, limit)
     monkeypatch.setattr(usage_repository, "save", failing)
+    monkeypatch.setattr(usage_repository, "reserve", failing_reserve)
     @usage_scope("planner", task=True)
     async def invoke(task_id):
         await client.chat([])
-    with pytest.raises(UsagePersistenceError, match="持久化失败"):
+    with pytest.raises(UsagePersistenceError, match="持久化失败|账本不可用"):
         asyncio.run(invoke("write_failure"))
     assert setup_usage.call_count == failure_at - 1
     if failure_at == 2:

@@ -223,6 +223,7 @@ export interface ModelUsage {
   estimated_cost: number | null
   currency: string | null
   attempt: number
+  reserved_tokens: number
   created_at: string
   error_code: string | null
 }

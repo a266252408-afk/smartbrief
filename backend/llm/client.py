@@ -13,7 +13,8 @@ import os
 
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
-from services.usage_service import measured_call
+from services.usage_service import measured_call, ModelCallError
+from services.budget import ModelPolicy
 
 # 加载 backend/.env（load_dotenv 默认读当前工作目录的 .env，无副作用可重复调用）
 load_dotenv()
@@ -29,7 +30,7 @@ def get_client() -> AsyncOpenAI:
         api_key = os.getenv("OPENAI_API_KEY", "")
         if not api_key:
             raise RuntimeError("未配置 OPENAI_API_KEY，请在 backend/.env 中填写")
-        _client = AsyncOpenAI(base_url=base_url, api_key=api_key)
+        _client = AsyncOpenAI(base_url=base_url, api_key=api_key, max_retries=0)
     return _client
 
 
@@ -47,9 +48,17 @@ async def chat(messages: list, tools: list | None = None, tool_choice: str | Non
     :return: ChatCompletion 响应对象（含 content / tool_calls）
     """
     client = get_client()
+    policy = ModelPolicy.from_env()
     kwargs = {"model": get_model(), "messages": messages}
     if tools:
         kwargs["tools"] = tools
     if tool_choice:
         kwargs["tool_choice"] = tool_choice
-    return await measured_call(client.chat.completions.create, kwargs)
+    kwargs["max_tokens"] = policy.completion_reserve
+    kwargs["timeout"] = policy.timeout_seconds
+    for attempt in range(1, policy.max_retries + 2):
+        try:
+            return await measured_call(client.chat.completions.create, kwargs, attempt=attempt, policy=policy)
+        except ModelCallError as exc:
+            if not exc.retryable or attempt > policy.max_retries:
+                raise
