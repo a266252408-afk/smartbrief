@@ -44,9 +44,9 @@ def test_real_report_records_generation_version_and_old_report_stays_unknown(cli
     task_repository.create_task("task_real", "真实任务")
     task_repository.update_task("task_real", status="completed", quality_status="not_run", final_report="真实报告")
     report = client.get("/api/v1/tasks/task_real/report", headers=ADMIN_HEADERS).json()
-    assert report["metadata"] == {"demo": False, "generator_version": "0.1.0",
+    assert report["metadata"] == {"demo": False, "generator_version": "0.2.0",
                                   "demo_sample_id": None, "demo_sample_version": None}
-    assert report["generator_version"] == "0.1.0"
+    assert report["generator_version"] == "0.2.0"
 
     with sqlite3.connect(database.DB_PATH) as conn:
         conn.execute("UPDATE tasks SET metadata='{}' WHERE task_id='task_real'")

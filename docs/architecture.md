@@ -18,7 +18,7 @@ Reviewer 按数据点、来源标注、篇幅检查草稿；不通过时 Rewrite
 
 SQLite 业务库存储任务、执行日志与评测记录。LangGraph 检查点使用独立 SQLite 文件保存图状态；恢复以最近的图检查点为单位，不能假定每次工具调用都已经形成可恢复快照。检查点不可用时使用内存存储。
 
-ChromaDB 的 rag_collection 保存模板、术语和上传文档，memory_collection仅准入新的completed/passed报告；旧记忆隔离和删除治理仍待T06。上传文档经格式解析、递归分块、嵌入后入库；旧资料和记忆以内容哈希生成稳定ID；新上传片段以document_id命名空间隔离相同内容，避免合并不同上传的来源。
+ChromaDB 的 rag_collection 保存模板、术语和上传文档，memory_collection的可信召回由T06的SQLite准入/生命周期登记约束；旧记忆隔离为unverified，删除与失效治理见下文。上传文档经格式解析、递归分块、嵌入后入库；旧资料和记忆以内容哈希生成稳定ID；新上传片段以document_id命名空间隔离相同内容，避免合并不同上传的来源。
 
 长期记忆关闭时跳过读写，已有数据保留。再次开启后可继续使用。知识库与长期记忆的嵌入配置使用 EMBEDDING_* 环境变量。
 
