@@ -4,6 +4,10 @@ import vue from '@vitejs/plugin-vue'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [vue()],
+  // 生成 manifest 供首屏体积对照；不改变产物代码。
+  build: {
+    manifest: true
+  },
   server: {
     host: '0.0.0.0',
     port: 5174,

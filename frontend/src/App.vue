@@ -2,8 +2,13 @@
 import { useRoute } from 'vue-router'
 import AuthPanel from './components/AuthPanel.vue'
 import { authRole, authNotice, clearSession } from './api/session'
+import { routeLoadError } from './router'
 
 const route = useRoute()
+
+function reloadPage() {
+  window.location.reload()
+}
 
 const menus = [
   { path: '/home', label: '任务提交' },
@@ -37,6 +42,10 @@ const menus = [
       <el-button v-if="authRole" @click="clearSession()">退出认证</el-button>
     </header>
     <main class="app-main">
+      <p v-if="routeLoadError" role="alert" class="route-error">
+        {{ routeLoadError }}
+        <el-button size="small" @click="reloadPage">刷新页面</el-button>
+      </p>
       <template v-if="authRole">
         <p v-if="authNotice" role="alert">{{ authNotice }}</p>
         <router-view />
@@ -99,5 +108,16 @@ body {
   max-width: 1200px;
   margin: 24px auto;
   padding: 0 24px;
+}
+
+.route-error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  color: #b42318;
+  background: #fef3f2;
+  border: 1px solid #fecdca;
+  border-radius: 4px;
 }
 </style>
