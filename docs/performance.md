@@ -62,22 +62,55 @@ Vite/Rollup 的 kB 使用十进制（1000 字节）；脚本同时输出字节�
 - 浏览器实际加载的 JS 资源与上述闭包完全一致（见 `T12-01-page-ready.json` 的 `js_resources`）。
 - 页面就绪中位数 735 → 294 ms；DOMContentLoaded 549 → 124 ms；load 550 → 153 ms。
 - 懒加载块失败时显示“页面加载失败：<路径>，请刷新重试”，避免路由空白；浏览器断言见 `frontend/e2e/routing.spec.ts`。
-- 评测页 ECharts（约 1,051.66 kB / gzip 350.03 kB）与 html2pdf（约 986.64 kB / gzip 288.34 kB）已移出首屏，但仍分别位于评测、任务详情/报告路由的懒加载块中；导出与图表的进一步按需加载属于 T12-02。
+- 评测页 ECharts 与 html2pdf 已移出首屏；T12-01 时它们仍随评测、任务详情/报告路由的静态块加载，T12-02 进一步改为交互时按需加载。
 - 证据：[T12-01-initial-assets.json](verification/T12-01-initial-assets.json)、[T12-01-page-ready.json](verification/T12-01-page-ready.json)、[T12-01-frontend-build.txt](verification/T12-01-frontend-build.txt)。
 
-## 5. 复现命令
+## 5. T12-02 图表与导出按需加载
+
+### 5.1 路由静态闭包对照
+
+口径：入口 `index.html` + 路由组件的 manifest **静态** `imports` 闭包；`dynamicImports` 不计入到达该路由时的加载成本。T12-01 构建为基线，T12-02 构建为改动后。
+
+| 路由 | T12-01 gzip 字节 | T12-02 gzip 字节 | 下降 |
+| --- | ---: | ---: | ---: |
+| 评测中心 `/evaluation` | 739,297 | 395,923 | 46.45% |
+| 任务详情 `/tasks/:taskId` | 686,975 | 401,678 | 41.53% |
+| 报告展示 `/report/:taskId` | 681,535 | 396,234 | 41.86% |
+
+原始字节下降分别为 46.42%、44.91%、45.22%。
+
+### 5.2 按需块
+
+- ECharts：`assets/index-*.js`（ECharts 块）1,042.31 kB / gzip 346.46 kB；评测页有图表数据时才动态导入。
+- html2pdf：`assets/html2pdf-*.js` 982.47 kB / gzip 285.52 kB；任务详情/报告页点击“导出 PDF”时才动态导入。
+- manifest 中 `src/views/Evaluation.vue` 的 `dynamicImports` 指向 `node_modules/echarts/index.js`；`TaskDetail.vue`、`ReportView.vue` 的 `dynamicImports` 指向 html2pdf 块，静态 `imports` 不再包含二者。
+- 首页初始 JS 仍为 369,507 字节（gzip），页面就绪中位数 296 ms，与 T12-01 同一水平；本次优化只降低路由到达成本。
+- 未修改 `build.chunkSizeWarningLimit`：构建仍保留大块告警，按需块的大体积是事实，不以调高阈值隐藏。
+
+### 5.3 功能回归
+
+- 评测页 Chromium 流程在数据加载后断言 `.radar-chart canvas` 可见，证明 ECharts 动态导入后正常初始化。
+- 引用流程 Chromium 测试点击“导出 PDF”并断言下载内容以 `%PDF-` 开头，证明 html2pdf 动态导入后在真实浏览器中可用；Word 导出为纯前端 Blob，不依赖该库。
+- 单元测试 `LazyDependencies.spec.ts` 断言打开报告页时 html2pdf 工厂未执行，点击导出后才执行一次。
+
+### 5.4 T12-02 证据
+
+[T12-02-baseline-route-assets.json](verification/T12-02-baseline-route-assets.json)、[T12-02-route-assets.json](verification/T12-02-route-assets.json)、[T12-02-initial-assets.json](verification/T12-02-initial-assets.json)、[T12-02-page-ready.json](verification/T12-02-page-ready.json)。
+
+## 6. 复现命令
 
 ```text
 cd frontend
 npm run build
 npm run measure:initial-js
 npm run measure:page-ready
+npm run measure:route-assets
 ```
 
-## 6. 限制
+## 7. 限制
 
 - 只测本机回环环境，未模拟 3G/4G、跨地域延迟或 CDN；不同机器、Node 版本与构建条件不能直接比较数值。
 - gzip 为本地 zlib 结果，与服务器 Brotli/CDN 的实际传输量可能不同；结论只针对相对变化。
 - 页面就绪使用固定认证与演示接口夹具，不代表真实在线模型生成耗时。
 - E2E 使用 Vite dev server 验证功能，不用于性能数值；性能数值只来自生产构建。
-- 未修改构建告警阈值来“消除”大块提示；T12-02 继续处理图表与导出依赖。
+- 未修改构建告警阈值来“消除”大块提示；图表与导出仍是有体积的按需块，只是不再随路由到达加载。

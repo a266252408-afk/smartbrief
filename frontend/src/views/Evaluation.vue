@@ -4,7 +4,7 @@ import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vu
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import * as echarts from 'echarts'
+import type { ECharts } from 'echarts'
 import EvaluationProtocol from '../components/EvaluationProtocol.vue'
 import { authRole } from '../api/session'
 import {
@@ -215,12 +215,14 @@ const radarOption = computed(() => {
   }
 })
 
-const radarChart = shallowRef<echarts.ECharts | null>(null)
+const radarChart = shallowRef<ECharts | null>(null)
 const radarEl = ref<HTMLElement>()
+let chartRenderVersion = 0
 
-watch([radarOption, radarEl], () => {
+watch([radarOption, radarEl], async () => {
   if (disposed) return
   if (!radarOption.value || !radarEl.value) {
+    chartRenderVersion += 1
     radarChart.value?.dispose()
     radarChart.value = null
     return
@@ -229,8 +231,18 @@ watch([radarOption, radarEl], () => {
     radarChart.value.dispose()
     radarChart.value = null
   }
-  radarChart.value ??= echarts.init(radarEl.value)
-  radarChart.value.setOption(radarOption.value)
+  // ECharts 只在确实有图表数据时加载，不进入评测路由的静态包。
+  const version = ++chartRenderVersion
+  const element = radarEl.value
+  const option = radarOption.value
+  const echarts = await import('echarts')
+  if (disposed || version !== chartRenderVersion || radarEl.value !== element) return
+  if (radarChart.value && radarChart.value.getDom() !== element) {
+    radarChart.value.dispose()
+    radarChart.value = null
+  }
+  radarChart.value ??= echarts.init(element)
+  radarChart.value.setOption(option)
 }, { flush: 'post' })
 
 /** Markdown 报告（report_md）渲染为富文本 */

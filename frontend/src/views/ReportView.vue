@@ -8,7 +8,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { renderReport, escapeHtml } from '../utils/report'
 import '../styles/report.css'
-import html2pdf from 'html2pdf.js'
 import { fetchTaskReport, type TaskReport } from '../api/tasks'
 
 const route = useRoute()
@@ -71,6 +70,8 @@ function formatTime(seconds: number | null) {
 async function exportPdf() {
   if (!reportEl.value) return
   try {
+    // 导出库体积较大，只在用户实际导出时加载。
+    const { default: html2pdf } = await import('html2pdf.js')
     await html2pdf()
       .set({
         margin: 10,

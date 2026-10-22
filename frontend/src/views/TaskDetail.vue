@@ -9,7 +9,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { renderReport, escapeHtml } from '../utils/report'
 import '../styles/report.css'
-import html2pdf from 'html2pdf.js'
 import { authRole } from '../api/session'
 import { fetchTaskStatus, regenerateTask, type TaskStatus, type ReactLog, type ReviewRound } from '../api/tasks'
 
@@ -271,6 +270,8 @@ function exportWord() {
 async function exportPdf() {
   if (!reportEl.value) return
   try {
+    // 导出库体积较大，只在用户实际导出时加载。
+    const { default: html2pdf } = await import('html2pdf.js')
     await html2pdf()
       .set({
         margin: 10,
