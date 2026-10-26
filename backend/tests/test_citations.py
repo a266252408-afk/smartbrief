@@ -132,12 +132,26 @@ def test_no_sources_cannot_become_quality_pass(tmp_path, offline_services):
     assert task['quality_status']=='rejected'
     assert task['passed']==0
     assert '数据待补充' in task['final_report']
+    assert '本部分未获得可追溯来源' in task['final_report']
+    assert '[S编号]' not in task['final_report']
     assert task['citation_errors']
     assert not offline_services['reviewer'].calls
 
 
-@pytest.mark.parametrize('extra,valid', [('增长20%。',False),('增长20%，数据待补充。',True),('## 2026年概览',True),('1. 建议继续研究',True)])
-def test_uncited_numeric_paragraphs_need_source_or_missing_data_mark(extra,valid):
+@pytest.mark.parametrize('extra,valid', [
+    ('增长20%。',False),
+    # “数据待补充”不能豁免同一段里的具体数字：20% 仍是不可追溯断言。
+    ('增长20%，数据待补充。',False),
+    ('价格$800，数据待补充。',False),
+    # 排名标签不是份额/金额；同段缺失数据时不应误报。
+    ('Top 5厂商份额数据待补充。',True),
+    ('采用B2B2C模式，数据待补充。',True),
+    ('支持5G与Wi-Fi 6，数据待补充。',True),
+    ('## 2026年概览',True),
+    ('2024-2026年智能手表市场概览。',True),
+    ('1. 建议继续研究',True),
+])
+def test_uncited_numeric_paragraphs_need_source_even_with_missing_data_mark(extra,valid):
     from services.citations import check_citations
     result=check_citations('t','已有声明[S1]。\n\n'+extra,[source()])
     assert result['valid'] is valid

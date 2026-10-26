@@ -5,6 +5,7 @@ from services.usage_service import usage_scope, UsagePersistenceError
 from services.retrieval_service import refresh_document_sources
 from services.report_quality import parse_review, usable_draft
 from services.citations import check_citations
+from services.event_logs import EventLogs
 
 REVIEW_STEP_ID = 0
 
@@ -32,7 +33,7 @@ async def _review(draft: str) -> dict:
 @usage_scope("reviewer", state=True)
 async def reviewer_node(state: dict) -> dict:
     draft = state.get("draft_content") or ""
-    logs = list(state.get("react_logs", []))
+    logs = EventLogs(state.get("react_logs", []))
     history = list(state.get("review_history", []))
     iteration = int(state.get("iteration", 0))
     maximum = int(state.get("max_iterations", 3))

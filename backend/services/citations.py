@@ -5,6 +5,22 @@ from pydantic import BaseModel, ConfigDict, StrictBool
 from services.evidence import normalize_evidence, validate_sources
 
 REFERENCE = re.compile(r"\[(S[0-9]+)\](?![ \t]*\()")
+# 无来源时模型可能照抄提示词里的“[S编号]”占位符。它不是合法引用，
+# 也不应出现在最终报告；在写入草稿前确定性清除。
+PLACEHOLDER_REFERENCE = re.compile(
+    r"[（(]\s*引用位\s*[:：]\s*\[S编号\]\s*[)）]"
+    r"|引用位\s*[:：]\s*\[S编号\]"
+    r"|\[S编号\]"
+)
+# “Top 5”“前 5 名”“CR5”等是排名/结构标签，不是份额或金额数值。
+RANKING_LABEL = re.compile(r"(?i)(?:top|前|第|cr)\s*[0-9]+")
+# “B2B2C”“5G”“Wi-Fi 6”等是业务/技术标签，不是定量声明。
+ALPHANUMERIC_LABEL = re.compile(r"(?i)[a-z][0-9]+|[2456]g|wi-?fi\s*[0-9]+")
+
+
+def strip_placeholder_citations(body: str) -> str:
+    """移除模型生成的非法引用占位符，保留其余正文。"""
+    return PLACEHOLDER_REFERENCE.sub("", body or "")
 
 
 class Citation(BaseModel):
@@ -38,11 +54,21 @@ def check_citations(task_id: str, body: str, sources: list, required=()) -> dict
     used = reference_ids(body)
     if not used:
         errors.append("正文缺少[S编号]引用，数据待补充")
-    for paragraph in re.split(r"\n\s*\n", _prose(body)):
+    for paragraph_no, paragraph in enumerate(re.split(r"\n\s*\n", _prose(body)), 1):
         claim = REFERENCE.sub("", paragraph).strip().strip("#>* -")[:2000]
         factual = re.sub(r"(?m)^\s*#{1,6} .*?$|^\s*[0-9]+[.)、]\s*", "", REFERENCE.sub("", paragraph))
-        if re.search(r"[0-9]", factual) and not REFERENCE.search(paragraph) and "待补充" not in paragraph:
-            errors.append("含数字的声明段落缺少来源引用，数据待补充")
+        # 年份/年份区间用于限定主题，不等于定量数据；金额2026元等仍须引用。
+        factual = re.sub(
+            r"(?<![0-9])(?:(?:19|20)[0-9]{2}\s*[-~—至]\s*(?:19|20)[0-9]{2}|(?:19|20)[0-9]{2})\s*年",
+            "", factual,
+        )
+        # 排名/业务/技术标签不是定量声明；但同段只要有份额/金额/数量等数字，
+        # 即使同时写了“数据待补充”，仍须引用。
+        factual = RANKING_LABEL.sub("", factual)
+        factual = ALPHANUMERIC_LABEL.sub("", factual)
+        if re.search(r"[0-9]", factual) and not REFERENCE.search(paragraph):
+            excerpt = " ".join(paragraph.split())[:160]
+            errors.append(f"含数字的声明段落缺少来源引用，数据待补充（段落{paragraph_no}：{excerpt}）")
         for source_id in REFERENCE.findall(paragraph):
             if (source_id, claim) in seen:
                 continue

@@ -8,9 +8,10 @@ from agents.planner import planner_node
 from agents.rewriter import rewriter_node
 from agents.reviewer import reviewer_node
 from agents.scheduler import scheduler_node
+from agents.research_revision import research_revision_node
 from db import task_repository
 from graph.state import AgentState
-from services.report_quality import usable_draft
+from services.report_quality import usable_draft, needs_research
 from services.usage_service import usage_scope
 from memory import checkpointer as cp_mod
 from memory import long_term_memory
@@ -21,7 +22,9 @@ logger = logging.getLogger(__name__)
 def route_after_review(state: dict) -> str:
     """终止不意味着质量通过；保留旧路由键以兼容图结构。"""
     terminal = state.get("quality_status") in {"passed", "unavailable", "not_run"} or state.get("forced_output") or state.get("execution_status") == "failed"
-    return "passed" if terminal or state.get("passed") is True else "rewrite"
+    if terminal or state.get("passed") is True:
+        return "passed"
+    return "research" if needs_research(state) else "rewrite"
 
 
 
@@ -40,14 +43,16 @@ def build_graph(checkpointer=None, *, interrupt_before=None):
     graph.add_node("scheduler", scheduler_node)      # 节点2：按依赖派发执行
     graph.add_node("reviewer", reviewer_node)        # 节点3（25 节）：审核草稿
     graph.add_node("rewriter", rewriter_node)        # 节点4（25 节）：按意见返工
+    graph.add_node("research_revision", research_revision_node)
     graph.add_edge(START, "planner")
     graph.add_edge("planner", "scheduler")
     graph.add_edge("scheduler", "reviewer")          # 写完整稿 → 进入审核
     graph.add_conditional_edges(
         "reviewer",
         route_after_review,
-        {"passed": END, "rewrite": "rewriter"},      # 通过 → 结束；不通过 → 返工
+        {"passed": END, "rewrite": "rewriter", "research": "research_revision"},
     )
+    graph.add_edge("research_revision", "rewriter")
     graph.add_edge("rewriter", "reviewer")           # 返工完 → 再次审核（条件循环）
     return graph.compile(checkpointer=checkpointer,interrupt_before=interrupt_before)
 
@@ -66,6 +71,7 @@ def _initial_state(task_id: str, topic: str) -> AgentState:
         "citations": [],
         "citation_errors": [],
         "required_citations": [],
+        "research_revision_count": 0,
         "task_id": task_id,           # 任务 id（也是后续 checkpoint 的 thread_id）
         "resume_mode": None,
         "execution_status": "running",

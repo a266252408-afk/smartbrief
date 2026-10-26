@@ -72,9 +72,9 @@ def test_parse_bing_caps_at_five():
 
 def test_web_search_success(monkeypatch):
     monkeypatch.setattr(wss.urllib.request, "urlopen", lambda *a, **k: FakeUrlopenResp(PAGE))
-    result = wss._web_search("test", 5)
+    result = wss._web_search("Title", 5)
     assert result["source"] == "bing"
-    assert result["query"] == "test"
+    assert result["query"] == "Title"
     assert len(result["results"]) == 2
 
 

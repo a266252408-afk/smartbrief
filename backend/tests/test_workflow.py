@@ -216,16 +216,25 @@ def test_route_after_review():
 
 
 def test_scheduler_skips_timeout_step():
-    """Agent 步骤执行超时 → 跳过（降级记录 + 标记完成），不卡死工作流。"""
+    """Agent 步骤执行超时 → 降级记录 + 标记完成，且保留已完成轮次的部分结果。"""
     import asyncio
 
     from agents import scheduler as scheduler_mod
 
-    async def hang(task, step_id, logs):
+    async def partial_then_hang(task, step_id, logs, observations=None, deadline=None):
+        # 先完成一轮搜索（结果同步进调用方共享列表），再卡死触发整步超时
+        if observations is not None:
+            observations.append({"query": "智能手机 2026 出货量", "result": {
+                "source": "bing", "results": [
+                    {"title": "2026 智能手机出货报告", "snippet": "出货量数据", "url": "https://example.com/a"},
+                ],
+                "retrieved_at": "2026-10-26T08:00:00+00:00",
+            }})
         await asyncio.sleep(10)                          # 模拟 Agent 卡死
         return {"observations": []}
 
     state = {
+        "task_id": "t_timeout_1",
         "plan": [{"id": 1, "agent": "researcher", "task": "搜市场", "depends_on": []}],
         "completed_steps": [],
         "react_logs": [],
@@ -233,13 +242,53 @@ def test_scheduler_skips_timeout_step():
     }
     with (
         patch.object(scheduler_mod, "AGENT_STEP_TIMEOUT_SECONDS", 0.05),
-        patch.object(scheduler_mod, "react_researcher_run", new=hang),
+        patch.object(scheduler_mod, "react_researcher_run", new=partial_then_hang),
     ):
         out = run(scheduler_mod.scheduler_node(state))
     assert out["completed_steps"] == [1]                  # 跳过但仍标记完成（解锁后续依赖）
-    assert out["research_data"]["step_1"]["skipped"] is True   # 降级标记
-    assert "timeout" in out["research_data"]["step_1"]["error"]
+    step_result = out["research_data"]["step_1"]
+    assert step_result["skipped"] is True                 # 降级标记
+    assert "timeout" in step_result["error"]
+    assert len(step_result["observations"]) == 1          # 已完成轮次不被丢弃
+    assert out["evidence"]                                # 部分结果已注册为可追溯证据
     assert any("超时" in log["content"] for log in out["react_logs"])
+
+
+def test_scheduler_writer_timeout_after_partial_research():
+    """writer 前的 researcher 超时保留部分结果时，writer 仍正常派发并引用证据。"""
+    from agents import scheduler as scheduler_mod
+
+    async def partial_then_hang(task, step_id, logs, observations=None, deadline=None):
+        if observations is not None:
+            observations.append({"query": "q", "result": {
+                "source": "bing", "retrieved_at": "2026-10-26T08:00:00+00:00",
+                "results": [{"title": "报告", "snippet": "数据", "url": "https://example.com/a"}],
+            }})
+        await asyncio.sleep(10)
+
+    async def writer(task, step_id, logs, research_data, evidence=None):
+        return "## 章节"
+
+    state = {
+        "task_id": "t_partial_1",
+        "plan": [
+            {"id": 1, "agent": "researcher", "task": "搜市场", "depends_on": []},
+            {"id": 2, "agent": "writer", "task": "写章节", "depends_on": [1]},
+        ],
+        "completed_steps": [],
+        "react_logs": [],
+        "research_data": {},
+    }
+    with (
+        patch.object(scheduler_mod, "AGENT_STEP_TIMEOUT_SECONDS", 0.05),
+        patch.object(scheduler_mod, "react_researcher_run", new=partial_then_hang),
+        patch.object(scheduler_mod, "react_writer_run", new=writer),
+    ):
+        out = run(scheduler_mod.scheduler_node(state))
+    assert out["research_data"]["step_1"]["skipped"] is True
+    assert len(out["research_data"]["step_1"]["observations"]) == 1
+    assert out["evidence"]                                # 部分结果注册为证据，writer 可引用
+    assert out["draft_content"] == "## 章节"
 
 
 def test_scheduler_skips_timeout_writer_step():
@@ -253,10 +302,15 @@ def test_scheduler_skips_timeout_writer_step():
         return "## 章节"
 
     state = {
+        "task_id": "t_timeout_2",
         "plan": [{"id": 1, "agent": "writer", "task": "写章节", "depends_on": []}],
         "completed_steps": [],
         "react_logs": [],
-        "research_data": {},
+        # 预置有效研究数据：证据非空才会派发 writer（空证据走的是跳过撰写分支）
+        "research_data": {"step_1": {"observations": [{"query": "q", "result": {
+            "source": "bing", "retrieved_at": "2026-10-26T08:00:00+00:00",
+            "results": [{"title": "报告", "snippet": "数据", "url": "https://example.com/a"}],
+        }}]}},
     }
     with (
         patch.object(scheduler_mod, "WRITER_STEP_TIMEOUT_SECONDS", 0.05),

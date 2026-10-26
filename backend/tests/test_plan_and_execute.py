@@ -124,7 +124,10 @@ def test_scheduler_node_runs_all_steps():
     with (
         patch.object(
             scheduler, "react_researcher_run",
-            new=AsyncMock(return_value={"observations": [{"query": "q", "result": "数据"}]}),
+            new=AsyncMock(return_value={"observations": [{"query": "q", "result": {
+                "source": "bing", "retrieved_at": "2026-10-26T08:00:00+00:00",
+                "results": [{"title": "报告", "snippet": "数据", "url": "https://example.com/a"}],
+            }}]}),
         ) as researcher,
         patch.object(
             scheduler, "react_writer_run",
@@ -133,7 +136,8 @@ def test_scheduler_node_runs_all_steps():
     ):
         result = run(scheduler.scheduler_node(state))
     assert result["completed_steps"] == [1, 2]
-    assert result["research_data"]["step_1"] == {"observations": [{"query": "q", "result": "数据"}]}
+    assert len(result["research_data"]["step_1"]["observations"]) == 1
+    assert result["evidence"]                            # 搜索结果已注册为证据
     assert result["draft_content"] == "## 摘要\n内容"
     researcher.assert_awaited_once()
     writer.assert_awaited_once()
@@ -244,6 +248,15 @@ def test_react_writer_empty_research():
     with patch.object(react_writer, "chat", new=AsyncMock(return_value=FakeResp("内容"))):
         content = run(react_writer.react_writer_run("写摘要", 2, logs, {}))
     assert content == "内容"
+
+
+def test_react_writer_strips_literal_placeholder():
+    logs = []
+    with patch.object(react_writer, "chat", new=AsyncMock(
+            return_value=FakeResp("报告（引用位：[S编号]）数据待补充"))):
+        content = run(react_writer.react_writer_run("写摘要", 2, logs, {}))
+    assert "[S编号]" not in content
+    assert "数据待补充" in content
 
 
 def test_react_writer_llm_error():

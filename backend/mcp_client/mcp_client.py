@@ -54,7 +54,10 @@ CONFIG_PATH = runtime_path('mcp_config.json')
 TIMEOUT_SECONDS = 5
 
 # 单次工具调用超时 + 失败重试次数
-MCP_CALL_TIMEOUT_SECONDS = 5.0   # 单次工具调用超时上限
+# 15s：需覆盖 server 端搜索的多端点重试总耗时（cn/www 各 5s）+ 子进程调度开销；
+# 原值 5s 小于 server 端请求超时，慢网络下客户端必先超时且 asyncio.TimeoutError
+# 的 str() 为空，日志只剩「调用失败：」无任何线索。
+MCP_CALL_TIMEOUT_SECONDS = 15.0   # 单次工具调用超时上限
 MCP_CALL_RETRIES = 2             # 调用失败/超时后的重试次数
 # 新增/编辑 Server 时连接并发现工具的总超时（防止阻塞超过前端请求超时，
 # 导致「前端报错、后端却已写入配置」的不一致）
@@ -521,6 +524,17 @@ class MCPManager:
                 return await asyncio.wait_for(
                     conn.call_tool(name, arguments), timeout=MCP_CALL_TIMEOUT_SECONDS
                 )
+            except asyncio.TimeoutError as exc:
+                # asyncio.TimeoutError 的 str() 为空，直接上抛会让上层日志
+                # 只剩「调用失败：」；包装成带工具名与超时上限的可读异常。
+                last_exc = TimeoutError(
+                    f"MCP 工具 {name} 调用超时（>{MCP_CALL_TIMEOUT_SECONDS:g} 秒）"
+                ).with_traceback(exc.__traceback__)
+                if attempt < MCP_CALL_RETRIES:
+                    logger.warning(
+                        "MCP 工具 %s 调用超时（第 %d/%d 次），重试中",
+                        name, attempt + 1, MCP_CALL_RETRIES,
+                    )
             except Exception as exc:  # noqa: BLE001 - 重试兜底，必须捕获所有异常
                 last_exc = exc
                 if attempt < MCP_CALL_RETRIES:

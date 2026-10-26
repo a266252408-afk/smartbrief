@@ -183,8 +183,10 @@ def finalize_task(task_id, fields, logs):
             update_task(task_id, _connection=conn, _require_running=True, **fields)
             conn.execute("DELETE FROM task_logs WHERE task_id=?",(task_id,))
             for log in logs:
-                conn.execute("INSERT INTO task_logs(task_id,step_id,log_type,content) VALUES (?,?,?,?)",
-                    (task_id,log.get("step_id",0),log.get("type","Thought"),str(log.get("content",""))))
+                conn.execute("INSERT INTO task_logs(task_id,step_id,log_type,content,created_at) "
+                             "VALUES (?,?,?,?,COALESCE(?,datetime('now','localtime')))",
+                    (task_id,log.get("step_id",0),log.get("type","Thought"),str(log.get("content","")),
+                     log.get("created_at")))
     except Exception:
         raise ExecutionPersistenceError("任务结果或日志持久化失败") from None
 

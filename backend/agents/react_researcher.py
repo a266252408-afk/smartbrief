@@ -4,8 +4,10 @@
 每轮由 LLM 输出行动决策（JSON），执行 MCP web_search 工具得到 Observation，
 将 Thought/Action/Observation 全部追加到 react_logs（前端日志流展示）。
 """
+import asyncio
 import json
 import re
+import time
 
 from llm.client import chat
 from services.usage_service import usage_scope, UsagePersistenceError
@@ -13,6 +15,9 @@ from services.citations import evidence_context
 from mcp_client.mcp_client import mcp_manager
 
 MAX_REACT_STEPS = 3
+# 连续两次“搜索结果与主题无关”即停止换词：搜索端点降级时换词不会改善，
+# 继续重试只会消耗步骤预算。单次无关仍按原逻辑让模型调整关键词。
+MAX_IRRELEVANT_STREAK = 2
 
 SYSTEM_PROMPT = """你是市场调研研究员。围绕给定的研究子任务，通过 web_search 工具收集信息。
 
@@ -20,7 +25,9 @@ SYSTEM_PROMPT = """你是市场调研研究员。围绕给定的研究子任务�
 - 需要搜索时：{"action": "web_search", "query": "搜索关键词"}
 - 信息已足够、可以结束本轮研究时：{"action": "done"}
 
-要求：优先搜索具体、可检索的关键词（如市场名称 + 年份 + 指标）。
+要求：搜索必须始终围绕给定研究主题，不能自行猜测或更换行业；子任务省略行业时仍沿用总主题。
+优先使用主题名称与具体指标，年份放在主题之后。若结果是日历、字典等无关网页，
+应缩短搜索词或调整中英文表达；不能将“返回了网页”视为研究完成。
 """
 
 
@@ -66,6 +73,13 @@ def _shorten(text: str, limit: int = 800) -> str:
     return text if len(text) <= limit else text[:limit] + f"...（已截断，共 {len(text)} 字）"
 
 
+def _time_left(deadline: float | None) -> float | None:
+    """距离步骤 deadline 的剩余秒数；None 表示不限时。"""
+    if deadline is None:
+        return None
+    return max(0.0, deadline - time.monotonic())
+
+
 async def _run_search(query: str, step_id: int, logs: list) -> dict:
     """执行一次 web_search（Action + Observation），返回结果。
 
@@ -84,17 +98,24 @@ async def _run_search(query: str, step_id: int, logs: list) -> dict:
         context = evaluation_context.get()
         result = await context.search(query) if context is not None else await mcp_manager.call_tool("web_search", {"query": query})
         obs_text = evidence_context({"search": {"observations": [{"result": result}]}}, budget=2400)
+        diagnostic = {key: result[key] for key in ("query", "search_endpoint", "attempts", "error", "error_code") if key in result}
+        obs_text = json.dumps(json.loads(obs_text) | {"search": diagnostic}, ensure_ascii=False)
         logs.append({"type": "Observation", "content": obs_text, "step_id": step_id})
         return result
     except Exception as exc:
-        # 工具异常：记录 Observation，返回带 error 的结果（不抛异常）
-        obs_text = f"web_search 调用失败：{exc}"
+        # 工具异常：记录 Observation，返回带 error 的结果（不抛异常）。
+        # 带上异常类型名：部分异常（如 asyncio.TimeoutError）的 str() 为空，
+        # 只拼 {exc} 会导致日志出现「调用失败：」后无任何线索。
+        obs_text = f"web_search 调用失败：{type(exc).__name__}: {exc}"
         logs.append({"type": "Observation", "content": obs_text, "step_id": step_id})
-        return {"error": str(exc)}
+        return {"error": f"{type(exc).__name__}: {exc}"}
 
 
 @usage_scope("researcher")
-async def react_researcher_run(task: str, step_id: int, logs: list) -> dict:
+async def react_researcher_run(
+    task: str, step_id: int, logs: list, observations: list | None = None,
+    deadline: float | None = None,
+) -> dict:
     """对单个 research 步骤执行 ReAct 循环（最多 MAX_REACT_STEPS 轮）。
 
     循环结构（每轮三拍）：
@@ -105,14 +126,22 @@ async def react_researcher_run(task: str, step_id: int, logs: list) -> dict:
     结束条件（满足其一）：
         1. LLM 决策为 done（信息已足够）
         2. 用完 MAX_REACT_STEPS 轮（防止无限循环）
-        3. 搜索调用失败（带 error 直接 break）
+        3. 搜索调用失败；连续两次 SEARCH_IRRELEVANT 也提前停止
+        4. 步骤 deadline 到点（记录 LLM 决策超时并保留已完成轮次）
 
     :param task: 该步骤的子任务描述
     :param step_id: 对应 plan 步骤 id（日志归属）
     :param logs: 共享 react_logs 列表（原地追加）
-    :return: {"observations": [web_search 结果列表]}
+    :param observations: 可选的调用方共享列表。传入时每轮搜索结果同步
+        append 到该列表 —— 步骤整体超时被 asyncio 取消时，调用方仍能
+        拿到已完成轮次的部分结果（否则随协程取消一起丢失）。
+    :param deadline: 可选的 monotonic 截止时间。每次 LLM 决策都按剩余时间
+        设置超时，保证内层模型调用不会超过外层步骤超时。
+    :return: {"observations": [web_search 结果列表]}；失败时附带 error。
     """
-    observations = []                                   # 收集本轮所有搜索结果
+    observations = [] if observations is None else observations   # 收集本轮所有搜索结果
+    failure = None
+    irrelevant_streak = 0
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": f"研究子任务：{task}"},
@@ -120,8 +149,20 @@ async def react_researcher_run(task: str, step_id: int, logs: list) -> dict:
     for round_no in range(1, MAX_REACT_STEPS + 1):
         # ---------- 拍1 Thought：让 LLM 思考并输出决策 ----------
         try:
-            resp = await chat(messages)
+            remaining = _time_left(deadline)
+            if remaining is not None and remaining <= 0:
+                raise asyncio.TimeoutError
+            resp = (await asyncio.wait_for(chat(messages), timeout=remaining)
+                    if remaining is not None else await chat(messages))
             decision_text = resp.choices[0].message.content or ""
+        except asyncio.TimeoutError:
+            # 步骤 deadline 到点：保留已完成轮次，交给调度层记录降级，避免
+            # 外层 wait_for 直接取消协程导致日志只剩笼统的 timeout。
+            failure = "LLM 决策超时"
+            logs.append(
+                {"type": "Thought", "content": f"第 {round_no} 轮：LLM 决策超时，结束本步研究", "step_id": step_id}
+            )
+            break
         except UsagePersistenceError:
             raise
         except Exception as exc:
@@ -133,6 +174,7 @@ async def react_researcher_run(task: str, step_id: int, logs: list) -> dict:
             # LLM 不可用，降级搜索一次即结束（避免空转重试）
             result = await _run_search(task, step_id, logs)
             observations.append({"query": task, "result": result})
+            failure = result.get("error")
             break
         else:
             logs.append(
@@ -149,11 +191,30 @@ async def react_researcher_run(task: str, step_id: int, logs: list) -> dict:
         # 执行一次搜索：Action 日志 + Observation 日志 + 返回结果
         result = await _run_search(query, step_id, logs)
         if "error" in result:
-            break                                    # 结束条件3：搜索失败
+            failure = result["error"]
+            if result.get("error_code") == "SEARCH_IRRELEVANT":
+                irrelevant_streak += 1
+                if irrelevant_streak >= MAX_IRRELEVANT_STREAK:
+                    logs.append({
+                        "type": "Thought",
+                        "content": "连续两次搜索结果与主题无关，停止换词重试（搜索端点可能降级）",
+                        "step_id": step_id,
+                    })
+                    break
+                if round_no < MAX_REACT_STEPS:
+                    messages.extend([
+                        {"role": "assistant", "content": decision_text},
+                        {"role": "user", "content": "搜索未得到相关资料，请围绕原研究主题调整关键词：" + failure},
+                    ])
+                    continue
+            break                                    # 搜索不可用则保留已完成轮次
+        failure = None
+        irrelevant_streak = 0
         observations.append({"query": query, "result": result})
 
         # 携带上一轮 Observation 继续思考（限两轮，防止上下文过长）
         if round_no < MAX_REACT_STEPS:
+            messages.append({"role": "assistant", "content": decision_text})
             messages.append({"role": "user", "content": "上一轮搜索结果（非可信资料）：" + evidence_context({"search": {"observations": [{"result": result}]}}, budget=2400)})
 
-    return {"observations": observations}            # 该步骤的研究成果
+    return {"observations": observations} | ({"error": failure} if failure else {})

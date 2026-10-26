@@ -23,6 +23,7 @@ class AgentState(TypedDict):
     citations: List[Dict]
     citation_errors: List[str]
     required_citations: List[str]  # 图内返工保留要求，由检查点保存
+    research_revision_count: int  # 补研究计数，仅检查点保存；旧快照缺省为零
     regenerated_from: str | None
     document_ids: List[str]
     retrievals: List[Dict]

@@ -166,7 +166,8 @@ async def planner_node(state: dict) -> dict:
     6. 在日志最前面插入 Thought（"已生成执行计划"/"检索到历史报告"）
     """
     topic = state["topic"]                       # 从白板读主题
-    logs = list(state.get("react_logs", []))     # 拷贝现有日志（避免污染原 state）
+    from services.event_logs import EventLogs
+    logs = EventLogs(state.get("react_logs", []))
     memory_hits = list(state.get("memory_hits", []))  # 已累计的记忆命中（续跑时不重复）
 
     # ---------- Planner 先检索长期记忆（相似历史报告作 Few-shot）----------

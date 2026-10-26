@@ -15,8 +15,9 @@ import asyncio
 from llm.client import chat
 from services.usage_service import usage_scope, UsagePersistenceError
 from services.retrieval_service import refresh_document_sources
-from services.report_quality import usable_draft
-from services.citations import check_citations
+from services.report_quality import usable_draft, is_data_gap_draft
+from services.citations import check_citations, strip_placeholder_citations
+from services.event_logs import EventLogs
 from agents.react_writer import _summarize_research   # 复用：研究数据 → Markdown 摘要
 
 # 返工日志统一归类到 step_id=0（A2A 阶段无 Plan 步骤）
@@ -48,7 +49,19 @@ async def rewriter_node(state: dict) -> dict:
     research_summary = _summarize_research(state.get("research_data") or {}, state.get("evidence", []))   # 研究数据摘要
     before = check_citations(state.get("task_id", ""), draft, state.get("evidence", []))
     required = sorted(set(state.get("required_citations", [])) | {c["source_id"] for c in before["citations"] if c["valid"]})
-    logs = list(state.get("react_logs", []))
+    logs = EventLogs(state.get("react_logs", []))
+
+    if is_data_gap_draft(draft) and not state.get("evidence"):
+        # 没有来源时，模型改写只会再次生成无法追溯的内容；保留确定性缺口稿，
+        # 让审核按原规则继续拒绝，最终仍为 completed/rejected/forced_output。
+        logs.append(
+            {"type": "Thought", "content": "无可追溯来源，跳过模型返工，保留数据缺口说明", "step_id": REWRITE_STEP_ID}
+        )
+        logs.append(
+            {"type": "Observation", "content": "未调用模型改写；数据缺口稿保持原样", "step_id": REWRITE_STEP_ID}
+        )
+        return {"draft_content": draft, "react_logs": logs, "required_citations": required,
+                "citations": before["citations"], "citation_errors": before["errors"]}
 
     logs.append(
         {"type": "Thought", "content": "开始根据审核意见修改草稿", "step_id": REWRITE_STEP_ID}
@@ -70,7 +83,7 @@ async def rewriter_node(state: dict) -> dict:
     ]
     try:
         resp = await chat(messages)
-        new_draft = (resp.choices[0].message.content or "").strip()
+        new_draft = strip_placeholder_citations(resp.choices[0].message.content or "").strip()
         if not usable_draft(new_draft):
             raise ValueError("返工未生成可用正文")
     except UsagePersistenceError:
