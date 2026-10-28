@@ -99,3 +99,7 @@ MODEL_PRICES_JSON可按模型指定每百万输入/输出单价与三字母币�
 v2评测API经evaluation_service进入固定20例协议集。每案例复用真实TaskService/LangGraph/状态、预算与仓储，外部模型/搜索/嵌入通过ContextVar替换为明确合成依赖；独立Chroma、SQLite记忆登记与检查点禁止读写用户记忆或向量。评测任务主题带离线标识。用户全局开关不改变，RAG/记忆/审核开关仅当前上下文生效。
 
 评测metadata记录数据集版本/hash、模型/提示、code_tag/commit/dirty/source_hash与随机性、冷启动/顺序；旧记录保持null。逐例结果/进度/指标同事务保存，失败保留部分，启动/关闭清理中断。执行与质量分离，无引用/未知用量/未知费用不伪造0；人工事实抽查及在线效果pending。比较要求同版本、单开关变化，仅输出合成协议差值。v1兼容，前端默认v2离线，旧版与失败可解释展示。
+
+## 离线评测任务执行隔离（EVAL-ISOLATION-01）
+
+新任务由服务端把 execution_mode、evaluation_id 与 evaluation_case_id 存入既有 tasks.metadata JSON；不新增列、不回填旧数据。普通任务恢复和重生成拒绝离线评测任务，提示到评测中心重新运行；旧任务没有模式字段时以系统既有“[离线协议] ”主题前缀保守隔离。worker 领取 queued 任务后还需匹配评测/案例的合成依赖上下文，缺失或不一致时 failed/not_run、OFFLINE_CONTEXT_REQUIRED，在 runner 前停止；评测中的取消仍可执行。新普通任务及其重生成明确记录 online，避免主题文字误判。前端列表与详情隐藏离线恢复/重生成入口，服务端仍独立校验。

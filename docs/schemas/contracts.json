@@ -1725,6 +1725,27 @@
             "string",
             "null"
           ]
+        },
+        "execution_mode": {
+          "enum": [
+            "online",
+            "offline",
+            null
+          ]
+        },
+        "evaluation_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "evaluation_case_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
         }
       },
       "additionalProperties": false,
@@ -1746,9 +1767,32 @@
               "demo_sample_version"
             ]
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "execution_mode": {
+                "const": "offline"
+              }
+            },
+            "required": [
+              "execution_mode"
+            ]
+          },
+          "then": {
+            "required": [
+              "evaluation_case_id"
+            ],
+            "properties": {
+              "evaluation_case_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
         }
       ],
-      "description": "T11已实现：generator_version记录生成版本；demo=true必须带样例标识与版本，演示数据不得冒充在线生成。"
+      "description": "T11已实现：generator_version记录生成版本；demo=true必须带样例标识与版本，演示数据不得冒充在线生成。 EVAL-ISOLATION-01：服务端执行模式及离线评测/案例归属；无字段的旧协议任务用系统主题前缀隔离。"
     },
     "DemoSample": {
       "type": "object",

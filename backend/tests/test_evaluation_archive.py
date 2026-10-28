@@ -20,6 +20,12 @@ def test_real_twenty_case_offline_report(tmp_path, monkeypatch):
     record = asyncio.run(archive.run_offline())
     assert record['status'] == 'completed' and record['completed_cases'] == record['total_cases'] == 20
     assert len({r['case_id'] for r in record['results']}) == 20
+    from db import task_repository
+    for row in record['results']:
+        origin = task_repository.get_task(row['task_id'])['metadata']
+        assert origin['execution_mode'] == 'offline'
+        assert origin['evaluation_id'] == record['eval_id']
+        assert origin['evaluation_case_id'] == row['case_id']
     assert record['metadata']['mode'] == 'offline'
     assert record['metadata']['model'] == 'synthetic-protocol-1'
     assert record['metadata']['dataset_hash'] == load_suite()[1]

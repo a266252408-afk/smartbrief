@@ -21,8 +21,9 @@ class SyntheticEmbeddings:
 class OfflineDependencies:
     model = 'synthetic-protocol-1'
 
-    def __init__(self, case, directory, flags=None):
+    def __init__(self, case, directory, flags=None, *, evaluation_id=None):
         self.case = case
+        self.evaluation_id = evaluation_id
         self.directory = Path(directory)
         self.flags = flags or dict(rag=True, memory=True, review=True)
         self.calls = Counter()

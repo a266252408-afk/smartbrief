@@ -18,6 +18,16 @@ it('排队任务可取消', () => {
   expect(wrapper.text()).toContain('取消任务')
 })
 
+it('离线任务禁止普通恢复，运行中仍能取消', async () => {
+  wrapper = mount(TaskControls, { props: { taskId: 'offline', status: 'failed', offline: true } })
+  expect(wrapper.find('button').exists()).toBe(false)
+  expect(wrapper.text()).toContain('评测中心重新运行')
+  await wrapper.setProps({ status: 'running' })
+  await wrapper.get('button').trigger('click'); await flushPromises()
+  expect(cancelTask).toHaveBeenCalledWith('offline')
+  expect(resumeTask).not.toHaveBeenCalled()
+})
+
 it('只读不能取消或恢复，终态不提供恢复', async () => {
   authRole.value = 'readonly'
   wrapper = mount(TaskControls, { props: { taskId: 'queued', status: 'queued' } })

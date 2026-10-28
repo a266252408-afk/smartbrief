@@ -99,7 +99,7 @@ async def execute_suite(eval_id, cases, flags):
         with TemporaryDirectory(prefix='smartbrief-protocol-', ignore_cleanup_errors=True) as directory:
             for case in cases:
                 started = perf_counter()
-                task_id = await execute_case(OfflineDependencies(case,directory,flags))
+                task_id = await execute_case(OfflineDependencies(case,directory,flags,evaluation_id=eval_id))
                 results.append(collect(case,task_id,perf_counter()-started))
                 # 部分结果与进度、指标同事务；中断仍可读取真实已完成部分。
                 repository.save_partial(eval_id,results,summarize(results,len(cases)))

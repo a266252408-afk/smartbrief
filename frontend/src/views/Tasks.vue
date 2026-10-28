@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import TaskControls from '../components/TaskControls.vue'
+import { isOfflineTask } from '../utils/taskOrigin'
 import { onMounted, onBeforeUnmount, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -139,7 +140,7 @@ onBeforeUnmount(() => { generation++; if (timer) clearInterval(timer) })
         <template #default="{ row }">
           <el-button link type="primary" @click.stop="openDetail(row)">查看</el-button>
           <el-button link type="danger" @click.stop="confirmDelete(row)">删除</el-button>
-          <TaskControls :task-id="row.task_id" :status="row.status" @changed="load" />
+          <TaskControls :task-id="row.task_id" :status="row.status" :offline="isOfflineTask(row)" @changed="load" />
         </template>
       </el-table-column>
     </el-table>

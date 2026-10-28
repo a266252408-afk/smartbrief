@@ -63,3 +63,7 @@ RAG控制模板与术语参考，memory控制本轮隔离记忆读写，review�
 在线研究协议：冻结数据、代码tag/source_hash、模型供应商与请求配置、提示版本、采样参数、重复次数、顺序与冷/热记忆策略；事前取得数据去向、预计调用量与费用上限授权。对照每次仅改变一个开关，保留失败和unknown；报告有限样本、波动及是否可比。未获授权时状态pending、结果null。
 
 人工事实抽查协议：人工选择带报告SHA256与来源片段的声明样本，记录抽样方法、总声明数/样本量、逐条supported/contradicted/insufficient及判据、标注人/时间与争议；未抽查不能给准确率。有效引用率和关键词命中不能代替这一步。本轮尚未人工标注，所有成绩均保持pending。
+
+## 离线评测任务执行隔离（EVAL-ISOLATION-01）
+
+新任务由服务端把 execution_mode、evaluation_id 与 evaluation_case_id 存入既有 tasks.metadata JSON；不新增列、不回填旧数据。普通任务恢复和重生成拒绝离线评测任务，提示到评测中心重新运行；旧任务没有模式字段时以系统既有“[离线协议] ”主题前缀保守隔离。worker 领取 queued 任务后还需匹配评测/案例的合成依赖上下文，缺失或不一致时 failed/not_run、OFFLINE_CONTEXT_REQUIRED，在 runner 前停止；评测中的取消仍可执行。新普通任务及其重生成明确记录 online，避免主题文字误判。前端列表与详情隐藏离线恢复/重生成入口，服务端仍独立校验。

@@ -101,7 +101,14 @@ class TaskService:
         except ValueError:
             raise TaskControlError("INVALID_TASK_REQUEST", "主题或文档选择无效", 422) from None
         try:
-            result = controls.create_job(body.topic,body.document_ids,key=digest)
+            from app_version import APP_VERSION
+            from evaluation.context import evaluation_context
+            context = evaluation_context.get()
+            metadata = dict(generator_version=APP_VERSION, execution_mode='online')
+            if context is not None:
+                metadata.update(execution_mode='offline', evaluation_id=context.evaluation_id,
+                                evaluation_case_id=context.case['case_id'])
+            result = controls.create_job(body.topic,body.document_ids,key=digest,metadata=metadata)
             result = TaskAccepted.model_validate(result).model_dump()
         except TaskControlError:
             raise
@@ -132,6 +139,12 @@ class TaskService:
                     return
                 context = execution_lease.set((task_id,token))
                 task = task_repository.get_task(task_id)
+                from evaluation.context import evaluation_context
+                from services.task_metadata import is_offline_task, offline_context_matches
+                if is_offline_task(task) and not offline_context_matches(task, evaluation_context.get()):
+                    task_repository.update_task(task_id, status='failed', quality_status='not_run',
+                        error_code='OFFLINE_CONTEXT_REQUIRED', error='离线任务缺少匹配的合成依赖，请在评测中心重新运行')
+                    return
                 resume = resume or controls.requested_resume(task_id)
                 if self.runner is None:
                     from graph.workflow import run_task
@@ -187,6 +200,7 @@ class TaskService:
         if self.closing:
             raise TaskControlError("TASK_SERVICE_STOPPED","任务服务正在关闭")
         self._reject_demo(task_id)
+        self._reject_offline(task_id)
         from memory.checkpointer import resumable_mode
         digest = key_digest(key)
         try:
@@ -205,11 +219,18 @@ class TaskService:
         if self.closing:
             raise TaskControlError("TASK_SERVICE_STOPPED","任务服务正在关闭")
         self._reject_demo(task_id)
+        self._reject_offline(task_id)
         from services.task_regeneration import prepare_regeneration
         result = await asyncio.to_thread(prepare_regeneration,task_id,key_digest(key))
         if result is not None:
             self.schedule(result["task_id"])
         return result
+
+    def _reject_offline(self, task_id):
+        from services.task_metadata import is_offline_task
+        if is_offline_task(task_repository.get_task(task_id)):
+            raise TaskControlError('OFFLINE_TASK_NOT_EXECUTABLE',
+                '离线协议任务不能恢复或重新生成，请在评测中心重新运行', 409)
 
     async def wait(self, task_id):
         handle = self.handles.get(task_id)

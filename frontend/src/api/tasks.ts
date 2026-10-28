@@ -39,6 +39,9 @@ export interface TaskMetadata {
   generator_version?: string | null
   demo_sample_id?: string | null
   demo_sample_version?: string | null
+  execution_mode?: 'online' | 'offline' | null
+  evaluation_id?: string | null
+  evaluation_case_id?: string | null
 }
 
 /** 任务摘要（列表项） */

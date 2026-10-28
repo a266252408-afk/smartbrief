@@ -41,6 +41,17 @@ afterEach(() => {
 })
 
 describe('任务详情演示数据保护', () => {
+  it.each([false, true])('离线任务隐藏恢复和重生成入口（旧记录=%s）', async legacy => {
+    vi.mocked(fetchTaskStatus).mockResolvedValue({ ...structuredClone(base),
+      task_id: 'offline', topic: legacy ? '[离线协议] 测试主题' : '测试主题',
+      metadata: legacy ? {} : { execution_mode: 'offline', evaluation_case_id: 'C01' } })
+    wrapper = mount(TaskDetail, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    const labels = wrapper.findAll('button').map(button => button.text())
+    expect(labels).not.toContain('恢复任务')
+    expect(labels).not.toContain('重新生成')
+    expect(wrapper.text()).toContain('评测中心重新运行')
+  })
   it('展示演示标识与恢复说明，隐藏恢复/取消/重新生成入口', async () => {
     wrapper = mount(TaskDetail, { global: { plugins: [ElementPlus] } })
     await flushPromises()

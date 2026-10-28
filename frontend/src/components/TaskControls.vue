@@ -4,7 +4,7 @@ import { cancelTask, resumeTask } from '../api/tasks'
 import { authRole } from '../api/session'
 import { onBeforeUnmount, ref, watch } from 'vue'
 
-const props = defineProps<{ taskId: string; status: ExecutionStatus }>()
+const props = defineProps<{ taskId: string; status: ExecutionStatus; offline?: boolean }>()
 const emit = defineEmits<{ changed: [] }>()
 const busy = ref(false)
 const notice = ref('')
@@ -12,6 +12,7 @@ const error = ref('')
 let generation = 0
 async function act(action: 'cancel' | 'resume') {
   if (busy.value || authRole.value !== 'admin') return
+  if (action === 'resume' && props.offline) return
   const id = props.taskId, version = ++generation
   busy.value = true
   error.value = ''
@@ -40,7 +41,8 @@ onBeforeUnmount(() => { generation++ })
 <template>
   <span class="task-controls" @click.stop>
     <button v-if="['queued', 'running'].includes(status)" class="cancel" :disabled="busy || authRole !== 'admin'" @click="act('cancel')">{{ busy ? '处理中…' : '取消任务' }}</button>
-    <button v-if="['paused', 'failed'].includes(status)" :disabled="busy || authRole !== 'admin'" @click="act('resume')">{{ busy ? '处理中…' : '恢复任务' }}</button>
+    <button v-if="!offline && ['paused', 'failed'].includes(status)" :disabled="busy || authRole !== 'admin'" @click="act('resume')">{{ busy ? '处理中…' : '恢复任务' }}</button>
+    <span v-if="offline" role="note">离线协议任务，请在评测中心重新运行</span>
     <span v-if="notice" role="status">{{ notice }}</span>
     <span v-if="error" role="alert">{{ error }}</span>
   </span>

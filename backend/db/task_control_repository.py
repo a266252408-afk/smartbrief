@@ -51,8 +51,9 @@ def cancel(task_id, key=None):
         return result
 
 
-def create_job(topic=None, document_ids=None, *, key=None, source_id=None):
+def create_job(topic=None, document_ids=None, *, key=None, source_id=None, metadata=None):
     from db import task_repository
+    from app_version import APP_VERSION
     from services.task_regeneration import TaskNotTerminal
     action = "regenerate" if source_id is not None else "create"
     body = {} if source_id is not None else {"topic":topic,"document_ids":document_ids or []}
@@ -71,7 +72,8 @@ def create_job(topic=None, document_ids=None, *, key=None, source_id=None):
             topic, document_ids = row["topic"], json.loads(row["document_ids"])
         task_id = "task_" + uuid4().hex
         task_repository.create_task(task_id,topic,document_ids=document_ids,regenerated_from=source_id,
-                                     initial_status="queued",_connection=conn)
+                                     initial_status="queued",metadata=metadata if metadata is not None else
+                                     dict(generator_version=APP_VERSION, execution_mode='online'),_connection=conn)
         result = dict(task_id=task_id,topic=topic,status="queued")
         if source_id is None:
             result["execution_status"] = "queued"

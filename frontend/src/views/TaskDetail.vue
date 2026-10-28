@@ -4,6 +4,7 @@ import UsagePanel from '../components/UsagePanel.vue'
 import RetrievalPanel from '../components/RetrievalPanel.vue'
 import QualityBadge from '../components/QualityBadge.vue'
 import DemoBadge from '../components/DemoBadge.vue'
+import { isOfflineTask } from '../utils/taskOrigin'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -78,6 +79,7 @@ const isRunning = computed(() => ['queued', 'running'].includes(detail.value?.st
 
 /** 演示样例禁止从页面触发真实生成；恢复样例单独说明真实恢复入口。 */
 const isDemo = computed(() => detail.value?.metadata?.demo === true)
+const isOffline = computed(() => !!detail.value && isOfflineTask(detail.value))
 const isRecoveryDemo = computed(() => isDemo.value && detail.value?.metadata?.demo_sample_id === 'service-recovery')
 
 /** 状态标签（含paused：服务中断后由后端启动扫描自动标记） */
@@ -325,8 +327,8 @@ watch(() => route.params.taskId, async value => {
         </p>
       </div>
       <div class="header-actions">
-        <TaskControls v-if="detail && !isDemo" :task-id="taskId" :status="detail.status" @changed="onControlled" />
-        <el-button v-if="detail && !isDemo && !['running', 'queued'].includes(detail.execution_status)" :disabled="authRole === 'readonly'" :loading="regenerating" @click="onRegenerate">重新生成</el-button>
+        <TaskControls v-if="detail && !isDemo" :task-id="taskId" :status="detail.status" :offline="isOffline" @changed="onControlled" />
+        <el-button v-if="detail && !isDemo && !isOffline && !['running', 'queued'].includes(detail.execution_status)" :disabled="authRole === 'readonly'" :loading="regenerating" @click="onRegenerate">重新生成</el-button>
         <el-button :loading="loading" @click="refresh">刷新</el-button>
       </div>
     </div>
