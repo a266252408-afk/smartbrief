@@ -25,7 +25,7 @@ from agents.react_writer import react_writer_run
 # Writer 需一次性生成整篇章节/报告、耗时明显更长；若沿用同一超时会被误掐断
 # （草稿退化为占位符，后续 A2A 返工极易跑题），故单独放宽。
 AGENT_STEP_TIMEOUT_SECONDS = 90     # researcher 步骤超时上限
-WRITER_STEP_TIMEOUT_SECONDS = 120   # writer 步骤超时上限（撰写整稿需要更长时间）
+WRITER_STEP_TIMEOUT_SECONDS = 200   # writer 步骤超时上限；覆盖 90s 单次上限 × 最多 2 次尝试及检索开销
 STEP_DEADLINE_MARGIN_SECONDS = 0.5  # 给外层 wait_for 留出收尾/落日志时间
 
 

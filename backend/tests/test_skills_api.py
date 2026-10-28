@@ -32,7 +32,7 @@ def test_list_skills(skills_client):
     assert resp.status_code == 200
     skills = resp.json()["skills"]
     assert {s["name"] for s in skills} == {
-        "builtin_search", "builtin_analyze", "builtin_write", "builtin_review"
+        "builtin_search", "builtin_exa_search", "builtin_analyze", "builtin_write", "builtin_review"
     }
     assert all(s["builtin"] is True for s in skills)
     assert all(s["source"] == "builtin" for s in skills)
@@ -50,7 +50,7 @@ def test_create_skill_api(skills_client):
     skill = resp.json()["skill"]
     assert skill["name"] == "my_skill"
     assert skill["builtin"] is False
-    assert len(skills_client.get("/api/v1/skills").json()["skills"]) == 5
+    assert len(skills_client.get("/api/v1/skills").json()["skills"]) == 6
 
 
 def test_create_skill_api_invalid_name_422(skills_client):

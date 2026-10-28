@@ -76,8 +76,20 @@ def collect(case, task_id, duration):
 
 def summarize(results, total):
     legacy = metrics.compute_metrics(results)
-    legacy['summary']['metric_version'] = 3
-    legacy['quality'] = aggregate(results,total)
+    summary = legacy['summary']
+    summary['metric_version'] = 3
+    quality = aggregate(results,total)
+    legacy['quality'] = quality
+    # 分组合格率进入 summary/targets/met，供前端指标卡与列表直接读取；
+    # 未跑完全部用例时比率为 None，界面显示未知，不拿部分样本宣称达标。
+    for key in ('normal_total_cases', 'normal_passed_cases', 'normal_quality_pass_rate',
+                'fault_total_cases', 'fault_handled_cases', 'fault_false_pass_cases',
+                'fault_handling_rate'):
+        summary[key] = quality[key]
+    for key, target in metrics.GROUP_TARGETS.items():
+        legacy['targets'][key] = target
+        value = quality[key]
+        legacy['met'][key] = None if value is None else value >= target
     return legacy
 
 

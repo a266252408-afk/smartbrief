@@ -73,7 +73,9 @@ def test_registry_unregister_unknown(manager):
 
 def test_registry_get_all_and_source(manager):
     names = {s.name for s in reg_mod.registry.get_all()}
-    assert names == {"builtin_search", "builtin_analyze", "builtin_write", "builtin_review"}
+    assert names == {
+        "builtin_search", "builtin_exa_search", "builtin_analyze", "builtin_write", "builtin_review"
+    }
     assert reg_mod.registry.get_source("builtin_search") == "builtin"
     assert reg_mod.registry.get("nope") is None
     assert reg_mod.registry.get_source("nope") == ""
@@ -90,13 +92,18 @@ def test_registry_clear(manager):
 def test_builtin_skills_categories_and_execute(manager, monkeypatch):
     expected = {
         "builtin_search": "search",
+        "builtin_exa_search": "search",
         "builtin_analyze": "analysis",
         "builtin_write": "writing",
         "builtin_review": "review",
     }
-    # 隔离外部依赖：搜索走 MCP 假工具，其余走 LLM 假调用
+
+    # 隔离外部依赖：MCP / EXA 搜索走假实现，其余走 LLM 假调用
     async def fake_call_tool(name, arguments=None):
         return {"source": "test", "query": arguments.get("query", ""), "results": []}
+
+    def fake_exa_search(query, num_results=5):
+        return {"source": "exa", "query": query, "results": []}
 
     async def fake_chat(messages, tools=None, tool_choice=None):
         return SimpleNamespace(
@@ -104,6 +111,7 @@ def test_builtin_skills_categories_and_execute(manager, monkeypatch):
         )
 
     monkeypatch.setattr("skills.builtin_skills.mcp_manager", SimpleNamespace(call_tool=fake_call_tool))
+    monkeypatch.setattr("skills.builtin_skills.exa_web_search", fake_exa_search)
     monkeypatch.setattr("skills.builtin_skills.llm_client", SimpleNamespace(chat=fake_chat))
 
     for cls in BUILTIN_SKILLS:
@@ -126,6 +134,18 @@ def test_search_skill_reports_invalid_or_failed_tool_result(manager, monkeypatch
     assert out.status == "failed"
     assert out.data is None
     assert out.metadata["error"]
+
+
+def test_exa_search_skill_reports_error(manager, monkeypatch):
+    """EXA 未配置 Key / 接口失败时，技能返回 failed 而不是空结果成功。"""
+    def fake_exa_search(query, num_results=5):
+        return {"source": "exa", "query": query, "results": [], "error": "未配置 EXA_API_KEY"}
+
+    monkeypatch.setattr("skills.builtin_skills.exa_web_search", fake_exa_search)
+    out = asyncio.run(manager.run_skill("builtin_exa_search", "测试"))
+    assert out.status == "failed"
+    assert out.data is None
+    assert "EXA_API_KEY" in out.metadata["error"]
 
 
 @pytest.mark.parametrize("action", ["search", "analyze", "write", "review"])
@@ -158,7 +178,7 @@ def test_new_skill_switch_overrides_legacy_value(manager):
 
 def test_init_registers_builtin_only(manager):
     manager.init()
-    assert len(reg_mod.registry.get_all()) == 4
+    assert len(reg_mod.registry.get_all()) == len(BUILTIN_SKILLS)
 
 
 def test_init_loads_custom_skills_from_pool(manager):
@@ -166,7 +186,7 @@ def test_init_loads_custom_skills_from_pool(manager):
     manager.init()  # 模拟重启：清空后重新加载
     assert reg_mod.registry.get("s1") is not None
     assert reg_mod.registry.get("s1").builtin is False
-    assert len(reg_mod.registry.get_all()) == 5
+    assert len(reg_mod.registry.get_all()) == len(BUILTIN_SKILLS) + 1
 
 
 def test_init_skips_broken_dir(manager):
@@ -175,7 +195,7 @@ def test_init_skips_broken_dir(manager):
     (broken / "readme.txt").write_text("没有 skill.md", encoding="utf-8")
     manager.init()
     assert reg_mod.registry.get("broken") is None
-    assert len(reg_mod.registry.get_all()) == 4
+    assert len(reg_mod.registry.get_all()) == len(BUILTIN_SKILLS)
 
 
 # ---------------------------------------------------------------- 管理器：创建 / 更新 / 删除

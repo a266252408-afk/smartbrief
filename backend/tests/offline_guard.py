@@ -27,7 +27,7 @@ def install():
     os.environ["OTEL_SDK_DISABLED"] = "true"
     os.environ["LANGCHAIN_TRACING_V2"] = "false"
     os.environ["LANGSMITH_TRACING"] = "false"
-    for name in ("OPENAI_API_KEY", "EMBEDDING_API_KEY", "LANGCHAIN_API_KEY", "LANGSMITH_API_KEY"):
+    for name in ("OPENAI_API_KEY", "EMBEDDING_API_KEY", "EXA_API_KEY", "LANGCHAIN_API_KEY", "LANGSMITH_API_KEY"):
         os.environ[name] = ""
     original_dns = socket.getaddrinfo
     original_connect = socket.socket.connect

@@ -9,7 +9,7 @@ let wrapper: ReturnType<typeof mount>
 const report = {
   eval_id: 'current', status: 'completed',
   metadata: { mode: 'offline', suite_version: 'protocol-1', dataset_hash: 'a'.repeat(64), source_hash: 'b'.repeat(64), code_commit: 'commit', code_tag: 'tag', code_dirty: true, model: '<img src=x onerror=alert(1)>', prompt_version: 'fixture', feature_flags: { rag: true, memory: false, review: true }, memory_protocol: '冷启动', randomness: '固定响应' },
-  metrics: { quality: { quality_pass_rate: 0.75, execution_completion_rate: 0.85, pending_cases: 0, citation_valid_rate: null, input_tokens: null, output_tokens: null, p95_completed_seconds: 2, estimated_costs: {}, cost_complete: false, failure_categories: { MODEL_TIMEOUT: 1 } } }
+  metrics: { quality: { quality_pass_rate: 0.75, normal_quality_pass_rate: 0.9375, normal_passed_cases: 15, normal_total_cases: 16, fault_handling_rate: 1, fault_handled_cases: 4, fault_total_cases: 4, fault_false_pass_cases: 0, execution_completion_rate: 0.85, pending_cases: 0, citation_valid_rate: null, input_tokens: null, output_tokens: null, p95_completed_seconds: 2, estimated_costs: {}, cost_complete: false, failure_categories: { MODEL_TIMEOUT: 1 } } }
 } as unknown as EvalReport
 const props = { report, reports: [{ eval_id: 'baseline', status: 'completed' }] as any }
 afterEach(() => { wrapper?.unmount(); vi.clearAllMocks() })
@@ -18,6 +18,8 @@ it('合成/人工pending与未知用量费用明确显示，模型文本不执�
   wrapper = mount(EvaluationProtocol, { props, global: { plugins: [ElementPlus] } })
   expect(wrapper.text()).toContain('不代表在线效果')
   expect(wrapper.text()).toContain('pending')
+  expect(wrapper.text()).toContain('正常用例质量通过率 93.8%')
+  expect(wrapper.text()).toContain('故障处理正确率 100.0%')
   expect(wrapper.text()).toContain('未知（无引用）')
   expect(wrapper.text()).toContain('输入 Token 未知')
   expect(wrapper.text()).toContain('费用未知或部分已知')

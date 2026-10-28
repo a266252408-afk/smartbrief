@@ -157,7 +157,7 @@ def list_reports(limit: int = 10, offset: int = 0) -> tuple[list[dict], int]:
     with get_connection() as conn:
         total = conn.execute("SELECT COUNT(*) FROM evaluation_reports").fetchone()[0]
         rows = conn.execute(
-            "SELECT eval_id, status, total_cases, completed_cases, error, metadata, "
+            "SELECT eval_id, status, total_cases, completed_cases, error, metadata, metrics, "
             "created_at, updated_at FROM evaluation_reports "
             "ORDER BY created_at DESC, eval_id DESC LIMIT ? OFFSET ?",
             (limit, offset),
@@ -165,4 +165,6 @@ def list_reports(limit: int = 10, offset: int = 0) -> tuple[list[dict], int]:
     items = [dict(r) for r in rows]
     for item in items:
         item['metadata'] = json.loads(item['metadata']) if item['metadata'] is not None else None
+        # 列表只带指标摘要（summary/targets/met/quality），不带 results/report_md。
+        item['metrics'] = _loads(item.get('metrics'), {})
     return items, total

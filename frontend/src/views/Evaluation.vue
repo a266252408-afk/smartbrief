@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** 评测中心：运行评测 → 进度条 → 五维雷达图 + 指标卡 + 用例明细 + 历史对比 */
+/** 评测中心：运行评测 → 进度条 → 指标雷达图 + 指标卡 + 用例明细 + 历史对比 */
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { marked } from 'marked'
@@ -7,6 +7,13 @@ import DOMPurify from 'dompurify'
 import type { ECharts } from 'echarts'
 import EvaluationProtocol from '../components/EvaluationProtocol.vue'
 import { authRole } from '../api/session'
+import {
+  buildMetricCards,
+  buildRadarView,
+  executionRate,
+  formatPercent,
+  qualityRate
+} from '../utils/evaluationView'
 import {
   runEvaluation,
   fetchEvalReports,
@@ -83,7 +90,7 @@ function onRowClick(row: { eval_id: string }) {
 async function confirmDelete(row: EvalReportSummary) {
   try {
     await ElMessageBox.confirm(
-      `确定删除评测报告 ${row.eval_id}（${row.completed_cases}/${row.total_cases}）吗？该操作不可恢复。`,
+      `确定删除评测报告 ${row.eval_id}（已处理 ${row.completed_cases}/${row.total_cases}）吗？该操作不可恢复。`,
       '删除确认',
       { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
     )
@@ -154,44 +161,21 @@ async function onRun() {
 
 const summary = computed(() => report.value?.metrics?.summary)
 
-/** 指标展示卡（实测值 + 目标值 + 达标标签） */
+/** 指标展示卡（实测值 + 目标值 + 达标标签；无目标项只展示） */
 const metricCards = computed(() => {
-  const s = summary.value
-  if (!s) return []
-  const pct = (v: number) => `${(v * 100).toFixed(1)}%`
-  const target = report.value!.metrics.targets
-  const met = report.value!.metrics.met
-  return [
-    ...((s.metric_version ?? 0) >= 2 ? [{ key: 'execution_success_rate', label: '执行完成率', value: pct(s.execution_success_rate ?? 0), target: '独立展示', met: true }] : []),
-    { key: 'success_rate', label: (s.metric_version ?? 0) >= 2 ? '质量通过率' : '旧版执行成功率', value: pct(s.success_rate), target: pct(target.success_rate), met: met.success_rate },
-    { key: 'avg_duration_seconds', label: '平均执行耗时', value: `${s.avg_duration_seconds.toFixed(1)}s`, target: `${target.avg_duration_seconds.toFixed(1)}s`, met: met.avg_duration_seconds },
-    { key: 'p95_duration_seconds', label: 'P95 耗时', value: `${s.p95_duration_seconds.toFixed(1)}s`, target: '—', met: true },
-    { key: 'avg_react_loops', label: '平均 ReAct 循环', value: `${s.avg_react_loops.toFixed(1)} 次`, target: `${target.avg_react_loops.toFixed(1)} 次`, met: met.avg_react_loops },
-    { key: 'keyword_coverage_rate', label: '关键词覆盖率', value: pct(s.keyword_coverage_rate), target: pct(target.keyword_coverage_rate), met: met.keyword_coverage_rate },
-    { key: 'memory_hit_rate', label: '记忆命中率', value: pct(s.memory_hit_rate), target: pct(target.memory_hit_rate), met: met.memory_hit_rate }
-  ]
+  const metrics = report.value?.metrics
+  return metrics?.summary ? buildMetricCards(metrics) : []
 })
 
-/** 雷达图数据：5 个维度统一归一化到 0~100（100 = 达到目标值口径） */
+/** 雷达图数据：目标值=100，达到或优于目标封顶 100。 */
 const radarOption = computed(() => {
-  const s = summary.value
-  if (!s) return null
-  const durationScore = s.avg_duration_seconds > 0
-    ? Math.max(0, Math.min(100, (1 - s.avg_duration_seconds / 120) * 100))
-    : 0
-  const loopScore = s.avg_react_loops > 0
-    ? Math.max(0, Math.min(100, (1 - s.avg_react_loops / 8) * 100))
-    : 0
+  const metrics = report.value?.metrics
+  if (!metrics?.summary) return null
+  const view = buildRadarView(metrics)
   return {
     tooltip: {},
     radar: {
-      indicator: [
-        { name: (s.metric_version ?? 0) >= 2 ? '质量通过率' : '旧版执行成功率', max: 100 },
-        { name: '关键词覆盖率', max: 100 },
-        { name: '记忆命中率', max: 100 },
-        { name: '耗时达标分', max: 100 },
-        { name: '循环达标分', max: 100 }
-      ],
+      indicator: view.labels.map((name) => ({ name, max: 100 })),
       radius: '65%'
     },
     series: [
@@ -199,14 +183,8 @@ const radarOption = computed(() => {
         type: 'radar',
         data: [
           {
-            value: [
-              +(s.success_rate * 100).toFixed(1),
-              +(s.keyword_coverage_rate * 100).toFixed(1),
-              +(s.memory_hit_rate * 100).toFixed(1),
-              +durationScore.toFixed(1),
-              +loopScore.toFixed(1)
-            ],
-            name: '五维指标',
+            value: view.values,
+            name: '指标得分',
             areaStyle: { opacity: 0.25 }
           }
         ]
@@ -258,18 +236,14 @@ const showCases = ref(true)
 
 function caseStatusType(r: EvalCaseResult) {
   if (r.quality_passed === true && !r.forced_output) return 'success' as const
-  if (r.quality_passed === undefined) return 'info' as const
+  if (r.quality_passed == null) return 'info' as const
   return 'danger' as const
 }
 
 function caseStatusLabel(r: EvalCaseResult) {
-  if (r.quality_passed === undefined) return r.success ? '旧版执行完成（质量未知）' : '旧版执行失败'
+  if (r.quality_passed == null) return r.success ? '旧版执行完成（质量未知）' : '旧版执行失败'
   if (r.quality_passed && !r.forced_output) return '质量通过'
   return r.execution_success ? '执行完成，质量未通过' : '执行失败'
-}
-
-function coveragePercent(v: number) {
-  return `${(v * 100).toFixed(1)}%`
 }
 
 function durationText(r: EvalCaseResult) {
@@ -298,8 +272,9 @@ function statusOf(status: string) {
       <div>
         <h2>评测中心</h2>
         <p class="hint">
-          执行已配置的评测用例，分别统计执行完成率与质量通过率、耗时、行动次数、关键词覆盖率与记忆命中率。
-          protocol-1 固定20例合成协议测试；在线实验需另行授权，人工事实抽查 pending。指标目标不代表实测成绩。
+          protocol-1 固定20例合成协议测试：16 例非故障用例统计质量通过率，4 例故障用例统计处理正确率；
+          另附执行完成率、耗时、行动次数、关键词覆盖率与记忆命中率。
+          离线结果只验证软件协议，不代表在线效果；在线实验需另行授权，人工事实抽查 pending。
         </p>
       </div>
       <el-button
@@ -339,9 +314,25 @@ function statusOf(status: string) {
             <el-tag :type="statusOf(row.status).type" size="small">{{ statusOf(row.status).label }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="进度" min-width="140">
+        <el-table-column label="已处理" width="90">
           <template #default="{ row }">
             <span>{{ row.completed_cases }} / {{ row.total_cases }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column width="100">
+          <template #header>
+            <span title="执行状态为 completed 的用例 / 全部用例；与“已处理”不同">执行完成</span>
+          </template>
+          <template #default="{ row }">
+            {{ row.status === 'running' ? '—' : formatPercent(executionRate(row)) }}
+          </template>
+        </el-table-column>
+        <el-table-column width="100">
+          <template #header>
+            <span title="v3 为非故障用例质量通过率；旧版为执行成功率">质量通过</span>
+          </template>
+          <template #default="{ row }">
+            {{ row.status === 'running' ? '—' : formatPercent(qualityRate(row)) }}
           </template>
         </el-table-column>
         <el-table-column label="操作" width="140">
@@ -372,12 +363,12 @@ function statusOf(status: string) {
         :text-inside="true"
       />
       <p class="hint progress-tip">
-        已完成 {{ report.completed_cases }} / {{ report.total_cases }} 个用例
-        （{{ report.eval_id }}；部分进度与结果持续保存）
+        已处理 {{ report.completed_cases }} / {{ report.total_cases }} 个用例
+        （其中执行完成 {{ report.metrics?.summary?.execution_success_cases ?? 0 }} 个；{{ report.eval_id }}；部分进度与结果持续保存）
       </p>
     </el-card>
 
-    <el-empty v-if="!report && !running" description="选择左侧历史评测查看结果" />
+    <el-empty v-if="!report && !running" description="从上方历史评测中选择一条查看结果" />
 
     <!-- 评测结果 -->
     <template v-if="report && !running">
@@ -390,33 +381,47 @@ function statusOf(status: string) {
         class="eval-alert"
       />
 
-      <!-- 五维指标卡 -->
+      <!-- 指标卡 -->
       <el-row :gutter="16" class="metric-row">
-        <el-col v-for="m in metricCards" :key="m.key" :span="4">
+        <el-col v-for="m in metricCards" :key="m.key" :span="6">
           <el-card shadow="hover" class="metric-card">
             <div class="metric-label">{{ m.label }}</div>
-            <div class="metric-value" :class="{ 'metric-bad': !m.met }">
+            <div class="metric-value" :class="{ 'metric-bad': m.met === false }">
               {{ m.value }}
             </div>
             <div class="metric-target">
-              目标 {{ m.target }}
-              <el-tag :type="m.met ? 'success' : 'danger'" size="small" effect="plain">
-                {{ m.met ? '达标' : '未达标' }}
-              </el-tag>
+              <template v-if="m.target !== null">
+                目标 {{ m.target }}
+                <el-tag v-if="m.met !== null" :type="m.met ? 'success' : 'danger'" size="small" effect="plain">
+                  {{ m.met ? '达标' : '未达标' }}
+                </el-tag>
+                <el-tag v-else type="info" size="small" effect="plain">仅展示</el-tag>
+              </template>
+              <span v-else>仅展示，不参与达标判定</span>
             </div>
+            <div v-if="m.detail" class="metric-detail">{{ m.detail }}</div>
           </el-card>
         </el-col>
       </el-row>
+      <p class="hint metric-note">
+        “正常用例质量通过率”只统计非故障用例（16 例）；“故障处理正确率”考核 4 例故障是否被正确识别且未冒充质量通过。
+        整体质量通过率含故障用例，只作为参考，不再套用 90% 目标。
+      </p>
 
       <el-row :gutter="16">
         <!-- 雷达图 -->
         <el-col :span="10">
           <el-card shadow="never">
             <template #header>
-              <span class="card-title">五维指标雷达图</span>
-              <el-tag size="small" type="info" effect="plain">归一化 0~100</el-tag>
+              <span class="card-title">指标雷达图</span>
+              <el-tag size="small" type="info" effect="plain">目标值 = 100</el-tag>
             </template>
             <div ref="radarEl" class="radar-chart" />
+            <p class="hint radar-note">
+              雷达图只汇总五项核心维度，完整指标以上方卡片为准。
+              耗时/循环以目标值为 100 分：达到目标即 100，超出目标按比例扣分；
+              质量维度使用“正常用例质量通过率”。
+            </p>
           </el-card>
         </el-col>
 
@@ -438,7 +443,10 @@ function statusOf(status: string) {
       <el-card shadow="never" class="case-card">
         <template #header>
           <div class="md-header">
-            <span class="card-title">用例明细（{{ summary?.success_cases }}/{{ summary?.total_cases }} {{ (summary?.metric_version ?? 0) >= 2 ? '质量通过' : '旧版执行成功' }}）</span>
+            <span class="card-title">
+              用例明细（{{ summary?.success_cases }}/{{ summary?.total_cases }}
+              {{ (summary?.metric_version ?? 0) >= 3 ? '整体质量通过，含故障用例，仅供参考' : (summary?.metric_version ?? 0) >= 2 ? '质量通过' : '旧版执行成功' }}）
+            </span>
             <el-switch v-model="showCases" size="small" active-text="显示" inactive-text="隐藏" />
           </div>
         </template>
@@ -458,13 +466,19 @@ function statusOf(status: string) {
           <el-table-column prop="react_loops" label="ReAct 次数" width="90" />
           <el-table-column label="关键词覆盖率" width="110">
             <template #default="{ row }">
-              {{ coveragePercent(row.keyword_coverage) }}
+              {{ formatPercent(row.keyword_coverage) }}
             </template>
           </el-table-column>
           <el-table-column prop="memory_hits" label="记忆命中" width="90" />
           <el-table-column label="强制输出" width="90">
             <template #default="{ row }">
-              <el-tag v-if="row.forced_pass" type="warning" size="small">⚠️ 是</el-tag>
+              <el-tag v-if="row.forced_output ?? row.forced_pass" type="warning" size="small">⚠️ 是</el-tag>
+              <span v-else class="hint">—</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="失败分类" min-width="140">
+            <template #default="{ row }">
+              <code v-if="row.failure_category">{{ row.failure_category }}</code>
               <span v-else class="hint">—</span>
             </template>
           </el-table-column>
@@ -547,8 +561,20 @@ function statusOf(status: string) {
   justify-content: center;
   gap: 4px;
 }
+.metric-detail {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #a8abb2;
+  line-height: 16px;
+}
+.metric-note {
+  margin: -4px 0 16px;
+}
 .radar-chart {
   height: 320px;
+}
+.radar-note {
+  margin-top: 6px;
 }
 .md-header {
   display: flex;

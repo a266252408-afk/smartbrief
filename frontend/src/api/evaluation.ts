@@ -37,9 +37,19 @@ export interface EvalCaseResult {
 export interface EvalMetrics {
   quality?: {
     metric_version: number
+    /** 整体质量通过率：全部用例为分母，只作参考。 */
     quality_pass_rate: number
     execution_completion_rate: number
     pending_cases: number
+    /** 非故障用例（regular/uncovered/evidence）质量通过率；未跑完为 null。 */
+    normal_total_cases?: number | null
+    normal_passed_cases?: number | null
+    normal_quality_pass_rate?: number | null
+    /** 故障用例（超时/非法审核/预算/取消）正确处理率；未跑完为 null。 */
+    fault_total_cases?: number | null
+    fault_handled_cases?: number | null
+    fault_false_pass_cases?: number | null
+    fault_handling_rate?: number | null
     citation_valid_rate: number | null
     input_tokens: number | null
     output_tokens: number | null
@@ -56,7 +66,15 @@ export interface EvalMetrics {
     total_cases: number
     success_cases: number
     failed_cases: number
+    /** 整体质量通过率（含故障用例），v3 中只作参考。 */
     success_rate: number
+    normal_total_cases?: number | null
+    normal_passed_cases?: number | null
+    normal_quality_pass_rate?: number | null
+    fault_total_cases?: number | null
+    fault_handled_cases?: number | null
+    fault_false_pass_cases?: number | null
+    fault_handling_rate?: number | null
     avg_duration_seconds: number
     p95_duration_seconds: number
     avg_react_loops: number
@@ -64,7 +82,8 @@ export interface EvalMetrics {
     memory_hit_rate: number
   }
   targets: Record<string, number>
-  met: Record<string, boolean>
+  /** 无目标或未跑完的项为 null，界面不得显示“达标”。 */
+  met: Record<string, boolean | null>
 }
 
 /** 评测报告（详情接口返回） */
@@ -86,9 +105,12 @@ export interface EvalReport {
 /** 评测报告摘要（列表项，不含大文本） */
 export interface EvalReportSummary {
   metadata?: EvalMetadata | null
+  /** 列表接口返回的指标摘要（不含 results/report_md）。 */
+  metrics?: EvalMetrics | null
   eval_id: string
   status: EvalReport['status']
   total_cases: number
+  /** 已处理（已归档结果）的用例数，不代表执行成功数。 */
   completed_cases: number
   error: string | null
   created_at: string

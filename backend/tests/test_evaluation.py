@@ -66,6 +66,7 @@ def test_compute_metrics_and_targets():
     assert summary["memory_hit_rate"] == pytest.approx(1 / 3, abs=1e-3)  # 4 位小数保留
     # 达标判定逐项给出
     assert data["targets"]["success_rate"] == 0.90
+    assert data["targets"] is not metrics.TARGETS  # v3 追加分组目标时不污染全局口径
     assert data["met"]["avg_duration_seconds"] is True
     assert data["met"]["success_rate"] is False
 
@@ -84,6 +85,31 @@ def test_build_markdown_contains_tables():
     assert "| # | 主题 | 状态 | 耗时(s) | ReAct次数 | 关键词覆盖率 | 记忆命中 |" in md
     assert "✅" in md and "❌" in md
     assert "本轮执行 2 个用例" in md
+
+
+def test_build_markdown_v3_shows_group_metrics_and_failure_category():
+    results = [
+        {"case_index": 1, "topic": "常规", "category": "regular", "scenario": "normal",
+         "execution_success": True, "quality_passed": True, "forced_output": False,
+         "failure_category": None, "duration_seconds": 1.0, "react_loops": 3,
+         "keyword_coverage": 1.0, "memory_hits": 1},
+        {"case_index": 2, "topic": "故障", "category": "fault", "scenario": "budget",
+         "execution_success": False, "quality_passed": False, "forced_output": False,
+         "failure_category": "BUDGET_EXCEEDED", "duration_seconds": 0.5, "react_loops": 0,
+         "keyword_coverage": 0.0, "memory_hits": 0},
+    ]
+    data = metrics.compute_metrics(results)
+    data["summary"].update(
+        metric_version=3, normal_total_cases=1, normal_passed_cases=1,
+        normal_quality_pass_rate=1.0, fault_total_cases=1, fault_handled_cases=1,
+        fault_false_pass_cases=0, fault_handling_rate=1.0,
+    )
+    data["targets"].update(metrics.GROUP_TARGETS)
+    data["met"].update(normal_quality_pass_rate=True, fault_handling_rate=True)
+    md = metrics.build_markdown("eval_v3", results, data)
+    assert "正常用例质量通过率" in md and "故障处理正确率" in md
+    assert "整体质量通过率（含故障用例，仅供参考）" in md
+    assert "失败分类" in md and "BUDGET_EXCEEDED" in md
 
 
 # ---------------------------------------------------------------- evaluation_repository

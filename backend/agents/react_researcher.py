@@ -6,6 +6,7 @@
 """
 import asyncio
 import json
+import os
 import re
 import time
 
@@ -18,6 +19,8 @@ MAX_REACT_STEPS = 3
 # 连续两次“搜索结果与主题无关”即停止换词：搜索端点降级时换词不会改善，
 # 继续重试只会消耗步骤预算。单次无关仍按原逻辑让模型调整关键词。
 MAX_IRRELEVANT_STREAK = 2
+# 技能中心里的 EXA 搜索内置技能；启用且配置 Key 时 research 优先使用。
+EXA_SKILL_NAME = "builtin_exa_search"
 
 SYSTEM_PROMPT = """你是市场调研研究员。围绕给定的研究子任务，通过 web_search 工具收集信息。
 
@@ -80,6 +83,36 @@ def _time_left(deadline: float | None) -> float | None:
     return max(0.0, deadline - time.monotonic())
 
 
+async def _exa_search(query: str) -> dict | None:
+    """优先使用技能中心的 EXA 搜索。
+
+    未配置 Key、技能不存在/被禁用或调用失败时返回 None，由调用方回退到
+    MCP web_search（Bing）。异常不外抛，避免搜索降级中断整个研究步骤。
+    """
+    if not (os.getenv("EXA_API_KEY") or "").strip():
+        return None
+    try:
+        from skills import skills_manager
+
+        skill = skills_manager.manager.get_skill(EXA_SKILL_NAME)
+        if skill is None or not skill.enabled:
+            return None
+        output = await skills_manager.manager.run_skill(EXA_SKILL_NAME, query)
+        if output.status != "success" or not isinstance(output.data, dict):
+            return None
+        return None if output.data.get("error") else output.data
+    except Exception:
+        return None
+
+
+async def _default_search(query: str) -> dict:
+    """默认搜索链路：EXA（已启用）→ MCP web_search（Bing 兜底）。"""
+    result = await _exa_search(query)
+    if result is not None:
+        return result
+    return await mcp_manager.call_tool("web_search", {"query": query})
+
+
 async def _run_search(query: str, step_id: int, logs: list) -> dict:
     """执行一次 web_search（Action + Observation），返回结果。
 
@@ -96,9 +129,9 @@ async def _run_search(query: str, step_id: int, logs: list) -> dict:
     try:
         from evaluation.context import evaluation_context
         context = evaluation_context.get()
-        result = await context.search(query) if context is not None else await mcp_manager.call_tool("web_search", {"query": query})
+        result = await context.search(query) if context is not None else await _default_search(query)
         obs_text = evidence_context({"search": {"observations": [{"result": result}]}}, budget=2400)
-        diagnostic = {key: result[key] for key in ("query", "search_endpoint", "attempts", "error", "error_code") if key in result}
+        diagnostic = {key: result[key] for key in ("query", "source", "search_endpoint", "attempts", "error", "error_code") if key in result}
         obs_text = json.dumps(json.loads(obs_text) | {"search": diagnostic}, ensure_ascii=False)
         logs.append({"type": "Observation", "content": obs_text, "step_id": step_id})
         return result

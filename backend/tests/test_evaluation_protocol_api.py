@@ -47,6 +47,11 @@ def test_real_v2_suite_progress_and_reopen(tmp_path):
             time.sleep(.03)
         assert record['status'] == 'completed' and len(record['results']) == 20
         assert record['metadata']['mode'] == 'offline'
+        summary = record['metrics']['summary']
+        assert summary['normal_total_cases'] == 16 and summary['fault_total_cases'] == 4
+        assert summary['normal_quality_pass_rate'] == 0.9375
+        assert summary['fault_handling_rate'] == 1.0
+        assert record['metrics']['met']['normal_quality_pass_rate'] is True
         assert client.get('/api/v2/evaluations',headers=READ_HEADERS).json()['data']['total'] == 1
         assert client.get('/api/v2/evaluations/'+eval_id,headers=READ_HEADERS).status_code == 200
         assert client.get('/api/v1/evaluation/reports/'+eval_id).json()['eval_id'] == eval_id

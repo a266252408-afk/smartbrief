@@ -554,8 +554,8 @@ async def trigger_evaluation():
     """触发自动化评测：后台执行已配置的用例，立即返回 eval_id。
 
     实现说明：返回后前端用 eval_id 轮询 `GET /evaluation/reports/{eval_id}`，
-    该接口在评测执行中即可返回进度（completed_cases / total_cases），
-    完成后返回五维指标（JSON）与 Markdown 可视化总结。
+    该接口在评测执行中即可返回已处理进度（completed_cases / total_cases），
+    完成后返回指标汇总（JSON，v3 另含正常用例/故障处理分组指标）与 Markdown 可视化总结。
     已有评测在运行时返回 400（并发保护），避免重复触发互相干扰。
     """
     try:
@@ -582,8 +582,8 @@ async def get_evaluation_report(eval_id: str):
     """评测报告详情：进度（执行中）或完整结果（已结束）。
 
     实现说明：这是评测中心的核心数据源 ——
-    执行中返回 status=running + 进度；结束后返回
-    results（逐用例明细）/ metrics（五维指标 + 达标判定）/ report_md（Markdown 总结）。
+    执行中返回 status=running + 已处理进度；结束后返回
+    results（逐用例明细）/ metrics（指标汇总 + 达标判定，v3 含分组指标）/ report_md（Markdown 总结）。
     """
     report = evaluation_repository.get(eval_id)
     if report is None:

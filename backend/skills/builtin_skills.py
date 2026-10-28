@@ -1,9 +1,12 @@
-"""内置技能：搜索通过 MCP 执行，分析、写作与审核通过 LLM 执行。
+"""内置技能：搜索通过 MCP / EXA 执行，分析、写作与审核通过 LLM 执行。
 
 执行失败返回 failed 与错误信息；内置技能只读，支持启用或禁用。
 """
+import asyncio
+
 from llm import client as llm_client
 from mcp_client.mcp_client import mcp_manager
+from services.exa_search import exa_search as exa_web_search
 from skills.base_skill import BaseSkill, SkillInput, SkillOutput
 
 # MCP 内置搜索工具名（web_search_server.py 注册）
@@ -49,6 +52,41 @@ class SearchSkill(BaseSkill):
         except Exception as exc:
             return SkillOutput(
                 status="failed", data=None, metadata={"error": str(exc), "mode": "web"}
+            )
+
+
+class ExaSearchSkill(BaseSkill):
+    """通过 EXA API 搜索网络资料；未配置 Key、接口异常或返回错误时报告失败。
+
+    与内置「搜索」技能的区别：本技能直接调用 EXA（语义搜索），
+    不经过 MCP；EXA_API_KEY 配置在 backend/.env。
+    """
+
+    name = "builtin_exa_search"
+    display_name = "EXA 搜索"
+    description = "通过 EXA API 联网搜索，返回标题、摘要与链接列表"
+    category = "search"
+    version = "1.0.0"
+    builtin = True
+
+    async def execute(self, input: SkillInput) -> SkillOutput:
+        try:
+            # urllib 是阻塞调用，放到线程池避免阻塞事件循环。
+            result = await asyncio.to_thread(exa_web_search, input.query, 5)
+            if not isinstance(result, dict):
+                raise ValueError("EXA 搜索返回格式无效")
+            if result.get("error"):
+                raise RuntimeError(str(result["error"]))
+            return SkillOutput(
+                status="success",
+                data=result,
+                metadata={"mode": "web", "source": "exa"},
+            )
+        except Exception as exc:
+            return SkillOutput(
+                status="failed",
+                data=None,
+                metadata={"error": str(exc), "mode": "web", "source": "exa"},
             )
 
 
@@ -169,4 +207,4 @@ def _parse_json_object(text: str, fallback: str) -> dict:
 
 
 # 内置技能列表（启动时逐个注册）
-BUILTIN_SKILLS = [SearchSkill, AnalyzeSkill, WriteSkill, ReviewSkill]
+BUILTIN_SKILLS = [SearchSkill, ExaSearchSkill, AnalyzeSkill, WriteSkill, ReviewSkill]

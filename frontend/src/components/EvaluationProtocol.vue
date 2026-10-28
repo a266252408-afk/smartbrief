@@ -26,7 +26,8 @@ async function compare() {
   }
 }
 function number(value: number | null | undefined) { return value == null ? '未知' : String(value) }
-function percent(value: number | null | undefined) { return value == null ? '未知（无引用）' : `${(value * 100).toFixed(1)}%` }
+function rate(value: number | null | undefined) { return value == null ? '未知' : `${(value * 100).toFixed(1)}%` }
+function citationRate(value: number | null | undefined) { return value == null ? '未知（无引用）' : `${(value * 100).toFixed(1)}%` }
 </script>
 
 <template>
@@ -41,8 +42,19 @@ function percent(value: number | null | undefined) { return value == null ? '未
       <p>{{ report.metadata.memory_protocol }}</p>
       <p>{{ report.metadata.randomness }}</p>
       <template v-if="report.metrics.quality">
-        <p>质量通过率 {{ percent(report.metrics.quality.quality_pass_rate) }} · 执行完成率 {{ percent(report.metrics.quality.execution_completion_rate) }} · 待完成 {{ report.metrics.quality.pending_cases }}</p>
-        <p>有效引用率 {{ percent(report.metrics.quality.citation_valid_rate) }}（仅结构映射，不证明事实真实）</p>
+        <p v-if="report.metrics.quality.normal_total_cases != null">
+          正常用例质量通过率 {{ rate(report.metrics.quality.normal_quality_pass_rate) }}
+          （{{ number(report.metrics.quality.normal_passed_cases) }}/{{ number(report.metrics.quality.normal_total_cases) }} 例非故障）
+          · 故障处理正确率 {{ rate(report.metrics.quality.fault_handling_rate) }}
+          （{{ number(report.metrics.quality.fault_handled_cases) }}/{{ number(report.metrics.quality.fault_total_cases) }} 例，误放行 {{ number(report.metrics.quality.fault_false_pass_cases) }}）
+        </p>
+        <p v-else>该记录生成于分组指标加入前，不补造正常用例/故障处理成绩。</p>
+        <p>
+          整体质量通过率 {{ rate(report.metrics.quality.quality_pass_rate) }}（含故障用例，仅供参考）
+          · 执行完成率 {{ rate(report.metrics.quality.execution_completion_rate) }}
+          · 待完成 {{ report.metrics.quality.pending_cases }}
+        </p>
+        <p>有效引用率 {{ citationRate(report.metrics.quality.citation_valid_rate) }}（仅结构映射，不证明事实真实）</p>
         <p>输入 Token {{ number(report.metrics.quality.input_tokens) }} · 输出 Token {{ number(report.metrics.quality.output_tokens) }} · P95 {{ number(report.metrics.quality.p95_completed_seconds) }} 秒</p>
         <p>{{ report.metrics.quality.cost_complete ? '完整费用估算' : '费用未知或部分已知' }}：{{ Object.keys(report.metrics.quality.estimated_costs).length ? JSON.stringify(report.metrics.quality.estimated_costs) : '未知' }}（不同币种分列）</p>
         <p>失败分类：{{ JSON.stringify(report.metrics.quality.failure_categories) }}</p>

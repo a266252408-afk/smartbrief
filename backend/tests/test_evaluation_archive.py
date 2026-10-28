@@ -28,6 +28,18 @@ def test_real_twenty_case_offline_report(tmp_path, monkeypatch):
     quality = record['metrics']['quality']
     assert quality['quality_pass_rate'] == 0.75
     assert quality['pending_cases'] == 0 and quality['input_tokens'] is None
+    # 4 个故障用例固定失败；正常用例 15/16，故障处理 4/4，目标不再被故障用例拖垮。
+    assert quality['normal_total_cases'] == 16 and quality['normal_passed_cases'] == 15
+    assert quality['normal_quality_pass_rate'] == 0.9375
+    assert quality['fault_total_cases'] == 4 and quality['fault_handled_cases'] == 4
+    assert quality['fault_false_pass_cases'] == 0 and quality['fault_handling_rate'] == 1.0
+    summary = record['metrics']['summary']
+    assert summary['normal_quality_pass_rate'] == 0.9375
+    assert summary['fault_handling_rate'] == 1.0
+    assert record['metrics']['targets']['normal_quality_pass_rate'] == 0.90
+    assert record['metrics']['targets']['fault_handling_rate'] == 1.0
+    assert record['metrics']['met']['normal_quality_pass_rate'] is True
+    assert record['metrics']['met']['fault_handling_rate'] is True
     assert quality['citation_valid_rate'] == 1.0 and quality['estimated_costs'] == {}
     assert quality['failure_categories']['BUDGET_EXCEEDED'] == 1
     assert quality['failure_categories']['TASK_CANCELLED'] == 1

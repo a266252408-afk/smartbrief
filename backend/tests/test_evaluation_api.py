@@ -70,6 +70,8 @@ def test_list_and_get_evaluation_reports(client):
     assert body["total"] == 2
     assert body["items"][0]["eval_id"] == "eval_cd34"
     assert "results" not in body["items"][0]
+    # 列表带指标摘要，供前端直接显示执行完成/质量通过列。
+    assert "metrics" in body["items"][0]
 
     # 详情：执行中返回进度
     resp = client.get("/api/v1/evaluation/reports/eval_cd34")
