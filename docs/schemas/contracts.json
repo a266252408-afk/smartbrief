@@ -430,6 +430,74 @@
           "title": "Model",
           "type": "string"
         },
+        "provider": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider"
+        },
+        "model_role": {
+          "anyOf": [
+            {
+              "enum": [
+                "primary",
+                "backup"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Role"
+        },
+        "logical_call_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Logical Call Id"
+        },
+        "cached_input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cached Input Tokens"
+        },
+        "cache_write_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache Write Tokens"
+        },
         "status": {
           "enum": [
             "running",
@@ -621,6 +689,25 @@
           "else": {
             "properties": {
               "currency": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "usage_known": {
+                "const": false
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "cached_input_tokens": {
+                "type": "null"
+              },
+              "cache_write_tokens": {
                 "type": "null"
               }
             }
@@ -1292,6 +1379,57 @@
         "budget_estimated": {
           "title": "Budget Estimated",
           "type": "boolean"
+        },
+        "cached_input_tokens": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cached Input Tokens"
+        },
+        "cache_write_tokens": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache Write Tokens"
+        },
+        "cache_unknown_calls": {
+          "default": 0,
+          "title": "Cache Unknown Calls",
+          "type": "integer"
+        },
+        "routing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelRoute"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "recovery": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RecoveryPosition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -2013,6 +2151,126 @@
         "switched_at"
       ],
       "title": "ModelRoute",
+      "type": "object"
+    },
+    "RecoveryPosition": {
+      "additionalProperties": false,
+      "properties": {
+        "resume_mode": {
+          "enum": [
+            "checkpoint",
+            "restart"
+          ],
+          "title": "Resume Mode",
+          "type": "string"
+        },
+        "next_agent": {
+          "anyOf": [
+            {
+              "enum": [
+                "planner",
+                "researcher",
+                "writer",
+                "reviewer",
+                "rewriter",
+                "research_revision"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Agent"
+        },
+        "next_step_id": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Step Id"
+        },
+        "completed_steps": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Completed Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "resume_mode"
+      ],
+      "title": "RecoveryPosition",
+      "type": "object"
+    },
+    "ModelPrice": {
+      "additionalProperties": false,
+      "properties": {
+        "input_per_million": {
+          "minimum": 0,
+          "title": "Input Per Million",
+          "type": "number"
+        },
+        "output_per_million": {
+          "minimum": 0,
+          "title": "Output Per Million",
+          "type": "number"
+        },
+        "currency": {
+          "pattern": "^[A-Z]{3}$",
+          "title": "Currency",
+          "type": "string"
+        },
+        "cache_read_per_million": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache Read Per Million"
+        },
+        "cache_write_per_million": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache Write Per Million"
+        },
+        "cache_write_mode": {
+          "default": "included",
+          "enum": [
+            "included",
+            "additional"
+          ],
+          "title": "Cache Write Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "input_per_million",
+        "output_per_million",
+        "currency"
+      ],
+      "title": "ModelPrice",
       "type": "object"
     }
   }

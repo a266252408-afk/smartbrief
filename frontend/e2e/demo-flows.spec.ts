@@ -183,7 +183,7 @@ test('服务中断恢复流程：说明原因与真实恢复入口，演示数�
   await expect(page.getByRole('button', { name: '重新生成', exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: '查看用量与费用' }).click()
   await expect(page.getByText('未知用量 1 次')).toBeVisible()
-  await expect(page.getByText('费用未知：未配置单价或供应商未返回用量')).toBeVisible()
+  await expect(page.getByText('费用未知：未配置必要单价，或供应商用量/缓存统计不完整')).toBeVisible()
   await expect(page.getByText('失败（MODEL_TIMEOUT）')).toBeVisible()
   expect(state.mutations).toEqual([])
   expect(unexpected).toEqual([])

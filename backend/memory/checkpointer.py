@@ -156,3 +156,26 @@ def resumable_mode(task_id: str) -> str:
     except Exception:
         logger.warning("任务 %s 持久化检查点不可续跑，将从头重试",task_id)
         return "restart"
+
+
+def recovery_position(task_id: str) -> dict | None:
+    """只投影已保存Agent位置；缺失或损坏未知，不把业务进度猜成检查点。"""
+    if not CHECKPOINT_DB.is_file():
+        return None
+    try:
+        from langgraph.checkpoint.sqlite import SqliteSaver
+        from graph.workflow import build_graph
+        from agents.scheduler import _ready_steps
+        with SqliteSaver.from_conn_string(str(CHECKPOINT_DB)) as cp:
+            snapshot = build_graph(checkpointer=cp).get_state({'configurable': {'thread_id': task_id}})
+        if not snapshot.values:
+            return None
+        agent = snapshot.next[0] if snapshot.next else None
+        step_id = None
+        if agent == 'scheduler':
+            ready = _ready_steps(snapshot.values.get('plan', []), snapshot.values.get('completed_steps', []))
+            agent, step_id = (ready[0]['agent'], ready[0]['id']) if ready else (None, None)
+        return dict(resume_mode='checkpoint' if snapshot.next else 'restart', next_agent=agent,
+                    next_step_id=step_id, completed_steps=snapshot.values.get('completed_steps', []))
+    except Exception:
+        return None

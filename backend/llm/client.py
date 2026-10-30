@@ -10,6 +10,7 @@
 因此实际加载的就是 backend/.env。
 """
 import os
+from uuid import uuid4
 
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
@@ -68,7 +69,9 @@ async def chat(messages: list, tools: list | None = None, tool_choice: str | Non
     policy = (ModelPolicy(max_task_tokens=1 if context.case['scenario'] == 'budget' else 200000,
                           timeout_seconds=10, max_retries=0) if context is not None else ModelPolicy.from_env())
     from services.usage_summary import configured_price
-    price = None if context is not None else configured_price(get_model())
+    provider = 'offline' if context is not None else os.getenv('OPENAI_PROVIDER', 'primary') or 'primary'
+    price = None if context is not None else configured_price(get_model(), provider)
+    logical_call_id = uuid4().hex
     kwargs = {"model": get_model(), "messages": messages}
     if tools:
         kwargs["tools"] = tools
@@ -78,7 +81,9 @@ async def chat(messages: list, tools: list | None = None, tool_choice: str | Non
     kwargs["timeout"] = policy.timeout_seconds
     for attempt in range(1, policy.max_retries + 2):
         try:
-            return await measured_call(create, kwargs, attempt=attempt, policy=policy, price=price)
+            return await measured_call(create, kwargs, attempt=attempt, policy=policy, price=price,
+                                       provider=provider, model_role=None if context is not None else 'primary',
+                                       logical_call_id=logical_call_id)
         except ModelCallError as exc:
             if not exc.retryable or attempt > policy.max_retries:
                 raise

@@ -43,11 +43,14 @@ def remember(topic: str, final_report: str, task_id: Optional[str] = None,
         report_hash = digest_report(final_report)
         memory_id = hashlib.sha256(f"{task_id}\0{report_hash}".encode()).hexdigest()
         text = f"主题：{topic}\n\n{final_report[:_REPORT_LIMIT]}"
-        from llm.client import get_model
+        from db import usage_repository
+        # 配置主模型不代表本任务实际生成模型；混合或无账本时保持未知。
+        models = {row['model'] for row in usage_repository.list_usage(task_id) if row['status'] == 'success'}
         entry = registry.reserve(MemoryEntry(memory_id=memory_id, task_id=task_id, topic=topic,
             quality_status="passed", verified=False, status="unavailable", report_hash=report_hash,
             index_hash=digest_report(text),
-            model_name=get_model(), model_version=None, prompt_version=PROMPT_VERSION, created_at=_now()))
+            model_name=next(iter(models)) if len(models) == 1 else None,
+            model_version=None, prompt_version=PROMPT_VERSION, created_at=_now()))
         if entry.status in {"active", "deleted", "invalid"}:
             return False
         index = get_store(persist_dir, MEMORY_COLLECTION)

@@ -49,6 +49,32 @@ describe('模型用量面板', () => {
     expect(wrapper.find('tbody').text()).toContain('调用中')
     expect(wrapper.find('tbody').text()).not.toContain('失败')
   })
+  it('显示任务固定备用、恢复Agent与缓存明细，输入总量不叠加缓存', async () => {
+    vi.mocked(fetchTaskUsage).mockResolvedValue({ ...sample, input_tokens: 10000,
+      cached_input_tokens: 8000, cache_write_tokens: 0, cache_unknown_calls: 0,
+      routing: { task_id: 'old', role: 'backup', model: '备用模型', provider: '<img src=x>',
+        reason: 'MODEL_CONNECTION', switched_at: 'fixture' },
+      recovery: { resume_mode: 'checkpoint', next_agent: 'writer', next_step_id: 3, completed_steps: [1, 2] },
+      items: [{ ...sample.items[0]!, provider: '<img src=x>', model_role: 'backup',
+        cached_input_tokens: 8000, cache_write_tokens: 0 }] })
+    wrapper = mount(UsagePanel, { props: { taskId: 'old' } })
+    await open()
+    expect(wrapper.text()).toContain('本任务已绑定备用模型')
+    expect(wrapper.text()).toContain('主模型连接失败')
+    expect(wrapper.text()).toContain('写作 Agent · 步骤 3')
+    expect(wrapper.text()).toContain('已保存 2 个计划步骤')
+    expect(wrapper.text()).toContain('输入 Token：10000')
+    expect(wrapper.text()).toContain('缓存读取 Token：8000')
+    expect(wrapper.text()).toContain('缓存写入 Token：0')
+    expect(wrapper.find('tbody').text()).toContain('备用')
+    expect(wrapper.find('img').exists()).toBe(false)
+  })
+  it('历史缺少缓存字段显示未知，不能伪装为零', async () => {
+    wrapper = mount(UsagePanel, { props: { taskId: 'old' } })
+    await open()
+    expect(wrapper.text()).toContain('缓存读取 Token：未知')
+    expect(wrapper.text()).toContain('缓存写入 Token：未知')
+  })
   it('读取错误不冒充空账本且可重试', async () => {
     vi.mocked(fetchTaskUsage).mockRejectedValueOnce(new Error('fixture'))
     wrapper = mount(UsagePanel, { props: { taskId: 'old' } })

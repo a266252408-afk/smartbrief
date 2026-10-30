@@ -65,6 +65,8 @@ def test_switch_stays_on_backup_after_recovery_and_reopen(providers):
     assert backup.await_count == 2
     rows = usage_repository.list_usage('sticky')
     assert [r['model'] for r in rows] == ['primary-fixture', 'backup-fixture', 'backup-fixture']
+    assert rows[0]['logical_call_id'] == rows[1]['logical_call_id'] != rows[2]['logical_call_id']
+    assert [r['model_role'] for r in rows] == ['primary', 'backup', 'backup']
     from db.model_route_repository import get_route
     assert get_route('sticky')['role'] == 'backup'
 

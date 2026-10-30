@@ -429,7 +429,7 @@ watch(() => route.params.taskId, async value => {
       </div>
     </el-card>
 
-    <p v-if="detail?.resume_mode" class="hint">本次恢复：{{ detail.resume_mode === 'checkpoint' ? '断点续跑' : '从头重试' }}</p>
+    <p v-if="detail?.resume_mode" class="hint">本次恢复：{{ detail.resume_mode === 'checkpoint' ? '断点续跑（已完成的 Agent 单元保留，中断单元重新执行）' : '从头重试' }}</p>
 
     <UsagePanel v-if="detail" :task-id="taskId" :running="isRunning" />
 

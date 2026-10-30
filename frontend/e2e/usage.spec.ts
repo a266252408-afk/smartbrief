@@ -14,7 +14,13 @@ async function setup(page: Page, mode: 'unknown' | 'known' | 'error') {
   const blocked = { ...row, call_id: 'blocked-fixture', status: 'budget_exceeded', duration_ms: 0,
     input_tokens: null, output_tokens: null, usage_known: false, estimated_cost: null,
     currency: null, attempt: 1, reserved_tokens: 0, error_code: 'BUDGET_EXCEEDED' }
-  const data = { task_id: 'usage-fixture', items: [row, blocked], call_count: 1, blocked_count: 1,
+  const data = { task_id: 'usage-fixture', items: [{ ...row, provider: '离线备用供应商', model_role: 'backup',
+    cached_input_tokens: mode === 'known' ? 8 : null, cache_write_tokens: mode === 'known' ? 0 : null }, blocked], call_count: 1, blocked_count: 1,
+    cached_input_tokens: mode === 'known' ? 8 : null, cache_write_tokens: mode === 'known' ? 0 : null,
+    cache_unknown_calls: mode === 'known' ? 0 : 1,
+    routing: { task_id: 'usage-fixture', role: 'backup', model: 'fixture-backup', provider: '离线备用供应商',
+      reason: 'MODEL_CONNECTION', switched_at: 'fixture' },
+    recovery: { resume_mode: 'checkpoint', next_agent: 'writer', next_step_id: 3, completed_steps: [1, 2] },
     unknown_calls: mode === 'known' ? 0 : 1, input_tokens: row.input_tokens, output_tokens: row.output_tokens,
     duration_ms: 50, estimated_costs: mode === 'known' ? { USD: 0.00004 } : {}, cost_complete: mode === 'known',
     budget_limit_tokens: 20000, budget_charged_tokens: 300, budget_remaining_tokens: 19700, budget_estimated: mode !== 'known' }
@@ -60,6 +66,9 @@ test('只读可查看未知Token、预算原因与失败尝试，模型文本不
 test('有显式费用时展示并下载相同JSON账本', async ({ page }) => {
   const state = await setup(page, 'known')
   await expect(page.getByRole('region', { name: '模型用量与费用' })).toContainText('USD 0.00004000')
+  await expect(page.getByRole('region', { name: '模型用量与费用' })).toContainText('本任务已绑定备用模型')
+  await expect(page.getByRole('region', { name: '模型用量与费用' })).toContainText('写作 Agent · 步骤 3')
+  await expect(page.getByRole('region', { name: '模型用量与费用' })).toContainText('缓存读取 Token：8')
   const event = page.waitForEvent('download')
   await page.getByRole('button', { name: '导出用量 JSON' }).click()
   const download = await event

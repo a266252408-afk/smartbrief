@@ -16,6 +16,11 @@ class ModelUsage(BaseModel):
     task_id: str = Field(min_length=1)
     agent: str = Field(min_length=1)
     model: str = Field(min_length=1)
+    provider: str | None = Field(default=None, min_length=1)
+    model_role: Literal['primary', 'backup'] | None = None
+    logical_call_id: str | None = Field(default=None, min_length=1)
+    cached_input_tokens: int | None = Field(default=None, ge=0)
+    cache_write_tokens: int | None = Field(default=None, ge=0)
     status: Literal["running", "success", "failed", "cancelled", "budget_exceeded"]
     duration_ms: float = Field(ge=0)
     input_tokens: int | None = Field(default=None, ge=0)
@@ -38,6 +43,10 @@ class ModelUsage(BaseModel):
             raise ValueError("费用和币种必须同时可用")
         if not self.usage_known and self.estimated_cost is not None:
             raise ValueError("未知用量不能计算费用")
+        if not self.usage_known and (self.cached_input_tokens is not None or self.cache_write_tokens is not None):
+            raise ValueError('总用量未知时缓存计数也必须未知')
+        if self.cached_input_tokens is not None and self.cached_input_tokens > self.input_tokens:
+            raise ValueError('缓存读取不能大于输入总量')
         return self
 
 
@@ -104,7 +113,8 @@ def usage_scope(agent: str, *, task=False, state=False, standalone=False):
     return decorate
 
 
-async def measured_call(create, kwargs, *, policy, attempt=1, price=None):
+async def measured_call(create, kwargs, *, policy, attempt=1, price=None,
+                        provider=None, model_role=None, logical_call_id=None):
     """每次调用前落占位、结束后记录；写入失败不得冒充完成。"""
     context = usage_context.get()
     if context is None:
@@ -115,7 +125,8 @@ async def measured_call(create, kwargs, *, policy, attempt=1, price=None):
     entry = ModelUsage(call_id=uuid4().hex, task_id=context[0], agent=context[1],
                        model=kwargs["model"], status="running", duration_ms=0.0,
                        attempt=attempt, created_at=datetime.now(timezone.utc).isoformat(),
-                       error_code=None)
+                       error_code=None, provider=provider, model_role=model_role,
+                       logical_call_id=logical_call_id)
     from services.budget import reserve, reservation
     entry.reserved_tokens = reservation(kwargs, policy)
     reserve(entry, policy)
@@ -147,9 +158,27 @@ async def measured_call(create, kwargs, *, policy, attempt=1, price=None):
         incoming, outgoing = value("prompt_tokens"), value("completion_tokens")
         if all(type(n) is int and n >= 0 for n in (incoming, outgoing)):
             entry.input_tokens, entry.output_tokens, entry.usage_known = incoming, outgoing, True
+            entry.cached_input_tokens, entry.cache_write_tokens = cache_tokens(usage, incoming)
         from services.usage_summary import apply_price
         apply_price(entry, price)
         return response
     finally:
         entry.duration_ms = (perf_counter() - start) * 1000
         persist(entry)
+
+
+def cache_tokens(usage, input_tokens):
+    """兼容接口字段按明确数值归一化；缺失/非法/矛盾均未知。"""
+    def get(obj, key):
+        return obj.get(key) if isinstance(obj, dict) else getattr(obj, key, None)
+    def count(value):
+        return value if type(value) is int and 0 <= value <= input_tokens else None
+    details = get(usage, 'prompt_tokens_details')
+    nested, direct = get(details, 'cached_tokens'), get(usage, 'prompt_cache_hit_tokens')
+    read = count(nested if nested is not None else direct)
+    if nested is not None and direct is not None and nested != direct:
+        read = None
+    miss = get(usage, 'prompt_cache_miss_tokens')
+    if miss is not None and (count(miss) is None or read is None or miss + read != input_tokens):
+        read = None
+    return read, count(get(details, 'cache_write_tokens'))

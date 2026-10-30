@@ -9,6 +9,10 @@ const error = ref('')
 let generation = 0
 let timer: ReturnType<typeof setInterval> | null = null
 const labels = { running: '调用中', success: '成功', failed: '失败', cancelled: '已取消', budget_exceeded: '预算不足，调用前阻止' }
+const agents = { planner: '规划 Agent', researcher: '研究 Agent', writer: '写作 Agent', reviewer: '审核 Agent', rewriter: '返工 Agent', research_revision: '补研究 Agent' }
+const reasons: Record<string, string> = { MODEL_TIMEOUT: '主模型超时', MODEL_CONNECTION: '主模型连接失败',
+  MODEL_RATE_LIMIT: '主模型限流', MODEL_AUTH: '主模型认证或模型配置不可用', MODEL_SERVICE: '主模型服务故障',
+  PRIMARY_CIRCUIT_OPEN: '主模型熔断冷却中' }
 
 function stop() { if (timer) clearInterval(timer); timer = null }
 async function load() {
@@ -52,20 +56,27 @@ onBeforeUnmount(() => { generation++; stop() })
     </div>
     <p v-if="error" role="alert">{{ error }}</p>
     <template v-if="report">
+      <p v-if="report.routing" class="routing-note">本任务已绑定备用模型：{{ report.routing.provider }} / {{ report.routing.model }}。{{ reasons[report.routing.reason] ?? report.routing.reason }}；本任务与恢复均继续使用备用，下个任务按冷却规则尝试主模型。</p>
+      <p v-else-if="report.items.some(row => row.model_role === 'primary')">任务模型：主模型</p>
+      <p v-if="report.recovery?.next_agent">恢复位置：{{ agents[report.recovery.next_agent] }}<span v-if="report.recovery.next_step_id !== null"> · 步骤 {{ report.recovery.next_step_id }}</span>；已保存 {{ report.recovery.completed_steps.length }} 个计划步骤。恢复会重做未完成的 Agent。</p>
+      <p v-else-if="report.recovery">Agent 检查点：无待执行单元</p>
+      <p v-else>Agent 检查点：未知或不可用</p>
       <p v-if="!report.items.length">尚无调用记录；历史用量未知</p>
       <p>实际尝试 {{ report.call_count }} 次 · 调用前阻止 {{ report.blocked_count }} 次 · 累计耗时 {{ (report.duration_ms / 1000).toFixed(2) }} 秒</p>
       <p>输入 Token：{{ report.input_tokens ?? '未知' }} · 输出 Token：{{ report.output_tokens ?? '未知' }} · 未知用量 {{ report.unknown_calls }} 次</p>
+      <p>缓存读取 Token：{{ report.cached_input_tokens ?? '未知' }} · 缓存写入 Token：{{ report.cache_write_tokens ?? '未知' }} · 缓存读取未知 {{ report.cache_unknown_calls ?? '未知' }} 次</p>
       <p>当前 Token 预算 {{ report.budget_limit_tokens }} · 已扣账 {{ report.budget_charged_tokens }} · 剩余 {{ report.budget_remaining_tokens }}<span v-if="report.budget_estimated">（含估算预留）</span></p>
-      <p v-if="!Object.keys(report.estimated_costs).length">费用未知：未配置单价或供应商未返回用量</p>
+      <p v-if="!Object.keys(report.estimated_costs).length">费用未知：未配置必要单价，或供应商用量/缓存统计不完整</p>
       <p v-else>{{ report.cost_complete ? '估算费用' : '已知部分估算费用（非总额）' }}：<span v-for="(cost, currency) in report.estimated_costs" :key="currency">{{ currency }} {{ cost.toFixed(8) }} </span></p>
-      <p class="usage-note">Token 未知时按预留扣账；费用来自配置单价估算，不能保证严格 Token 或金额封顶。</p>
+      <p class="usage-note">缓存读取已包含在输入总量中，不重复扣预算。Token 未知时按预留扣账；费用来自配置单价估算，不能保证严格 Token 或金额封顶。缓存字段缺失表示未知，不代表未命中。</p>
       <div v-if="report.items.length" class="usage-scroll">
         <table>
-          <thead><tr><th>Agent / 模型</th><th>结果</th><th>尝试序号</th><th>耗时 ms</th><th>输入 / 输出 Token</th><th>估算费用</th></tr></thead>
+          <thead><tr><th>Agent / 模型</th><th>供应商 / 主备</th><th>结果</th><th>尝试序号</th><th>耗时 ms</th><th>输入 / 输出 Token</th><th>缓存读取 / 写入 Token</th><th>估算费用</th></tr></thead>
           <tbody><tr v-for="row in report.items" :key="row.call_id">
-            <td>{{ row.agent }} / {{ row.model }}</td><td>{{ labels[row.status] }}<span v-if="row.error_code">（{{ row.error_code }}）</span></td>
+            <td>{{ row.agent }} / {{ row.model }}</td><td>{{ row.provider ?? '未知' }} / {{ row.model_role === 'backup' ? '备用' : row.model_role === 'primary' ? '主模型' : '未知' }}</td><td>{{ labels[row.status] }}<span v-if="row.error_code">（{{ row.error_code }}）</span></td>
             <td>{{ row.attempt }}</td><td>{{ row.duration_ms.toFixed(1) }}</td>
             <td>{{ row.input_tokens ?? '未知' }} / {{ row.output_tokens ?? '未知' }}</td>
+            <td>{{ row.cached_input_tokens ?? '未知' }} / {{ row.cache_write_tokens ?? '未知' }}</td>
             <td>{{ row.estimated_cost === null ? '未知' : `${row.currency} ${row.estimated_cost.toFixed(8)}` }}</td>
           </tr></tbody>
         </table>
@@ -81,6 +92,7 @@ h3 { margin: 0 auto 0 0; font-size: 16px; }
 button { padding: 7px 12px; border: 1px solid #dcdfe6; border-radius: 4px; background: white; color: #245bc2; cursor: pointer; }
 button:disabled { opacity: .6; cursor: wait; }
 .usage-note { color: #606266; font-size: 13px; }
+.routing-note { padding: 10px; background: #fff8e6; border-radius: 4px; line-height: 1.6; }
 .usage-scroll { overflow-x: auto; max-height: 360px; }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
 th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ebeef5; overflow-wrap: anywhere; }

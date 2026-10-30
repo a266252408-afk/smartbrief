@@ -16,7 +16,8 @@ def measured(monkeypatch):
     from llm import client
     database.init_db()
     task_repository.create_task("usage", "离线")
-    model = AsyncMock(return_value=SimpleNamespace(usage={"prompt_tokens": 100, "completion_tokens": 50}))
+    model = AsyncMock(return_value=SimpleNamespace(usage={"prompt_tokens": 100, "completion_tokens": 50,
+                                                        "prompt_tokens_details": {"cached_tokens": 0}}))
     monkeypatch.setattr(client, "get_client", lambda: SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=model))))
     monkeypatch.setenv("OPENAI_MODEL", "fixture-model")
     monkeypatch.delenv("MODEL_PRICES_JSON", raising=False)
@@ -93,7 +94,8 @@ def test_unknown_tokens_with_price_and_zero_actual_cost(measured, monkeypatch):
     measured.return_value = SimpleNamespace(usage=None)
     invoke()
     assert task_usage("usage")["estimated_costs"] == {}
-    measured.return_value = SimpleNamespace(usage={"prompt_tokens": 0, "completion_tokens": 0})
+    measured.return_value = SimpleNamespace(usage={"prompt_tokens": 0, "completion_tokens": 0,
+                                                  "prompt_tokens_details": {"cached_tokens": 0}})
     invoke()
     data = task_usage("usage")
     assert data["estimated_costs"] == {"USD": 0.0} and not data["cost_complete"]

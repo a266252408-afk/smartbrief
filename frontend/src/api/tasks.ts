@@ -236,6 +236,11 @@ export async function regenerateTask(taskId: string): Promise<GenerateResult & {
 
 /** T07逐调用用量；未知Token与费用显式null。 */
 export interface ModelUsage {
+  provider?: string | null
+  model_role?: 'primary' | 'backup' | null
+  logical_call_id?: string | null
+  cached_input_tokens?: number | null
+  cache_write_tokens?: number | null
   call_id: string
   task_id: string
   agent: string
@@ -254,6 +259,23 @@ export interface ModelUsage {
 }
 
 export interface UsageReport {
+  cached_input_tokens?: number | null
+  cache_write_tokens?: number | null
+  cache_unknown_calls?: number
+  routing?: {
+    task_id: string
+    role: 'backup'
+    model: string
+    provider: string
+    reason: string
+    switched_at: string
+  } | null
+  recovery?: {
+    resume_mode: 'checkpoint' | 'restart'
+    next_agent: 'planner' | 'researcher' | 'writer' | 'reviewer' | 'rewriter' | 'research_revision' | null
+    next_step_id: number | null
+    completed_steps: number[]
+  } | null
   task_id: string
   items: ModelUsage[]
   call_count: number

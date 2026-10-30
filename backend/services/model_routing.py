@@ -6,6 +6,7 @@ import hashlib
 from datetime import datetime, timezone
 from threading import Lock
 from time import monotonic
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -136,6 +137,7 @@ async def routed_chat(messages, tools=None, tool_choice=None):
     from services.usage_summary import configured_price
     from services.usage_service import classify_model_error
     failover, policy = FailoverPolicy.from_env(), ModelPolicy.from_env()
+    logical_call_id = uuid4().hex
     assert_active()
     context = usage_context.get()
     task_id = context[0] if context else None
@@ -163,7 +165,8 @@ async def routed_chat(messages, tools=None, tool_choice=None):
                 kwargs['tools'] = tools
             if tool_choice:
                 kwargs['tool_choice'] = tool_choice
-            price = configured_price(kwargs['model'])
+            provider = binding['provider'] if binding else os.getenv('OPENAI_PROVIDER', 'primary') or 'primary'
+            price = configured_price(kwargs['model'], provider)
             try:
                 try:
                     create = (get_backup_client() if binding else get_client()).chat.completions.create
@@ -171,7 +174,8 @@ async def routed_chat(messages, tools=None, tool_choice=None):
                     error = ModelCallError('模型客户端配置不可用')
                     error.failover_reason = 'MODEL_AUTH'
                     raise error from None
-                result = await measured_call(create, kwargs, attempt=attempt, policy=attempt_policy, price=price)
+                result = await measured_call(create, kwargs, attempt=attempt, policy=attempt_policy, price=price,
+                                             provider=provider, model_role=role, logical_call_id=logical_call_id)
             except UsagePersistenceError:
                 raise
             except Exception as exc:

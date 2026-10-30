@@ -150,3 +150,12 @@ npm run test:e2e
 ## 后续施工与跨会话接手
 
 T01～T12 已形成顺序验证快照，T13 负责 0.2.0 的最终本地验收。先读 [项目宪法](PROJECT_CONSTITUTION.md)、[AGENTS.md](AGENTS.md) 与 [交接记录](docs/HANDOFF.md)；真实门禁与延期范围见 [状态文件](docs/construction/state.json)、[施工清单](docs/tasks/implementation.md) 和 [施工日志](docs/dev-log.md)。Docker 验收继续依用户决定延后，远程、部署和付费在线评测未获授权。
+
+## 主备模型、Agent级恢复与缓存用量
+
+- 研究子任务和每个章节分别保存图检查点；中断后保留已完成单元，只重做未完成Agent。审核、补研究、返工也按各自节点恢复。不支持Agent内部轮次或单次生成中途续写；检查点不可用时明确从头重试。
+- 主备默认关闭。配置`MODEL_FAILOVER_ENABLED=true`及`BACKUP_OPENAI_BASE_URL`、`BACKUP_OPENAI_API_KEY`、`BACKUP_OPENAI_MODEL`后启用；备用需支持相同的消息/工具接口与足够上下文，真实兼容性另行验证。
+- 主模型发生可接管故障后，当前任务绑定备用，恢复或restart也不回切。主模型的恢复只由冷却后的新任务实际请求试探；无额外收费健康检查。主备均不可用则暂停并保留进度；预算、取消及持久化错误不触发接管。
+- 用量面板可查看主备、供应商、切换原因、Agent恢复位置及缓存读取/写入Token。缓存读取包含于输入总量，不重复扣预算；供应商字段缺失或无必要单价时保留未知。历史费用不根据新价格重算。
+- `MODEL_PRICES_JSON`优先使用`provider:model`键，也兼容模型键；普通输入/输出单价以每百万Token配置，缓存命中需`cache_read_per_million`。写入另计费时配置`cache_write_per_million`及`cache_write_mode`：`included`替换对应输入价格，`additional`叠加写入费，按供应商实际规则选择。金额是估算，不是供应商账单。
+- 数据版本升级为4（新增任务模型绑定表）。开发验收不修改真实库；首次运行新代码前按[回滚与备份说明](docs/runbooks/git-and-data-rollback.md)停写备份业务库与检查点。配置示例见`backend/.env.example`，密钥不要提交Git。

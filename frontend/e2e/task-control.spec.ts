@@ -84,7 +84,7 @@ for (const mode of ['checkpoint', 'restart'] as const) {
       expect(state.keys[0]).toBe(state.keys[1])
     }
     await expect(page.locator('.status-tag')).toHaveText('排队中')
-    await expect(page.getByText(`本次恢复：${mode === 'checkpoint' ? '断点续跑' : '从头重试'}`, { exact: true })).toBeVisible()
+    await expect(page.getByText(`本次恢复：${mode === 'checkpoint' ? '断点续跑（已完成的 Agent 单元保留，中断单元重新执行）' : '从头重试'}`, { exact: true })).toBeVisible()
     expect(state.unexpected).toEqual([])
   })
 }

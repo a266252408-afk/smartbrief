@@ -50,6 +50,23 @@ def test_valid_version_is_idempotent_and_persistent():
     assert hits[0]["prompt_version"] and hits[0]["quality_status"] == "passed"
 
 
+@pytest.mark.parametrize('calls,expected', [
+    ([], None),
+    ([('backup-fixture','success')], 'backup-fixture'),
+    ([('primary-fixture','success'),('backup-fixture','success')], None),
+    ([('primary-fixture','failed'),('backup-fixture','success')], 'backup-fixture'),
+])
+def test_model_identity_uses_successful_task_calls(calls, expected):
+    from db import usage_repository, memory_repository
+    from services.usage_service import ModelUsage
+    report = approved()
+    for index,(model,status) in enumerate(calls):
+        usage_repository.save(ModelUsage(call_id=f'fixture-{index}',task_id='t',agent='writer',
+            model=model,status=status,duration_ms=0.0,created_at='fixture'))
+    assert memory.remember('测试主题',report,'t')
+    assert memory_repository.entries()[0].model_name == expected
+
+
 def test_missing_or_changed_sources_cannot_enter():
     report = approved()
     repo.update_task("t", evidence=[])

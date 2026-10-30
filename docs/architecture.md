@@ -111,3 +111,11 @@ Scheduler图节点每次只完成一个研究子任务或章节，通过自循�
 ## RELIABILITY-01 主备接管
 
 MODEL_FAILOVER_ENABLED=true时启用独立备用配置。任务切备用前先写业务库v4的task_model_routes，后续调用/恢复/restart均沿用该绑定；无任务时不发送健康探测，新任务在熔断冷却后通过一个真实请求试探主模型。主备共享尝试次数、总期限和任务Token账本，上层Agent期限向下传递，主调用最多使用剩余时间的一半。模型连接/超时/408/429/5xx与主模型认证/下线故障可切换；控制流、预算、持久化及请求参数错误不切换。主备耗尽以MODEL_UNAVAILABLE暂停且保持待执行Agent检查点。默认关闭时保留原单模型重试；离线评测绕过所有真实模型路由。
+
+## RELIABILITY-01 缓存与运行信息
+
+逐次ModelUsage记录provider、model_role、logical_call_id及cached_input_tokens/cache_write_tokens；同逻辑请求跨主备尝试共享logical_call_id。兼容OpenAI嵌套缓存字段与DeepSeek显式命中/未命中字段；未知/非法/矛盾统计不猜测。输入Token总量包含缓存读取，预算只扣一次；新费用计算需要缓存读取统计与对应单价，写入价可配置为替换输入或额外叠加。旧已存费用保持原值。
+
+v2 usage统一包增加缓存汇总、任务备用绑定和仅包含Agent/步骤/完成编号的检查点投影；不回显供应商URL、Key、prompt或草稿。读不到检查点时为null，不用业务进度假冒断点；终止快照无待执行单元。前端原用量面板展示，v1形状保留。
+
+长期记忆模型来源按该任务成功调用账本推导：只有一个模型才写model_name；混合模型或没有成功调用证据为null。失败的主模型尝试不会把成功备用的标签覆盖为主模型；不重写历史已存记忆。
