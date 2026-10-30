@@ -1,9 +1,27 @@
 """运行租约的协作检查；取消属于控制流，不能被Agent普通降级吞掉。"""
 import asyncio
 from contextvars import ContextVar
+from contextlib import contextmanager
 from services.usage_service import UsagePersistenceError
 
 execution_lease: ContextVar[tuple[str,str] | None] = ContextVar("task_execution_lease",default=None)
+model_deadline: ContextVar[float | None] = ContextVar('model_deadline', default=None)
+
+
+@contextmanager
+def deadline_scope(deadline):
+    """向模型层传递外层截止时间；嵌套作用域只能缩短期限。"""
+    previous = model_deadline.get()
+    token = model_deadline.set(min(previous, deadline) if previous is not None else deadline)
+    try:
+        yield
+    finally:
+        model_deadline.reset(token)
+
+
+async def run_before_deadline(awaitable, deadline):
+    with deadline_scope(deadline):
+        return await awaitable
 
 
 class ExecutionStopped(asyncio.CancelledError):

@@ -158,7 +158,7 @@ def test_legacy_task_without_metadata_migrates_to_empty_object(tmp_path):
     database.init_db(path)
     with sqlite3.connect(path) as conn:
         assert conn.execute("PRAGMA user_version").fetchone()[0] == database.SCHEMA_VERSION
-        assert [row[0] for row in conn.execute("SELECT version FROM schema_migrations")] == [1, 2, 3]
+        assert [row[0] for row in conn.execute("SELECT version FROM schema_migrations")] == [1, 2, 3, 4]
         assert conn.execute("SELECT metadata FROM tasks WHERE task_id='old'").fetchone()[0] == "{}"
     assert task_repository.get_task("old")["metadata"] == {}
 

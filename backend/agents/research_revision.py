@@ -7,6 +7,7 @@ from agents.scheduler import AGENT_STEP_TIMEOUT_SECONDS, STEP_DEADLINE_MARGIN_SE
 from services.evidence import normalize_evidence
 from services.event_logs import EventLogs
 from services.usage_service import usage_scope
+from services.execution_context import run_before_deadline
 
 
 @usage_scope("researcher", state=True)
@@ -21,7 +22,8 @@ async def research_revision_node(state: dict) -> dict:
     deadline = time.monotonic() + AGENT_STEP_TIMEOUT_SECONDS - STEP_DEADLINE_MARGIN_SECONDS
     try:
         result = await asyncio.wait_for(
-            react_researcher_run(task, 0, logs, observations=partial, deadline=deadline),
+            run_before_deadline(
+                react_researcher_run(task, 0, logs, observations=partial, deadline=deadline), deadline),
             timeout=AGENT_STEP_TIMEOUT_SECONDS,
         )
     except asyncio.TimeoutError:

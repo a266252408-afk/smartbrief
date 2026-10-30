@@ -1962,6 +1962,58 @@
       },
       "additionalProperties": false,
       "description": "T11已实现：只报告配置状态与演示可用性，不回显密钥或模型名；offline不阻止离线演示。"
+    },
+    "ModelRoute": {
+      "additionalProperties": false,
+      "properties": {
+        "task_id": {
+          "minLength": 1,
+          "title": "Task Id",
+          "type": "string"
+        },
+        "role": {
+          "const": "backup",
+          "default": "backup",
+          "title": "Role",
+          "type": "string"
+        },
+        "model": {
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "provider": {
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "MODEL_TIMEOUT",
+            "MODEL_CONNECTION",
+            "MODEL_RATE_LIMIT",
+            "MODEL_AUTH",
+            "MODEL_SERVICE",
+            "PRIMARY_CIRCUIT_OPEN"
+          ],
+          "title": "Reason",
+          "type": "string"
+        },
+        "switched_at": {
+          "minLength": 1,
+          "title": "Switched At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "model",
+        "provider",
+        "reason",
+        "switched_at"
+      ],
+      "title": "ModelRoute",
+      "type": "object"
     }
   }
 }

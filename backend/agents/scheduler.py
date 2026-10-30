@@ -8,6 +8,7 @@ from services.evidence import normalize_evidence
 from services.retrieval_service import refresh_document_sources
 from services.event_logs import EventLogs
 from services.report_quality import data_gap_section
+from services.execution_context import run_before_deadline
 
 import asyncio
 import time
@@ -101,9 +102,9 @@ async def scheduler_node(state: dict, *, single_step: bool = False) -> dict:
                 deadline = time.monotonic() + AGENT_STEP_TIMEOUT_SECONDS - STEP_DEADLINE_MARGIN_SECONDS
                 try:
                     result = await asyncio.wait_for(
-                        react_researcher_run(
+                        run_before_deadline(react_researcher_run(
                             task, step_id, logs, observations=step_observations, deadline=deadline
-                        ),
+                        ), deadline),
                         timeout=AGENT_STEP_TIMEOUT_SECONDS,
                     )
                     research_data[f"step_{step_id}"] = result   # 研究结果按步骤号归档
@@ -139,7 +140,9 @@ async def scheduler_node(state: dict, *, single_step: bool = False) -> dict:
                 else:
                     try:
                         section = await asyncio.wait_for(
-                            react_writer_run(task, step_id, logs, research_data, evidence=evidence),
+                            run_before_deadline(
+                                react_writer_run(task, step_id, logs, research_data, evidence=evidence),
+                                time.monotonic() + WRITER_STEP_TIMEOUT_SECONDS - STEP_DEADLINE_MARGIN_SECONDS),
                             timeout=WRITER_STEP_TIMEOUT_SECONDS,
                         )
                         sections[str(step_id)] = section

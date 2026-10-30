@@ -17,10 +17,15 @@ from data_paths import runtime_path
 
 # 业务 SQLite 库文件（backend/data.db）
 DB_PATH = runtime_path('data.db')
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 # 建表 SQL（幂等：IF NOT EXISTS 保证重复执行不报错）
 _SCHEMA = """
+-- 主备选择与图检查点分离；任务恢复与restart均保留备用绑定。
+CREATE TABLE IF NOT EXISTS task_model_routes (
+    task_id TEXT PRIMARY KEY,
+    data TEXT NOT NULL
+);
 -- 幂等动作凭据仅存键摘要，不保存原始请求头。
 CREATE TABLE IF NOT EXISTS task_actions (
     key_digest TEXT PRIMARY KEY,
@@ -167,7 +172,7 @@ def init_db(db_path: Path | None = None) -> None:
         conn.executescript('BEGIN IMMEDIATE;\n' + _SCHEMA)
         conn.execute('CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)')
         recorded = {row[0] for row in conn.execute('SELECT version FROM schema_migrations')}
-        if recorded - {1, 2, 3}:
+        if recorded - {1, 2, 3, 4}:
             raise RuntimeError('迁移账本版本高于当前代码')
         for sql in _MIGRATIONS:             # 旧库补列（已存在则跳过）
             try:
@@ -176,6 +181,7 @@ def init_db(db_path: Path | None = None) -> None:
                 if "duplicate column name" not in str(exc):
                     raise
         migrate_quality(conn)
-        for number, name in ((1, '兼容旧库及双状态迁移'), (2, '完整持久化基线与版本账本'), (3, '任务元数据与演示标识')):
+        for number, name in ((1, '兼容旧库及双状态迁移'), (2, '完整持久化基线与版本账本'),
+                             (3, '任务元数据与演示标识'), (4, '任务主备模型绑定')):
             conn.execute('INSERT OR IGNORE INTO schema_migrations(version,name) VALUES (?,?)', (number, name))
         conn.execute(f'PRAGMA user_version={SCHEMA_VERSION}')

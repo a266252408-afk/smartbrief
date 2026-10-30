@@ -220,6 +220,11 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
         logger.exception("任务 %s 执行失败", task_id)
         from services.usage_service import ModelCallError
         from services.execution_context import ExecutionPersistenceError
+        from services.model_routing import ModelUnavailable
+        if isinstance(exc, ModelUnavailable):
+            task_repository.update_task(task_id, status="paused", quality_status="pending", passed=False,
+                                        error_code=exc.code, error="模型暂不可用，已保留Agent检查点，可稍后恢复")
+            raise
         task_repository.update_task(task_id, status="failed", quality_status="not_run", passed=False,
                                     forced_output=False, error_code=(exc.code if isinstance(exc, (ModelCallError, ExecutionPersistenceError)) else final.get("error_code")) or "TASK_EXECUTION_FAILED", error=str(exc))  # 失败也落库，前端可展示
         raise

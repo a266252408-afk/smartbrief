@@ -107,3 +107,7 @@ v2评测API经evaluation_service进入固定20例协议集。每案例复用真�
 ## RELIABILITY-01 Agent执行单元检查点
 
 Scheduler图节点每次只完成一个研究子任务或章节，通过自循环继续；每个单元完成后SQLite保存completed_steps、research_data、evidence、日志及内部draft_sections。保留scheduler节点名，旧Planner快照缺新增通道时按空处理。恢复保留已完成单元，只重做未完成单元；研究内部轮次和单次模型生成不续接。审核、补研究及返工沿用各自图节点检查点。无新增主动暂停；服务中断/失败后仍由原恢复入口进入。
+
+## RELIABILITY-01 主备接管
+
+MODEL_FAILOVER_ENABLED=true时启用独立备用配置。任务切备用前先写业务库v4的task_model_routes，后续调用/恢复/restart均沿用该绑定；无任务时不发送健康探测，新任务在熔断冷却后通过一个真实请求试探主模型。主备共享尝试次数、总期限和任务Token账本，上层Agent期限向下传递，主调用最多使用剩余时间的一半。模型连接/超时/408/429/5xx与主模型认证/下线故障可切换；控制流、预算、持久化及请求参数错误不切换。主备耗尽以MODEL_UNAVAILABLE暂停且保持待执行Agent检查点。默认关闭时保留原单模型重试；离线评测绕过所有真实模型路由。

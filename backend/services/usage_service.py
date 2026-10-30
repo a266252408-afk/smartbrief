@@ -48,10 +48,28 @@ class ModelCallError(RuntimeError):
     """只暴露固定原因，禁止供应商异常原文进入日志。"""
     code = "MODEL_FAILED"
     retryable = False
+    failover_reason = None
 
 
 class UsagePersistenceError(ModelCallError):
     code = "USAGE_PERSISTENCE_FAILED"
+
+
+def classify_model_error(exc):
+    """只提取固定分类，不传播供应商异常原文、URL或请求内容。"""
+    from openai import APIConnectionError, APIStatusError, APITimeoutError
+    timeout = isinstance(exc, (TimeoutError, APITimeoutError))
+    status = exc.status_code if isinstance(exc, APIStatusError) else None
+    error = ModelCallError("模型调用超时" if timeout else "模型调用失败")
+    error.code = "MODEL_TIMEOUT" if timeout else "MODEL_FAILED"
+    error.retryable = timeout or isinstance(exc, APIConnectionError) or status is not None and (status == 429 or status >= 500)
+    error.failover_reason = (
+        "MODEL_TIMEOUT" if timeout or status == 408 else
+        "MODEL_CONNECTION" if isinstance(exc, APIConnectionError) else
+        "MODEL_RATE_LIMIT" if status == 429 else
+        "MODEL_AUTH" if status in {401, 403, 404} else
+        "MODEL_SERVICE" if status is not None and status >= 500 else None)
+    return error
 
 
 def persist(entry):
@@ -90,7 +108,10 @@ async def measured_call(create, kwargs, *, policy, attempt=1, price=None):
     """每次调用前落占位、结束后记录；写入失败不得冒充完成。"""
     context = usage_context.get()
     if context is None:
-        return await create(**kwargs)
+        try:
+            return await asyncio.wait_for(create(**kwargs), policy.timeout_seconds)
+        except Exception as exc:
+            raise classify_model_error(exc) from None
     entry = ModelUsage(call_id=uuid4().hex, task_id=context[0], agent=context[1],
                        model=kwargs["model"], status="running", duration_ms=0.0,
                        attempt=attempt, created_at=datetime.now(timezone.utc).isoformat(),
@@ -114,13 +135,9 @@ async def measured_call(create, kwargs, *, policy, attempt=1, price=None):
         entry.status, entry.error_code = "failed", "MODEL_FAILED"
         raise
     except Exception as exc:
-        from openai import APIConnectionError, APIStatusError, APITimeoutError
-        timeout = isinstance(exc, (TimeoutError, APITimeoutError))
         entry.status = "failed"
-        entry.error_code = "MODEL_TIMEOUT" if timeout else "MODEL_FAILED"
-        error = ModelCallError("模型调用超时" if timeout else "模型调用失败")
-        error.code = entry.error_code
-        error.retryable = timeout or isinstance(exc, APIConnectionError) or isinstance(exc, APIStatusError) and (exc.status_code == 429 or exc.status_code >= 500)
+        error = classify_model_error(exc)
+        entry.error_code = error.code
         raise error from None
     else:
         entry.status, entry.error_code = "success", None

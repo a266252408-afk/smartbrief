@@ -20,6 +20,16 @@ from services.budget import ModelPolicy
 load_dotenv()
 
 _client: AsyncOpenAI | None = None
+_backup_client: AsyncOpenAI | None = None
+
+
+def get_backup_client() -> AsyncOpenAI:
+    """备用使用独立地址与密钥；仅接管时懒加载。"""
+    global _backup_client
+    if _backup_client is None:
+        _backup_client = AsyncOpenAI(base_url=os.environ['BACKUP_OPENAI_BASE_URL'],
+                                    api_key=os.environ['BACKUP_OPENAI_API_KEY'], max_retries=0)
+    return _backup_client
 
 
 def get_client() -> AsyncOpenAI:
@@ -51,6 +61,9 @@ async def chat(messages: list, tools: list | None = None, tool_choice: str | Non
     """
     from evaluation.context import evaluation_context
     context = evaluation_context.get()
+    if context is None and os.getenv('MODEL_FAILOVER_ENABLED', 'false').lower() == 'true':
+        from services.model_routing import routed_chat
+        return await routed_chat(messages, tools, tool_choice)
     create = context.create if context is not None else get_client().chat.completions.create
     policy = (ModelPolicy(max_task_tokens=1 if context.case['scenario'] == 'budget' else 200000,
                           timeout_seconds=10, max_retries=0) if context is not None else ModelPolicy.from_env())
