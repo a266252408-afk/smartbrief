@@ -49,6 +49,7 @@ class AgentState(TypedDict):
     # ---------- 4. 产出数据 ----------
     research_data: Dict             # 研究数据：{"step_1": {"observations": [...]}, "step_2": {...}}
     draft_content: str              # 报告草稿（writer 步骤生成的章节按序拼接；rewriter 修改后覆盖）
+    draft_sections: Dict[str, str]  # 每个已完成章节的产物，仅检查点保存；旧快照缺省为空
     final_report: Optional[str]     # 工作流结束时保存的最终稿，包含审核或强制输出结果
     error: Optional[str]            # 任务异常信息（失败时填充，供前端展示）
 

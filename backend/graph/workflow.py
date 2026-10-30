@@ -7,7 +7,7 @@ from langgraph.graph import END, START, StateGraph
 from agents.planner import planner_node
 from agents.rewriter import rewriter_node
 from agents.reviewer import reviewer_node
-from agents.scheduler import scheduler_node
+from agents.scheduler import scheduler_step_node, route_after_step
 from agents.research_revision import research_revision_node
 from db import task_repository
 from graph.state import AgentState
@@ -40,13 +40,14 @@ def build_graph(checkpointer=None, *, interrupt_before=None):
     """
     graph = StateGraph(AgentState)
     graph.add_node("planner", planner_node)          # 节点1：拆解计划
-    graph.add_node("scheduler", scheduler_node)      # 节点2：按依赖派发执行
+    graph.add_node("scheduler", scheduler_step_node)  # 每个Agent单元结束即保存检查点
     graph.add_node("reviewer", reviewer_node)        # 节点3（25 节）：审核草稿
     graph.add_node("rewriter", rewriter_node)        # 节点4（25 节）：按意见返工
     graph.add_node("research_revision", research_revision_node)
     graph.add_edge(START, "planner")
     graph.add_edge("planner", "scheduler")
-    graph.add_edge("scheduler", "reviewer")          # 写完整稿 → 进入审核
+    graph.add_conditional_edges("scheduler", route_after_step,
+                                {"scheduler": "scheduler", "reviewer": "reviewer"})
     graph.add_conditional_edges(
         "reviewer",
         route_after_review,
@@ -85,6 +86,7 @@ def _initial_state(task_id: str, topic: str) -> AgentState:
         "react_logs": [],             # 初始无日志
         "research_data": {},          # 初始无研究数据
         "draft_content": "",          # 初始无草稿
+        "draft_sections": {},          # 逐章节产物；只存在图检查点，不新增业务表字段
         "final_report": None,         # 最终报告暂缺
         "error": None,                # 无异常
         # A2A 审核循环
@@ -152,7 +154,7 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
         opener = cp_mod.open_checkpointer(checkpoint) if context is not None else cp_mod.open_checkpointer()
         async with opener as (cp, _kind):
             graph = build_graph(checkpointer=cp)
-            config = {"configurable": {"thread_id": task_id}}
+            config = {"configurable": {"thread_id": task_id}, "recursion_limit": 64}
             mode = None
             if resume:
                 try:

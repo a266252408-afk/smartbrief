@@ -55,7 +55,7 @@ def _append_log(logs: List[Dict], step_id: int, log_type: str, content: str) -> 
     logs.append({"type": log_type, "content": content, "step_id": step_id})
 
 
-async def scheduler_node(state: dict) -> dict:
+async def scheduler_node(state: dict, *, single_step: bool = False) -> dict:
     """LangGraph 节点：调度执行所有可执行步骤。
 
     核心思想：**反复"取就绪步骤 → 派发执行 → 更新完成状态"**，
@@ -75,12 +75,14 @@ async def scheduler_node(state: dict) -> dict:
     logs: List[Dict] = EventLogs(state.get("react_logs", []))       # 日志在产生时记录时间
     research_data: Dict = dict(state.get("research_data", {}))      # 研究数据（逐步填充）
     evidence = list(state.get("evidence", []))
-    drafts: List[str] = []                                          # writer 步骤产出的章节（暂存）
+    sections = dict(state.get("draft_sections", {}))
 
     # 逐轮派发：每轮取所有就绪步骤；线性版串行执行（当前串行执行）
     pending = True
     while pending:
         ready = _ready_steps(plan, completed)     # 1. 找出本轮可执行的步骤
+        if single_step:
+            ready = ready[:1]  # 图中每次只执行一个Agent单元，返回后由检查点持久化。
         if not ready:
             pending = False                       # 没有就绪步骤 → 全部完成，退出循环
             break
@@ -133,14 +135,14 @@ async def scheduler_node(state: dict) -> dict:
                         logs, step_id, "Observation",
                         f"步骤 {step_id} 无可用证据，跳过模型撰写并生成数据缺口说明",
                     )
-                    drafts.append(data_gap_section(task, state.get("topic")))
+                    sections[str(step_id)] = data_gap_section(task, state.get("topic"))
                 else:
                     try:
                         section = await asyncio.wait_for(
                             react_writer_run(task, step_id, logs, research_data, evidence=evidence),
                             timeout=WRITER_STEP_TIMEOUT_SECONDS,
                         )
-                        drafts.append(section)        # 章节暂存，最后统一拼接
+                        sections[str(step_id)] = section
                     except asyncio.TimeoutError:
                         degraded = True
                         # 超时降级：追加占位章节，保证后续拼接 / 审核不因缺章节而崩
@@ -149,18 +151,21 @@ async def scheduler_node(state: dict) -> dict:
                             f"步骤 {step_id} 执行超时（>{WRITER_STEP_TIMEOUT_SECONDS}s），已跳过",
                         )
                         # 占位文案与 Rewriter 的"草稿为空/仅占位则重写"约定呼应，改动需两边同步
-                        drafts.append(f"（步骤 {step_id} 撰写超时，内容待补充）")
+                        sections[str(step_id)] = f"（步骤 {step_id} 撰写超时，内容待补充）"
             completed.append(step_id)             # 3. 标记完成，解锁后续依赖
             ending = "已结束（降级，详见前述错误或超时记录）" if degraded else "完成"
             _append_log(logs, step_id, "Observation", f"步骤 {step_id} {ending}")
+        if single_step:
+            break
 
     # 组装草稿：writer 步骤的章节按执行顺序拼接成完整 Markdown
-    draft_content = "\n\n".join(drafts)
+    draft_content = "\n\n".join(sections.values())
     if not draft_content:
         # 没有 writer 步骤（或全部失败）时给出占位说明
         draft_content = "（无 writer 步骤生成内容）"
 
     return {
+        "draft_sections": sections,
         "completed_steps": completed,             # 已完成步骤 id 列表
         "research_data": research_data,           # 各步骤研究结果（供前端/Writer 引用）
         "evidence": normalize_evidence(state.get("task_id", ""), research_data, evidence),
@@ -168,3 +173,13 @@ async def scheduler_node(state: dict) -> dict:
         "current_step_index": len(completed),     # 进度 = 已完成步骤数
         "react_logs": logs,                       # 日志流
     }
+
+
+async def scheduler_step_node(state: dict) -> dict:
+    """一个研究子任务或章节为一次图提交，恢复只重做未完成单元。"""
+    return await scheduler_node(state, single_step=True)
+
+
+def route_after_step(state: dict) -> str:
+    """还有就绪子任务时继续调度，否则沿用原审核入口。"""
+    return "scheduler" if _ready_steps(state.get("plan", []), state.get("completed_steps", [])) else "reviewer"

@@ -103,3 +103,7 @@ v2评测API经evaluation_service进入固定20例协议集。每案例复用真�
 ## 离线评测任务执行隔离（EVAL-ISOLATION-01）
 
 新任务由服务端把 execution_mode、evaluation_id 与 evaluation_case_id 存入既有 tasks.metadata JSON；不新增列、不回填旧数据。普通任务恢复和重生成拒绝离线评测任务，提示到评测中心重新运行；旧任务没有模式字段时以系统既有“[离线协议] ”主题前缀保守隔离。worker 领取 queued 任务后还需匹配评测/案例的合成依赖上下文，缺失或不一致时 failed/not_run、OFFLINE_CONTEXT_REQUIRED，在 runner 前停止；评测中的取消仍可执行。新普通任务及其重生成明确记录 online，避免主题文字误判。前端列表与详情隐藏离线恢复/重生成入口，服务端仍独立校验。
+
+## RELIABILITY-01 Agent执行单元检查点
+
+Scheduler图节点每次只完成一个研究子任务或章节，通过自循环继续；每个单元完成后SQLite保存completed_steps、research_data、evidence、日志及内部draft_sections。保留scheduler节点名，旧Planner快照缺新增通道时按空处理。恢复保留已完成单元，只重做未完成单元；研究内部轮次和单次模型生成不续接。审核、补研究及返工沿用各自图节点检查点。无新增主动暂停；服务中断/失败后仍由原恢复入口进入。
