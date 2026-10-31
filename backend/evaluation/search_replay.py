@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from evaluation import catalog
 from evaluation.mechanism import MechanismResult, MechanismRun
 from evaluation.report_grading import ReportGradeResult, CalibrationRow
+from evaluation.full_task import FullTaskResult
 
 GOLDEN=[f'G{i:03}' for i in range(1,17,2)]
 SUPPORTED=GOLDEN+['C003','C004','C006','C007']
@@ -51,9 +52,9 @@ class SearchResult(MechanismResult):
 
 
 class EvaluationRun(MechanismRun):
-    profile: Literal['mechanism_regression','search_replay','report_grading','grader_calibration']
+    profile: Literal['mechanism_regression','search_replay','report_grading','grader_calibration','full_task_local','full_task_live']
     report_quality: Literal['unknown','passed','rejected']
-    results: list[MechanismResult | SearchResult | ReportGradeResult | CalibrationRow]
+    results: list[MechanismResult | SearchResult | ReportGradeResult | CalibrationRow | FullTaskResult]
 
 
 def canonical_url(value):

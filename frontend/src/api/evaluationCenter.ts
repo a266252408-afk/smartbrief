@@ -32,14 +32,15 @@ export async function fetchCatalogCase(id: string): Promise<CatalogDetail> {
 export interface MechanismResult {
   case_id: string; check_status: 'pass' | 'fail' | 'unknown'; test_count?: number
   passed?: number; failed?: number; skipped?: number; report_quality?: string; duration_seconds?: number; error: string | null
+  task_execution_status?: string; business_quality?: string; calls?: number | null; input_tokens?: number | null; output_tokens?: number | null
   report?: string; report_sha256?: string; grader_version?: string
   judgements?: { rubric_id: string; label: string; reason: string; evidence_refs: string[] }[]
   trace?: Record<string, unknown>[]
   metrics?: { returned_count: number; valid_url_count: number; unique_sources: number; exact_duplicate_count: number; dated_documents: number; unknown_period_documents: number; stale_documents: number | null; freshness_target: string | null; unavailable_content_count: number; network_calls: number; relevance_at_5: number | null; key_evidence_coverage: number | null }
-  evidence?: { title: string; url: string | null; snippet: string; published_at: string | null; data_period: string | null; origin: string; content_scope: string; content_available: boolean }[]
+  evidence?: { title: string; url: string | null; snippet?: string; excerpt?: string; published_at: string | null; data_period: string | null; origin: string; content_scope: string; content_available: boolean }[]
 }
 export interface MechanismRun {
-  profile?: 'mechanism_regression' | 'search_replay' | 'report_grading' | 'grader_calibration'
+  profile?: 'mechanism_regression' | 'search_replay' | 'report_grading' | 'grader_calibration' | 'full_task_local' | 'full_task_live'
   run_id: string; execution_status: 'running' | 'completed' | 'failed'; report_quality: string
   created_at: string; error: string | null; results: MechanismResult[]
   summary: { planned: number; processed: number; passed: number; failed: number; unknown: number }
@@ -81,4 +82,8 @@ export async function saveEvaluationReview(body: ReviewInput): Promise<Evaluatio
 }
 export async function fetchEvaluationReviews(): Promise<EvaluationReview[]> {
   return (await http.get('/reviews')).data.data.items
+}
+
+export async function startFullTask(caseIds: string[], group: 'primary' | 'backup' | 'mixed'): Promise<MechanismRun> {
+  return (await http.post('/runs', { profile: 'full_task_local', case_ids: caseIds, group })).data.data
 }

@@ -135,6 +135,12 @@ def summary(version=VERSION):
     report.profile='report_grading'
     report.supported_case_ids=list(REPORT_CASES)
     report.availability='固定资料报告程序检查与独立判分已接通；未启用语义模型时为未知'
+    from evaluation.full_task import SUPPORTED as FULL_CASES
+    full=next(a for a in areas if a.area=='end_to_end')
+    full.runnable=True
+    full.profile='full_task_local'
+    full.supported_case_ids=list(FULL_CASES)
+    full.availability='固定资料完整图和三组主备配置已接通；默认供应商替身，真实调用需单独授权'
     return EvaluationCatalog(version=VERSION,
         dataset_hash=hashlib.sha256(json.dumps(manifest,sort_keys=True,ensure_ascii=False).encode()).hexdigest(),
         cutoff=manifest['cutoff'],total_cases=len(rows),

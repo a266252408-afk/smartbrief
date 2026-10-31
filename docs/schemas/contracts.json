@@ -3550,6 +3550,127 @@
           "title": "CalibrationRow",
           "type": "object"
         },
+        "FullTaskResult": {
+          "additionalProperties": false,
+          "properties": {
+            "case_id": {
+              "title": "Case Id",
+              "type": "string"
+            },
+            "check_status": {
+              "enum": [
+                "pass",
+                "fail",
+                "unknown"
+              ],
+              "title": "Check Status",
+              "type": "string"
+            },
+            "task_execution_status": {
+              "title": "Task Execution Status",
+              "type": "string"
+            },
+            "business_quality": {
+              "title": "Business Quality",
+              "type": "string"
+            },
+            "report_quality": {
+              "const": "unknown",
+              "default": "unknown",
+              "title": "Report Quality",
+              "type": "string"
+            },
+            "report": {
+              "title": "Report",
+              "type": "string"
+            },
+            "report_sha256": {
+              "title": "Report Sha256",
+              "type": "string"
+            },
+            "evidence": {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "title": "Evidence",
+              "type": "array"
+            },
+            "trace": {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "title": "Trace",
+              "type": "array"
+            },
+            "calls": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Calls"
+            },
+            "input_tokens": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Input Tokens"
+            },
+            "output_tokens": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Output Tokens"
+            },
+            "duration_seconds": {
+              "title": "Duration Seconds",
+              "type": "number"
+            },
+            "error": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error"
+            }
+          },
+          "required": [
+            "case_id",
+            "check_status",
+            "task_execution_status",
+            "business_quality",
+            "report",
+            "report_sha256",
+            "evidence",
+            "trace",
+            "calls",
+            "input_tokens",
+            "output_tokens",
+            "duration_seconds",
+            "error"
+          ],
+          "title": "FullTaskResult",
+          "type": "object"
+        },
         "Judgement": {
           "additionalProperties": false,
           "properties": {
@@ -4054,7 +4175,9 @@
             "mechanism_regression",
             "search_replay",
             "report_grading",
-            "grader_calibration"
+            "grader_calibration",
+            "full_task_local",
+            "full_task_live"
           ],
           "title": "Profile",
           "type": "string"
@@ -4089,6 +4212,9 @@
               },
               {
                 "$ref": "#/$defs/CalibrationRow"
+              },
+              {
+                "$ref": "#/$defs/FullTaskResult"
               }
             ]
           },
@@ -4529,6 +4655,272 @@
         "scope"
       ],
       "title": "CalibrationResult",
+      "type": "object"
+    },
+    "FullTaskRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "default": "full_task_local",
+          "enum": [
+            "full_task_local",
+            "full_task_live"
+          ],
+          "title": "Profile",
+          "type": "string"
+        },
+        "case_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Case Ids",
+          "type": "array"
+        },
+        "group": {
+          "default": "primary",
+          "enum": [
+            "primary",
+            "backup",
+            "mixed"
+          ],
+          "title": "Group",
+          "type": "string"
+        },
+        "authorization_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Authorization Id"
+        }
+      },
+      "required": [
+        "case_ids"
+      ],
+      "title": "FullTaskRequest",
+      "type": "object"
+    },
+    "FullTaskResult": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "check_status": {
+          "enum": [
+            "pass",
+            "fail",
+            "unknown"
+          ],
+          "title": "Check Status",
+          "type": "string"
+        },
+        "task_execution_status": {
+          "title": "Task Execution Status",
+          "type": "string"
+        },
+        "business_quality": {
+          "title": "Business Quality",
+          "type": "string"
+        },
+        "report_quality": {
+          "const": "unknown",
+          "default": "unknown",
+          "title": "Report Quality",
+          "type": "string"
+        },
+        "report": {
+          "title": "Report",
+          "type": "string"
+        },
+        "report_sha256": {
+          "title": "Report Sha256",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "trace": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Trace",
+          "type": "array"
+        },
+        "calls": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Calls"
+        },
+        "input_tokens": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Input Tokens"
+        },
+        "output_tokens": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Output Tokens"
+        },
+        "duration_seconds": {
+          "title": "Duration Seconds",
+          "type": "number"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
+        }
+      },
+      "required": [
+        "case_id",
+        "check_status",
+        "task_execution_status",
+        "business_quality",
+        "report",
+        "report_sha256",
+        "evidence",
+        "trace",
+        "calls",
+        "input_tokens",
+        "output_tokens",
+        "duration_seconds",
+        "error"
+      ],
+      "title": "FullTaskResult",
+      "type": "object"
+    },
+    "EvaluationGrant": {
+      "additionalProperties": false,
+      "properties": {
+        "authorization_id": {
+          "pattern": "^[A-Za-z0-9_-]{8,80}$",
+          "title": "Authorization Id",
+          "type": "string"
+        },
+        "dataset_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Dataset Hash",
+          "type": "string"
+        },
+        "case_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Case Ids",
+          "type": "array"
+        },
+        "model": {
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "base_url": {
+          "title": "Base Url",
+          "type": "string"
+        },
+        "expires_at": {
+          "title": "Expires At",
+          "type": "string"
+        },
+        "max_model_calls": {
+          "maximum": 40,
+          "minimum": 1,
+          "title": "Max Model Calls",
+          "type": "integer"
+        },
+        "max_input_bytes": {
+          "maximum": 200000,
+          "minimum": 1,
+          "title": "Max Input Bytes",
+          "type": "integer"
+        },
+        "max_output_tokens": {
+          "maximum": 8000,
+          "minimum": 1,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        },
+        "input_price_per_million": {
+          "exclusiveMinimum": 0,
+          "title": "Input Price Per Million",
+          "type": "number"
+        },
+        "output_price_per_million": {
+          "exclusiveMinimum": 0,
+          "title": "Output Price Per Million",
+          "type": "number"
+        },
+        "currency": {
+          "enum": [
+            "USD",
+            "CNY"
+          ],
+          "title": "Currency",
+          "type": "string"
+        },
+        "estimated_cost_ceiling": {
+          "exclusiveMinimum": 0,
+          "title": "Estimated Cost Ceiling",
+          "type": "number"
+        }
+      },
+      "required": [
+        "authorization_id",
+        "dataset_hash",
+        "case_ids",
+        "model",
+        "base_url",
+        "expires_at",
+        "max_model_calls",
+        "max_input_bytes",
+        "max_output_tokens",
+        "input_price_per_million",
+        "output_price_per_million",
+        "currency",
+        "estimated_cost_ceiling"
+      ],
+      "title": "EvaluationGrant",
       "type": "object"
     }
   }

@@ -11,6 +11,7 @@ from services.evaluation_service import EvaluationError
 from services import evaluation_review_service as reviews
 from services import evaluation_grading_service as grading
 from evaluation.report_grading import ReportGradeRequest
+from evaluation.full_task import FullTaskRequest
 
 router = APIRouter(prefix='/api/v2/evaluation-center')
 
@@ -64,7 +65,9 @@ async def capabilities(request: Request):
 async def start_run(request: Request):
     try:
         raw=await request.json()
-        model=SearchRequest if isinstance(raw,dict) and raw.get('profile') in ('search_replay','search_live') else MechanismRequest
+        profile = raw.get('profile') if isinstance(raw, dict) else None
+        model = (FullTaskRequest if profile in ('full_task_local', 'full_task_live') else
+                 SearchRequest if profile in ('search_replay', 'search_live') else MechanismRequest)
         body=model.model_validate(raw)
     except ValueError:
         return failure(request,422,'INVALID_MECHANISM_REQUEST','案例重复、未接通或请求格式无效')

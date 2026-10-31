@@ -7,6 +7,30 @@ const golden = JSON.parse(readFileSync(fileURLToPath(new URL('private/golden.jso
 const collections = ['golden', 'regression', 'challenge']
 const cases = collections.flatMap(collection => JSON.parse(readFileSync(fileURLToPath(new URL(`private/${collection}.json`, root)), 'utf8')).cases)
 const labels = { protocol: '流程与故障', search: '网络搜索', report: '报告质量', robustness: '鲁棒性与恢复', end_to_end: '完整任务' }
+test('完整任务选择接管组，完成和独立质量分开展示', async ({ page }) => {
+  const rid = 'er_' + 'e'.repeat(32), writes: unknown[] = []
+  await page.route('**/api/v*/**', async route => {
+    const path = new URL(route.request().url()).pathname, env = (data: unknown) => ({ data, meta: { request_id: 'fixture' } })
+    if (path === '/api/v2/auth/session') return route.fulfill({ json: env({ role: 'admin' }) })
+    if (path.endsWith('/catalog')) return route.fulfill({ json: env({ version: 'sb-eval-data-1', cutoff: '2026-10-31', total_cases: 108, cases: [], collections: {}, areas: [{ area: 'end_to_end', label: '完整任务', profile: 'full_task_local', supported_case_ids: ['G017'], runnable: true, score: null }] }) })
+    if (path.endsWith('/runs') && route.request().method() === 'POST') { writes.push(route.request().postDataJSON()); return route.fulfill({ status: 202, json: env({ run_id: rid }) }) }
+    if (path.endsWith('/runs/' + rid)) return route.fulfill({ json: env({ run_id: rid, profile: 'full_task_local', execution_status: 'completed', report_quality: 'unknown', metadata: { dataset_hash: 'a'.repeat(64) }, summary: { planned: 1, processed: 1, passed: 1, failed: 0, unknown: 0 }, results: [{ case_id: 'G017', check_status: 'pass', task_execution_status: 'completed', business_quality: 'passed', report_quality: 'unknown', report: '固定资料简报 [S1]', calls: 6, trace: [{ kind: 'model_call', model_role: 'primary', status: 'failed', error_code: 'MODEL_CONNECTION' }, { kind: 'model_call', model_role: 'backup', status: 'success' }], evidence: [] }] }) })
+    return route.fulfill({ status: 404, json: { error: { message: '未声明请求' } } })
+  })
+  await page.goto('/evaluation/run')
+  await page.getByLabel('访问令牌').fill('fixture-full-task')
+  await page.getByRole('button', { name: '验证并进入' }).click()
+  await page.getByRole('combobox', { name: '模型运行组', exact: true }).focus()
+  await page.getByRole('combobox', { name: '模型运行组', exact: true }).press('Enter')
+  await page.getByRole('option', { name: '主故障后接管', exact: true }).click()
+  await page.getByRole('button', { name: '运行完整任务替身基线', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '完整任务运行详情' })).toBeVisible()
+  await expect(page.getByRole('cell', { name: '待独立评判', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '查看完整任务过程', exact: true }).click()
+  await expect(page.getByText('备用模型调用成功', { exact: false })).toBeVisible()
+  expect(writes).toEqual([{ profile: 'full_task_local', case_ids: ['G017'], group: 'mixed' }])
+  await page.screenshot({ path: '../docs/verification/EVAL-NEXT-06-full-task.png', fullPage: true })
+})
 test('独立评分展示拒绝依据与校准未知，报告HTML不执行', async ({ page }) => {
   const rid = 'er_' + 'd'.repeat(32)
   const writes: unknown[] = []

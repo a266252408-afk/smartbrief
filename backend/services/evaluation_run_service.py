@@ -8,6 +8,8 @@ from db import evaluation_run_repository as repository
 from evaluation import catalog
 from evaluation.mechanism import MechanismRequest, MechanismResult, TESTS, run_case
 from evaluation.search_replay import SearchRequest, SearchResult, EvaluationRun, run_case as replay_case
+from evaluation.full_task import FullTaskRequest, FullTaskResult, run_case as full_case
+from evaluation.authorization import reserve, EvaluationGrant
 from services.evaluation_service import EvaluationError
 
 _handle=None
@@ -25,12 +27,13 @@ def capabilities():
                 scope='本地白名单工程回归；真实路由与存储、替身供应商，非在线效果')
 
 
-def start(body: MechanismRequest | SearchRequest):
+def start(body: MechanismRequest | SearchRequest | FullTaskRequest):
     global _handle,_run_id
     if _handle is not None and not _handle.done():
         raise EvaluationError('EVALUATION_RUNNING','已有专项评测正在运行',409)
     if body.profile=='search_live':
         raise EvaluationError('LIVE_SEARCH_NOT_AUTHORIZED','真实联网需另行批准数据去向、调用量和费用上限；本次未创建成绩',403)
+    grant = reserve(body) if body.profile == 'full_task_live' else None
     if body.profile=='mechanism_regression' and not capabilities()['available']:
         raise EvaluationError('MECHANISM_ENGINE_UNAVAILABLE','本地pytest环境不可用，不能运行机制回归')
     pack=catalog.summary()
@@ -42,6 +45,13 @@ def start(body: MechanismRequest | SearchRequest):
     if body.profile=='search_replay':
         metadata.update(model='none',engine='frozen_search_replay',
                         evidence_scope='冻结资料卡或合成响应，不是当次联网结果',randomness='固定响应，仅耗时受本机负载影响')
+    if body.profile in ('full_task_local', 'full_task_live'):
+        metadata.update(engine='isolated_full_workflow', model_group=body.group,
+                        model=grant.model if grant else 'fixture-primary/fixture-backup',
+                        mode='online' if grant else 'offline', memory_protocol='每案例独立冷启动；RAG/长期记忆禁用',
+                        evidence_scope='冻结公开资料；独立语义质量未评判',
+                        authorized_grant=grant.model_dump() if grant else None,
+                        feature_flags=dict(rag=False, memory=False, review=True))
     run_id='er_'+uuid4().hex
     record=EvaluationRun(run_id=run_id,profile=body.profile,execution_status='running',case_ids=body.case_ids,
                 results=[],metadata=metadata,created_at=_now(),updated_at=_now(),
@@ -58,7 +68,12 @@ def start(body: MechanismRequest | SearchRequest):
 async def _execute(record):
     try:
         for cid in record['case_ids']:
-            if record['profile']=='search_replay':
+            if record['profile'] in ('full_task_local', 'full_task_live'):
+                raw_grant = record['metadata'].get('authorized_grant')
+                grant = EvaluationGrant.model_validate(raw_grant) if raw_grant else None
+                result=FullTaskResult.model_validate(await full_case(cid, record['metadata']['model_group'],
+                    repository.root()/'work'/record['run_id']/cid, grant)).model_dump()
+            elif record['profile']=='search_replay':
                 result=SearchResult.model_validate(await replay_case(cid)).model_dump()
             else:
                 result=MechanismResult.model_validate(await run_case(cid,repository.root()/'work'/record['run_id']/cid)).model_dump()

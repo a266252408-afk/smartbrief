@@ -3,14 +3,14 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 import { afterEach, expect, it, vi } from 'vitest'
 import ElementPlus from 'element-plus'
 import EvaluationCenter from '../EvaluationCenter.vue'
-import { gradeReport, calibrateGrader, fetchCatalog, fetchCatalogCase, startMechanism, startSearchReplay, fetchMechanismRuns, saveEvaluationReview, fetchEvaluationReviews } from '../../api/evaluationCenter'
+import { startFullTask, gradeReport, calibrateGrader, fetchCatalog, fetchCatalogCase, startMechanism, startSearchReplay, fetchMechanismRuns, saveEvaluationReview, fetchEvaluationReviews } from '../../api/evaluationCenter'
 import { fetchEvalReports, runEvaluation } from '../../api/evaluation'
 import { authRole } from '../../api/session'
 
-vi.mock('../../api/evaluationCenter', () => ({ gradeReport: vi.fn(), calibrateGrader: vi.fn(), fetchCatalog: vi.fn(), fetchCatalogCase: vi.fn(), startMechanism: vi.fn(), startSearchReplay: vi.fn(), fetchMechanismRuns: vi.fn(), fetchMechanismRun: vi.fn(), saveEvaluationReview: vi.fn(), fetchEvaluationReviews: vi.fn() }))
+vi.mock('../../api/evaluationCenter', () => ({ startFullTask: vi.fn(), gradeReport: vi.fn(), calibrateGrader: vi.fn(), fetchCatalog: vi.fn(), fetchCatalogCase: vi.fn(), startMechanism: vi.fn(), startSearchReplay: vi.fn(), fetchMechanismRuns: vi.fn(), fetchMechanismRun: vi.fn(), saveEvaluationReview: vi.fn(), fetchEvaluationReviews: vi.fn() }))
 vi.mock('../../api/evaluation', () => ({ fetchEvalReports: vi.fn(), runEvaluation: vi.fn() }))
 const pack = { version: 'sb-eval-data-1', cutoff: '2026-10-31', total_cases: 108, dataset_hash: 'a'.repeat(64), collections: { golden: 24 },
-  areas: [{ area: 'report', label: '报告质量', case_count: 8, runnable: true, profile: 'report_grading', availability: '独立评分', score: null, supported_case_ids: ['G002'] }, { area: 'protocol', label: '流程与故障', case_count: 31, runnable: true, profile: 'protocol-1', availability: '原20例合成协议可运行', score: null },
+  areas: [{ area: 'end_to_end', label: '完整任务', case_count: 4, runnable: true, profile: 'full_task_local', availability: '完整图', score: null, supported_case_ids: ['G017'] }, { area: 'report', label: '报告质量', case_count: 8, runnable: true, profile: 'report_grading', availability: '独立评分', score: null, supported_case_ids: ['G002'] }, { area: 'protocol', label: '流程与故障', case_count: 31, runnable: true, profile: 'protocol-1', availability: '原20例合成协议可运行', score: null },
     { area: 'robustness', label: '鲁棒性与恢复', case_count: 36, runnable: true, profile: 'mechanism_regression', availability: '本地机制回归已接通', score: null, supported_case_ids: ['R009', 'G023'] },
     { area: 'search', label: '网络搜索', case_count: 16, runnable: true, profile: 'search_replay', availability: '冻结响应回放', score: null, supported_case_ids: ['G001'] }],
   cases: [{ case_id: 'G002', collection: 'golden', area: 'report', title: '腕戴研究', split: 'development', human_review: 'pending', run_status: 'not_run', source_count: 1, has_fixture: false }] }
@@ -120,4 +120,15 @@ it('独立报告评分只读禁写，校准未知不显示准确率零', async (
   vi.mocked(calibrateGrader).mockResolvedValue({ total: 10, unknown: 10, false_accepts: 0, false_rejects: 0, accuracy: null, groups: {}, results: [] })
   await wrapper!.findAll('button').find(b => b.text() === '运行评分器校准')!.trigger('click'); await flushPromises()
   expect(wrapper!.text()).toContain('待真实校准')
+})
+
+it('完整任务入口只读禁写且管理员明确提交替身配置', async () => {
+  authRole.value = 'readonly'; const router = await open('run')
+  const button = wrapper!.findAll('button').find(b => b.text() === '运行完整任务替身基线')!
+  expect(button.attributes('disabled')).toBeDefined(); expect(startFullTask).not.toHaveBeenCalled()
+  authRole.value = 'admin'; await flushPromises()
+  vi.mocked(startFullTask).mockResolvedValue({ run_id: 'er_' + 'e'.repeat(32) } as any)
+  await button.trigger('click'); await flushPromises()
+  expect(startFullTask).toHaveBeenCalledWith(['G017'], 'primary')
+  expect(router.currentRoute.value.path).toContain('/evaluation/runs/er_')
 })
