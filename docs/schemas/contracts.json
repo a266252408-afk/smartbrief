@@ -3006,6 +3006,212 @@
       ],
       "title": "MechanismRun",
       "type": "object"
+    },
+    "EvaluationReviewRequest": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "run_id": {
+                "type": "null"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "target": {
+                "const": "run_result"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "run_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "run_id"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "target": {
+          "enum": [
+            "case_definition",
+            "run_result"
+          ],
+          "title": "Target",
+          "type": "string"
+        },
+        "case_id": {
+          "pattern": "^(?:[GRC][0-9]{3}|P-C[0-9]{2})$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "pattern": "^er_[0-9a-f]{32}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Id"
+        },
+        "dataset_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Dataset Hash",
+          "type": "string"
+        },
+        "decision": {
+          "enum": [
+            "pass",
+            "fail",
+            "unknown"
+          ],
+          "title": "Decision",
+          "type": "string"
+        },
+        "notes": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Notes",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target",
+        "case_id",
+        "dataset_hash",
+        "decision",
+        "notes"
+      ],
+      "title": "EvaluationReviewRequest",
+      "type": "object"
+    },
+    "EvaluationReview": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "run_id": {
+                "type": "null"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "target": {
+                "const": "run_result"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "run_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "run_id"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "target": {
+          "enum": [
+            "case_definition",
+            "run_result"
+          ],
+          "title": "Target",
+          "type": "string"
+        },
+        "case_id": {
+          "pattern": "^(?:[GRC][0-9]{3}|P-C[0-9]{2})$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "pattern": "^er_[0-9a-f]{32}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Id"
+        },
+        "dataset_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Dataset Hash",
+          "type": "string"
+        },
+        "decision": {
+          "enum": [
+            "pass",
+            "fail",
+            "unknown"
+          ],
+          "title": "Decision",
+          "type": "string"
+        },
+        "notes": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Notes",
+          "type": "string"
+        },
+        "review_id": {
+          "title": "Review Id",
+          "type": "string"
+        },
+        "actor": {
+          "const": "admin",
+          "title": "Actor",
+          "type": "string"
+        },
+        "recorded_at": {
+          "title": "Recorded At",
+          "type": "string"
+        },
+        "supersedes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Supersedes"
+        }
+      },
+      "required": [
+        "target",
+        "case_id",
+        "dataset_hash",
+        "decision",
+        "notes",
+        "review_id",
+        "actor",
+        "recorded_at",
+        "supersedes"
+      ],
+      "title": "EvaluationReview",
+      "type": "object"
     }
   }
 }

@@ -3,11 +3,11 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 import { afterEach, expect, it, vi } from 'vitest'
 import ElementPlus from 'element-plus'
 import EvaluationCenter from '../EvaluationCenter.vue'
-import { fetchCatalog, fetchCatalogCase, startMechanism, fetchMechanismRuns } from '../../api/evaluationCenter'
+import { fetchCatalog, fetchCatalogCase, startMechanism, fetchMechanismRuns, saveEvaluationReview, fetchEvaluationReviews } from '../../api/evaluationCenter'
 import { fetchEvalReports, runEvaluation } from '../../api/evaluation'
 import { authRole } from '../../api/session'
 
-vi.mock('../../api/evaluationCenter', () => ({ fetchCatalog: vi.fn(), fetchCatalogCase: vi.fn(), startMechanism: vi.fn(), fetchMechanismRuns: vi.fn(), fetchMechanismRun: vi.fn() }))
+vi.mock('../../api/evaluationCenter', () => ({ fetchCatalog: vi.fn(), fetchCatalogCase: vi.fn(), startMechanism: vi.fn(), fetchMechanismRuns: vi.fn(), fetchMechanismRun: vi.fn(), saveEvaluationReview: vi.fn(), fetchEvaluationReviews: vi.fn() }))
 vi.mock('../../api/evaluation', () => ({ fetchEvalReports: vi.fn(), runEvaluation: vi.fn() }))
 const pack = { version: 'sb-eval-data-1', cutoff: '2026-10-31', total_cases: 108, dataset_hash: 'a'.repeat(64), collections: { golden: 24 },
   areas: [{ area: 'protocol', label: '流程与故障', case_count: 31, runnable: true, profile: 'protocol-1', availability: '原20例合成协议可运行', score: null },
@@ -19,6 +19,7 @@ async function open(tab: string) {
   vi.mocked(fetchCatalog).mockResolvedValue(pack)
   vi.mocked(fetchEvalReports).mockResolvedValue({ items: [], total: 0, page: 1, page_size: 20 })
   vi.mocked(fetchMechanismRuns).mockResolvedValue([])
+  vi.mocked(fetchEvaluationReviews).mockResolvedValue([])
   const router = createRouter({ history: createMemoryHistory(), routes: [
     { path: '/', component: EvaluationCenter, meta: { evaluationTab: tab } },
     { path: '/evaluation/protocol', component: { template: '<p>协议结果</p>' } },
@@ -81,4 +82,17 @@ it('机制回归只读禁写，管理员提交案例且保持质量边界', asyn
   await button.trigger('click'); await flushPromises()
   expect(startMechanism).toHaveBeenCalledWith(['R009', 'G023'])
   expect(router.currentRoute.value.path).toContain('/evaluation/runs/er_')
+})
+it('人工核验默认无法确认，显式提交且不批量更改其他题', async () => {
+  authRole.value = 'admin'
+  vi.mocked(fetchCatalogCase).mockResolvedValue({ case: { case_id: 'G002', title: '腕戴研究', input: { user_request: '核对腕戴' }, oracle: { expected_handling: 'deliver_supported_answer', assertions: [] } }, sources: [], rubrics: [], fixture: null })
+  await open('datasets')
+  await wrapper!.findAll('button').find(b => b.text() === '查看详情')!.trigger('click'); await flushPromises()
+  const save = wrapper!.findAll('button').find(b => b.text() === '保存题目核验')!
+  expect(save.attributes('disabled')).toBeDefined()
+  await wrapper!.get('textarea').setValue('发现需要进一步核对的口径')
+  vi.mocked(saveEvaluationReview).mockResolvedValue({ review_id: 'fixture', target: 'case_definition', case_id: 'G002', run_id: null, dataset_hash: 'a'.repeat(64), decision: 'unknown', notes: '核对中', actor: 'admin', recorded_at: 'fixture', supersedes: null })
+  await save.trigger('click'); await flushPromises()
+  expect(saveEvaluationReview).toHaveBeenCalledWith({ target: 'case_definition', case_id: 'G002', run_id: null, dataset_hash: 'a'.repeat(64), decision: 'unknown', notes: '发现需要进一步核对的口径' })
+  expect(wrapper!.get('[role="status"]').text()).toContain('原始机器成绩和题库内容未改写')
 })

@@ -38,6 +38,7 @@ export interface MechanismRun {
   run_id: string; execution_status: 'running' | 'completed' | 'failed'; report_quality: string
   created_at: string; error: string | null; results: MechanismResult[]
   summary: { planned: number; processed: number; passed: number; failed: number; unknown: number }
+  metadata?: { dataset_hash: string }
 }
 export async function startMechanism(caseIds: string[]): Promise<MechanismRun> {
   return (await http.post('/runs', { profile: 'mechanism_regression', case_ids: caseIds })).data.data
@@ -47,4 +48,17 @@ export async function fetchMechanismRuns(): Promise<MechanismRun[]> {
 }
 export async function fetchMechanismRun(id: string): Promise<MechanismRun> {
   return (await http.get(`/runs/${encodeURIComponent(id)}`)).data.data
+}
+
+export interface EvaluationReview {
+  review_id: string; target: 'case_definition' | 'run_result'; case_id: string; run_id: string | null
+  dataset_hash: string; decision: 'pass' | 'fail' | 'unknown'; notes: string
+  actor: string; recorded_at: string; supersedes: string | null
+}
+export type ReviewInput = Pick<EvaluationReview, 'target' | 'case_id' | 'run_id' | 'dataset_hash' | 'decision' | 'notes'>
+export async function saveEvaluationReview(body: ReviewInput): Promise<EvaluationReview> {
+  return (await http.post('/reviews', body)).data.data
+}
+export async function fetchEvaluationReviews(): Promise<EvaluationReview[]> {
+  return (await http.get('/reviews')).data.data.items
 }

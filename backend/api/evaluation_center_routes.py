@@ -7,8 +7,29 @@ from services import evaluation_catalog_service as catalog
 from services import evaluation_run_service as runs
 from evaluation.mechanism import MechanismRequest
 from services.evaluation_service import EvaluationError
+from services import evaluation_review_service as reviews
 
 router = APIRouter(prefix='/api/v2/evaluation-center')
+
+
+@router.get('/reviews')
+async def review_list(request: Request):
+    try:
+        return result(request,dict(items=reviews.listing()))
+    except EvaluationError as exc:
+        return failure(request,exc.status,exc.code,str(exc))
+
+
+@router.post('/reviews')
+async def review_create(request: Request):
+    try:
+        body=reviews.EvaluationReviewRequest.model_validate(await request.json())
+    except ValueError:
+        return failure(request,422,'INVALID_EVALUATION_REVIEW','人工核验目标、版本或备注无效')
+    try:
+        return result(request,reviews.create(body,request.state.principal.role),201)
+    except (EvaluationError,catalog.CatalogError) as exc:
+        return failure(request,exc.status,exc.code,str(exc))
 
 
 @router.get('/capabilities')

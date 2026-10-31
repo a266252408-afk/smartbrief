@@ -7,6 +7,39 @@ const golden = JSON.parse(readFileSync(fileURLToPath(new URL('private/golden.jso
 const collections = ['golden', 'regression', 'challenge']
 const cases = collections.flatMap(collection => JSON.parse(readFileSync(fileURLToPath(new URL(`private/${collection}.json`, root)), 'utf8')).cases)
 const labels = { protocol: '流程与故障', search: '网络搜索', report: '报告质量', robustness: '鲁棒性与恢复', end_to_end: '完整任务' }
+test('人工只核验所选题目，结论和备注可追溯且HTML不执行', async ({ page }) => {
+  const reviews: any[] = []
+  await page.route('**/api/v*/**', async route => {
+    const path = new URL(route.request().url()).pathname
+    const env = (data: unknown) => ({ data, meta: { request_id: 'fixture' } })
+    if (path === '/api/v2/auth/session') return route.fulfill({ json: env({ role: 'admin' }) })
+    if (path === '/api/v2/evaluation-center/catalog') return route.fulfill({ json: env({ version: 'sb-eval-data-1', cutoff: '2026-10-31', total_cases: 108, dataset_hash: 'a'.repeat(64), collections: {}, areas: [], cases: cases.map(c => ({ ...c, human_review: c.case_id === 'G002' && reviews.length ? 'pass' : 'pending' })) }) })
+    if (path === '/api/v2/evaluation-center/cases/G002') return route.fulfill({ json: env({ case: golden[1], sources: [JSON.parse(readFileSync(fileURLToPath(new URL('sources/S01.json', root)), 'utf8'))], rubrics: [], fixture: null }) })
+    if (path === '/api/v2/evaluation-center/reviews' && route.request().method() === 'POST') {
+      const data = { ...route.request().postDataJSON(), review_id: 'evr_fixture', actor: 'admin', recorded_at: '2026-10-31T00:00:00Z', supersedes: null }
+      reviews.push(data); return route.fulfill({ status: 201, json: env(data) })
+    }
+    if (path === '/api/v2/evaluation-center/reviews') return route.fulfill({ json: env({ items: reviews }) })
+    return route.fulfill({ status: 404, json: { error: { message: '未声明请求' } } })
+  })
+  await page.goto('/evaluation/datasets')
+  await page.getByLabel('访问令牌').fill('fixture-review')
+  await page.getByRole('button', { name: '验证并进入' }).click()
+  await page.getByLabel('搜索案例').fill('G002')
+  await page.getByRole('button', { name: '查看详情', exact: true }).click()
+  await page.getByRole('combobox', { name: '题目核验结论', exact: true }).focus()
+  await page.getByRole('combobox', { name: '题目核验结论', exact: true }).press('Enter')
+  await page.getByRole('option', { name: '核验通过', exact: true }).click()
+  await page.getByLabel('核验备注').fill('<img src=x onerror=alert(1)> 已核对口径')
+  await page.getByRole('button', { name: '保存题目核验', exact: true }).click()
+  await expect(page.getByRole('status')).toContainText('人工核验已保存')
+  expect(reviews).toHaveLength(1)
+  expect(reviews[0]).toMatchObject({ target: 'case_definition', case_id: 'G002', decision: 'pass', dataset_hash: 'a'.repeat(64), run_id: null })
+  await page.getByRole('link', { name: '人工复核', exact: true }).click()
+  await expect(page.getByRole('cell', { name: '<img src=x onerror=alert(1)> 已核对口径', exact: true })).toBeVisible()
+  await expect(page.locator('img')).toHaveCount(0)
+  await page.screenshot({ path: '../docs/verification/EVAL-NEXT-03-review.png', fullPage: true })
+})
 test('管理员启动机制回归并查看真实判定与质量未知', async ({ page }) => {
   const rid = 'er_' + 'a'.repeat(32)
   const writes: unknown[] = []
@@ -58,6 +91,7 @@ test('题库分区、筛选、详情和只读运行边界', async ({ page }) => 
   await expect(page.getByText('筛选结果 1 例')).toBeVisible()
   await page.getByRole('button', { name: '查看详情', exact: true }).click()
   await expect(page.getByTestId('catalog-detail')).toContainText('3708')
+  await expect(page.getByRole('button', { name: '保存题目核验', exact: true })).toBeDisabled()
   await page.screenshot({ path: '../docs/verification/EVAL-NEXT-01-catalog.png', fullPage: true })
   await page.getByRole('link', { name: '运行评测', exact: true }).click()
   await expect(page.getByRole('button', { name: '运行离线协议评测', exact: true })).toBeDisabled()

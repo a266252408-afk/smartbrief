@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { fetchCatalog, fetchCatalogCase, startMechanism, fetchMechanismRuns, fetchMechanismRun, type MechanismRun, type EvaluationCatalog, type CatalogDetail, type CatalogCase } from '../api/evaluationCenter'
+import { fetchCatalog, fetchCatalogCase, startMechanism, fetchMechanismRuns, fetchMechanismRun, saveEvaluationReview, fetchEvaluationReviews, type EvaluationReview, type MechanismRun, type EvaluationCatalog, type CatalogDetail, type CatalogCase } from '../api/evaluationCenter'
 import { fetchEvalReports, runEvaluation, type EvalReportSummary } from '../api/evaluation'
 import { authRole } from '../api/session'
 
@@ -14,6 +14,8 @@ const flags = ref({ rag: true, memory: true, review: true })
 const mechanismCases = ref(['R009', 'G023']), mechanismRuns = ref<MechanismRun[]>([]), mechanismError = ref('')
 const activeRun = ref<MechanismRun | null>(null)
 const traceRows = ref<Record<string, unknown>[] | null>(null)
+const reviewRows = ref<EvaluationReview[]>([]), reviewNotes = ref(''), reviewDecision = ref<'pass' | 'fail' | 'unknown'>('unknown')
+const reviewCaseId = ref(''), reviewing = ref(false), reviewError = ref(''), reviewMessage = ref('')
 let runPoll: ReturnType<typeof setTimeout> | undefined
 let disposed = false
 const tab = computed(() => String(route.meta.evaluationTab || 'overview'))
@@ -24,6 +26,7 @@ const collectionLabels: Record<string, string> = { golden: '黄金集', regressi
 const splitLabels: Record<string, string> = { development: '开发组', holdout: '留出组', evaluation_only: '仅验收', legacy: '原协议' }
 const runLabels: Record<string, string> = { running: '执行中', completed: '已处理完', failed: '执行中断' }
 const checkLabels: Record<string, string> = { pass: '通过', fail: '未通过', unknown: '待确认' }
+const reviewLabels: Record<string, string> = { pending: '待抽查', pass: '核验通过', fail: '需修改', unknown: '已抽查待确认' }
 function criterion(text: string) { return text.replace('oracle.required_fact_ids', '参考事实清单') }
 function traceLabel(event: Record<string, unknown>): string {
   if (event.kind === 'model_call') return `${event.model_role === 'primary' ? '主模型' : event.model_role === 'backup' ? '备用模型' : '模型'}调用${event.status === 'success' ? '成功' : '未成功'}${event.error_code ? `（${event.error_code}）` : ''}，耗时 ${event.duration_ms ?? '未知'} 毫秒`
@@ -51,6 +54,28 @@ async function loadMechanisms() {
   mechanismError.value = ''
   try { mechanismRuns.value = await fetchMechanismRuns() }
   catch { mechanismError.value = '专项运行记录不可读，请重试' }
+}
+async function loadReviews() {
+  reviewError.value = ''
+  try { reviewRows.value = await fetchEvaluationReviews() }
+  catch { reviewError.value = '人工核验记录读取失败，请重试' }
+}
+async function submitReview(target: 'case_definition' | 'run_result') {
+  if (!catalog.value || reviewing.value || authRole.value !== 'admin' || !reviewNotes.value.trim()) return
+  const id = target === 'case_definition' ? selected.value?.case.case_id : reviewCaseId.value
+  const run = target === 'run_result' ? activeRun.value : null
+  if (!id || (run && !run.metadata?.dataset_hash)) return
+  reviewing.value = true; reviewError.value = ''; reviewMessage.value = ''
+  try {
+    await saveEvaluationReview({ target, case_id: id, run_id: run?.run_id || null,
+      dataset_hash: run?.metadata?.dataset_hash || catalog.value.dataset_hash,
+      decision: reviewDecision.value, notes: reviewNotes.value })
+    reviewMessage.value = '人工核验已保存；原始机器成绩和题库内容未改写'
+    reviewNotes.value = ''; reviewDecision.value = 'unknown'
+    await load()
+    if (tab.value === 'review') await loadReviews()
+  } catch { reviewError.value = '核验未保存，请检查资料版本、备注或访问权限' }
+  finally { reviewing.value = false }
 }
 async function loadRun() {
   const id = String(route.params.runId || '')
@@ -89,6 +114,7 @@ function loadTab() {
   if (['overview', 'records', 'compare'].includes(tab.value)) void loadHistory()
   if (tab.value === 'records') void loadMechanisms()
   if (tab.value === 'run-detail') void loadRun()
+  if (tab.value === 'review') void loadReviews()
 }
 watch(() => route.fullPath, loadTab)
 onMounted(() => { void load(); loadTab() })
@@ -104,6 +130,7 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
     <p v-if="error" role="alert">{{ error }} <el-button @click="load">重新读取题库</el-button></p>
     <p v-if="loading">正在读取版本化题库…</p>
     <p v-if="mechanismError" role="alert">{{ mechanismError }}</p>
+    <p v-if="reviewError" role="alert">{{ reviewError }}</p><p v-if="reviewMessage" role="status">{{ reviewMessage }}</p>
     <template v-if="catalog">
       <div class="version">{{ catalog.version }} · 截止 {{ catalog.cutoff }} · {{ catalog.total_cases }} 例 · 题目准备状态不代表系统成绩</div>
       <template v-if="tab === 'overview'">
@@ -131,7 +158,7 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
           <el-table-column prop="title" label="题目" min-width="260" />
           <el-table-column label="集合" width="100"><template #default="{ row }">{{ collectionLabels[row.collection] }}</template></el-table-column>
           <el-table-column label="资料分组" width="140"><template #default="{ row }">{{ splitLabels[row.split] || '其他分组' }}</template></el-table-column>
-          <el-table-column label="人工核验" width="110"><template #default>待抽查</template></el-table-column>
+          <el-table-column label="人工核验" width="130"><template #default="{ row }">{{ reviewLabels[row.human_review] || '待抽查' }}</template></el-table-column>
           <el-table-column label="操作" width="95"><template #default="{ row }"><el-button link @click.stop="inspect(row.case_id)">查看详情</el-button></template></el-table-column>
         </el-table>
         <p v-if="detailLoading">正在读取案例…</p><p v-if="detailError" role="alert">{{ detailError }}</p>
@@ -146,6 +173,11 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
           </section>
           <details v-if="selected.fixture"><summary>合成场景定义（非实测轨迹）</summary><pre>{{ JSON.stringify(selected.fixture, null, 2) }}</pre></details>
           <p v-if="selected.case.legacy">原协议案例：{{ JSON.stringify(selected.case.legacy) }}</p>
+          <section class="review-form"><h4>核验这道题和参考依据</h4><p>这里只记录你检查过的案例，不代表系统已经运行通过。</p>
+            <el-select v-model="reviewDecision" aria-label="题目核验结论" :disabled="authRole !== 'admin'"><el-option label="核验通过" value="pass" /><el-option label="需要修改" value="fail" /><el-option label="无法确认" value="unknown" /></el-select>
+            <el-input v-model="reviewNotes" type="textarea" aria-label="核验备注" placeholder="写明核对内容或发现的问题" :maxlength="2000" :disabled="authRole !== 'admin'" />
+            <el-button :disabled="authRole !== 'admin' || !reviewNotes.trim()" :loading="reviewing" @click="submitReview('case_definition')">保存题目核验</el-button>
+          </section>
         </article>
       </template>
       <template v-else-if="tab === 'run'">
@@ -189,10 +221,20 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
           <p v-if="activeRun.error" role="alert">{{ activeRun.error }}</p>
           <el-table :data="activeRun.results"><el-table-column prop="case_id" label="案例" /><el-table-column label="机制判定"><template #default="{ row }">{{ checkLabels[row.check_status] }}</template></el-table-column><el-table-column prop="test_count" label="实际测试数" /><el-table-column prop="skipped" label="跳过数" /><el-table-column prop="duration_seconds" label="耗时（秒）" /><el-table-column prop="error" label="异常" /><el-table-column label="过程"><template #default="{ row }"><el-button link @click="traceRows = row.trace || []">查看过程</el-button></template></el-table-column></el-table>
           <section v-if="traceRows !== null"><h4>实际执行事件</h4><p v-if="!traceRows.length">该记录没有可用轨迹证据，不补造过程。</p><ol><li v-for="(event, index) in traceRows" :key="index">{{ traceLabel(event) }}</li></ol></section>
+          <section class="review-form"><h4>人工复核本次案例结果</h4><p>记录人工意见，原始机制判定保留。</p>
+            <el-select v-model="reviewCaseId" aria-label="复核运行案例" :disabled="authRole !== 'admin'"><el-option v-for="r in activeRun.results" :key="r.case_id" :value="r.case_id" :label="r.case_id" /></el-select>
+            <el-select v-model="reviewDecision" aria-label="运行复核结论" :disabled="authRole !== 'admin'"><el-option label="复核通过" value="pass" /><el-option label="复核不通过" value="fail" /><el-option label="无法确认" value="unknown" /></el-select>
+            <el-input v-model="reviewNotes" type="textarea" aria-label="核验备注" :maxlength="2000" :disabled="authRole !== 'admin'" />
+            <el-button :disabled="authRole !== 'admin' || !reviewNotes.trim() || !reviewCaseId || !activeRun.metadata?.dataset_hash" :loading="reviewing" @click="submitReview('run_result')">保存结果复核</el-button>
+          </section>
         </template>
       </template>
-      <template v-else-if="tab === 'review'"><h3>人工复核</h3><p>题库核验与运行结果复核分开记录。当前尚未接通持久化复核，不能把待抽查案例自动标为人工通过。</p>
-        <router-link to="/evaluation/datasets">先查看案例及来源依据</router-link></template>
+      <template v-else-if="tab === 'review'"><h3>人工复核记录</h3><p>题目核验与运行结果复核分开，所有修改保留先前记录；未抽查案例保持待抽查。</p>
+        <router-link to="/evaluation/datasets">查看案例及来源后提交核验</router-link>
+        <el-table :data="reviewRows"><el-table-column prop="case_id" label="案例" width="95" /><el-table-column label="核验对象"><template #default="{ row }">{{ row.target === 'case_definition' ? '题目与参考依据' : '运行结果' }}</template></el-table-column>
+          <el-table-column label="结论"><template #default="{ row }">{{ reviewLabels[row.decision] }}</template></el-table-column><el-table-column prop="notes" label="备注" min-width="260" /><el-table-column prop="recorded_at" label="记录时间" />
+        </el-table><p v-if="!reviewRows.length && !reviewError">尚无人工核验记录</p>
+      </template>
     </template>
     <p><router-link to="/evaluation/protocol">原20例协议完整视图（兼容入口）</router-link></p>
   </section>
@@ -204,4 +246,5 @@ nav a{color:#475467;text-decoration:none;padding-bottom:8px}nav a.current{color:
 .areas{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin:20px 0}
 article{background:white;border:1px solid #dbe2ea;border-radius:8px;padding:18px}article h3,article h4{margin-top:0}.filters{display:flex;gap:12px}.filters>*{max-width:280px}
 .case-detail{margin-top:20px}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{overflow-wrap:anywhere}[role=alert]{color:#b42318}
+.review-form{border-top:1px solid #dbe2ea;padding-top:16px;margin-top:20px;display:grid;gap:12px}.review-form .el-select{max-width:300px}.review-form .el-button{justify-self:start}
 </style>
