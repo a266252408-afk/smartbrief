@@ -20,12 +20,15 @@ class SearchRequest(BaseModel):
     model_config=ConfigDict(extra='forbid',strict=True)
     profile: Literal['search_replay','search_live']='search_replay'
     case_ids: list[str]=Field(min_length=1,max_length=12)
+    authorization_id: str | None = Field(default=None, pattern=r'^[A-Za-z0-9_-]{8,80}$')
 
     @model_validator(mode='after')
     def valid_cases(self):
         allowed=GOLDEN if self.profile=='search_live' else SUPPORTED
         if len(set(self.case_ids))!=len(self.case_ids) or any(cid not in allowed for cid in self.case_ids):
             raise ValueError('未知、重复或不支持的搜索案例')
+        if self.profile == 'search_replay' and self.authorization_id is not None:
+            raise ValueError('本地回放不接受消费授权')
         return self
 
 
@@ -52,10 +55,29 @@ class SearchResult(MechanismResult):
     evidence: list[dict]
 
 
+class LiveSearchMetrics(SearchMetrics):
+    returned_count: int | None
+    valid_url_count: int | None
+    unique_sources: int | None
+    exact_duplicate_count: int | None
+    dated_documents: int | None
+    unknown_period_documents: int | None
+    unavailable_content_count: int | None
+    network_calls: Literal[0, 1]
+    replay_queries: Literal[0] = 0
+    provider_estimated_cost_usd: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+
+
+class LiveSearchResult(MechanismResult):
+    engine: Literal['exa_live_search'] = 'exa_live_search'
+    metrics: LiveSearchMetrics
+    evidence: list[dict]
+
+
 class EvaluationRun(MechanismRun):
-    profile: Literal['mechanism_regression','search_replay','report_grading','grader_calibration','full_task_local','full_task_live','bounded_experiment']
+    profile: Literal['mechanism_regression','search_replay','search_live','report_grading','grader_calibration','full_task_local','full_task_live','bounded_experiment']
     report_quality: Literal['unknown','passed','rejected']
-    results: list[MechanismResult | SearchResult | ReportGradeResult | CalibrationRow | FullTaskResult | ExperimentCaseResult]
+    results: list[MechanismResult | SearchResult | LiveSearchResult | ReportGradeResult | CalibrationRow | FullTaskResult | ExperimentCaseResult]
 
 
 def canonical_url(value):

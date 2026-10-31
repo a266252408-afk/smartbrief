@@ -7,6 +7,31 @@ const golden = JSON.parse(readFileSync(fileURLToPath(new URL('private/golden.jso
 const collections = ['golden', 'regression', 'challenge']
 const cases = collections.flatMap(collection => JSON.parse(readFileSync(fileURLToPath(new URL(`private/${collection}.json`, root)), 'utf8')).cases)
 const labels = { protocol: '流程与故障', search: '网络搜索', report: '报告质量', robustness: '鲁棒性与恢复', end_to_end: '完整任务' }
+test('真实搜索编号不能自行授权，失败费用和采集数量保持未知', async ({ page }) => {
+  const rid = 'er_'+'9'.repeat(32), writes: unknown[] = []
+  await page.route('**/api/v*/**', async route => {
+    const path = new URL(route.request().url()).pathname, env = (data: unknown) => ({ data, meta: { request_id: 'fixture' } })
+    if (path === '/api/v2/auth/session') return route.fulfill({ json: env({ role: 'admin' }) })
+    if (path.endsWith('/catalog')) return route.fulfill({ json: env({ version: 'sb-eval-data-1', cutoff: '2026-10-31', total_cases: 108, cases: [], collections: {}, areas: [{ area: 'search', label: '网络搜索', profile: 'search_replay', supported_case_ids: ['G001'], live_case_ids: ['G001'], runnable: true, score: null }] }) })
+    if (path.endsWith('/runs') && route.request().method() === 'POST') { writes.push(route.request().postDataJSON()); return route.fulfill({ status: 202, json: env({ run_id: rid }) }) }
+    if (path.endsWith('/runs/'+rid)) return route.fulfill({ json: env({ run_id: rid, profile: 'search_live', execution_status: 'completed', report_quality: 'unknown', metadata: { dataset_hash: 'a'.repeat(64) }, summary: { planned: 1, processed: 1, passed: 0, failed: 0, unknown: 1 }, results: [{ case_id: 'G001', check_status: 'unknown', error: '供应商未响应', metrics: { returned_count: null, unique_sources: null, unknown_period_documents: null, stale_documents: null, network_calls: 1, provider_estimated_cost_usd: null }, trace: [{ kind: 'search_request', provider: 'exa', query: '冻结公开查询' }, { kind: 'search_error', error_code: 'SEARCH_UNAVAILABLE' }], evidence: [] }] }) })
+    return route.fulfill({ status: 404, json: { error: { message: '未声明请求' } } })
+  })
+  await page.goto('/evaluation/run')
+  await page.getByLabel('访问令牌').fill('fixture-live-search')
+  await page.getByRole('button', { name: '验证并进入' }).click()
+  const button = page.getByRole('button', { name: '按已批准授权运行真实搜索', exact: true })
+  await expect(button).toBeDisabled()
+  await page.getByLabel('真实搜索单次授权编号').fill('approved-server-id')
+  await button.click()
+  await expect(page.getByRole('heading', { name: '真实搜索详情', exact: true })).toBeVisible()
+  await expect(page.getByRole('cell', { name: '未知', exact: true })).toHaveCount(4)
+  await expect(page.getByRole('cell', { name: '供应商未响应', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '查看当次摘要', exact: true }).click()
+  await expect(page.getByText('当次查询：冻结公开查询（EXA提供商）', { exact: true })).toBeVisible()
+  expect(writes).toEqual([{ profile: 'search_live', case_ids: ['G001'], authorization_id: 'approved-server-id' }])
+  await page.screenshot({ path: '../docs/verification/EVAL-NEXT-07-03-live-search.png', fullPage: true })
+})
 test('有限实验保留首次故障和两组尝试，质量未知不冒充改进', async ({ page }) => {
   const rid = 'er_'+'f'.repeat(32), writes: unknown[] = []
   const baseline = { case_id: 'G002', check_status: 'fail', task_execution_status: 'paused', provider_calls: 2, calls: 2, trace: [{ kind: 'model_call', model_role: 'primary', status: 'failed', error_code: 'MODEL_CONNECTION' }, { kind: 'model_call', model_role: 'backup', status: 'failed', error_code: 'MODEL_CONNECTION' }] }

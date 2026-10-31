@@ -28,6 +28,21 @@ class EvaluationGrant(BaseModel):
     estimated_cost_ceiling: float = Field(gt=0)
 
 
+class SearchEvaluationGrant(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True, allow_inf_nan=False)
+    authorization_id: str = Field(pattern=r'^[A-Za-z0-9_-]{8,80}$')
+    dataset_hash: str = Field(pattern=r'^[a-f0-9]{64}$')
+    case_ids: list[Literal['G001', 'G003', 'G005', 'G007', 'G009', 'G011', 'G013', 'G015']] = Field(min_length=1, max_length=8)
+    recipient: Literal['https://api.exa.ai/search'] = 'https://api.exa.ai/search'
+    expires_at: str
+    max_search_calls: int = Field(ge=1, le=8)
+    per_call_estimate_ceiling: float = Field(gt=0)
+    estimated_cost_ceiling: float = Field(gt=0)
+    currency: Literal['USD'] = 'USD'
+    search_type: Literal['auto'] = 'auto'
+    max_results: Literal[5] = 5
+
+
 def reserve(body):
     try:
         grant = EvaluationGrant.model_validate_json(os.environ.get('SMARTBRIEF_EVALUATION_GRANT', ''))
@@ -43,7 +58,28 @@ def reserve(body):
             raise ValueError
     except (ValueError, TypeError):
         raise EvaluationError('LIVE_EVALUATION_NOT_AUTHORIZED', '需单独批准固定资料去向、模型、调用量、预算与有效期；本次未启动', 403) from None
-    # 单次预留采用排他创建；重启后不能重复使用同一批付费授权。
+    _reserve_once(grant, estimate)
+    return grant
+
+
+def reserve_search(body):
+    try:
+        grant = SearchEvaluationGrant.model_validate_json(os.environ.get('SMARTBRIEF_SEARCH_EVALUATION_GRANT', ''))
+        estimate = grant.max_search_calls * grant.per_call_estimate_ceiling
+        if (body.authorization_id != grant.authorization_id or body.case_ids != grant.case_ids
+                or grant.dataset_hash != catalog.summary()['dataset_hash']
+                or datetime.fromisoformat(grant.expires_at) <= datetime.now(timezone.utc)
+                or not os.getenv('EXA_API_KEY', '').strip() or len(body.case_ids) > grant.max_search_calls
+                or estimate > grant.estimated_cost_ceiling):
+            raise ValueError
+    except (ValueError, TypeError):
+        raise EvaluationError('LIVE_SEARCH_NOT_AUTHORIZED', '真实搜索需单独批准公开查询去向、调用数、估计费用和有效期；本次未启动', 403) from None
+    _reserve_once(grant, estimate)
+    return grant
+
+
+def _reserve_once(grant, estimate):
+    # 单次预留采用排他创建；模型与搜索不能重复使用同一授权编号。
     path = repository.root() / 'authorizations' / (hashlib.sha256(grant.authorization_id.encode()).hexdigest() + '.json')
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -58,7 +94,6 @@ def reserve(body):
         raise EvaluationError('EVALUATION_GRANT_USED', '此授权已预留，不能重复付费运行', 409) from None
     except OSError:
         raise EvaluationError('EVALUATION_GRANT_STORAGE', '授权预留失败，已停止调用') from None
-    return grant
 
 
 class CallBudget:

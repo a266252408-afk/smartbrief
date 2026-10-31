@@ -22,6 +22,7 @@ EVAL-NEXT-03接通人工核验：/api/v2/evaluation-center/reviews管理员追�
 | --- | --- | --- |
 | 机制回归 | runs / mechanism_regression，18个固定映射 | 真实pytest/JUnit、真实路由和存储、替身供应商；报告质量unknown |
 | 搜索回放 | runs / search_replay，12例 | 冻结资料卡/合成响应；URL、去重、统计期/可用性；相关性与关键证据覆盖null，不证明联网 |
+| 真实搜索授权适配 | runs / search_live，8个黄金查询 | 默认拒绝无授权；单次预留后固定EXA请求，真实调用未执行；摘要/日期/估计费用不代表语义通过 |
 | 固定资料报告 | grade-report，8例 | 实际提交稿件的程序检查＋独立语义适配；缺少语义评分器为unknown，硬违规优先拒绝 |
 | 评分器校准 | calibrate，10例 | 预期标签只在评分后用于统计；开发/仅验收分组，未启用语义评分器时10例unknown、准确率null |
 | 完整任务 | runs / full_task_local，4例 | 隔离子进程实际完整图；primary/backup/mixed三组；业务审核与独立质量分列 |
@@ -33,6 +34,8 @@ EVAL-NEXT-03接通人工核验：/api/v2/evaluation-center/reviews管理员追�
 OpenJudgeAdapter仅验证预构造grader的aevaluate协议，未安装/验收SDK依赖或真实语义准确率。业务Reviewer不作为独立评分器；人工复核保留机器原始结果，校准J01～J10亦可绑定运行复核。
 
 专项对照POST/GET comparisons保留基线/当前归档指纹，允许声明code或model_group一个维度变化。案例/顺序、资料、模型、提示、预算、记忆等需冻结且运行完整，缺失或多处变化仅并排，不算差值；原协议409单开关规则不变。逐例保存退化/改善/未知，质量未评分为null；所有尝试耗时计入，不能只挑成功案例或宣称统计显著。
+
+真实搜索与模型各用独立授权；网页只能提交已批准编号，不能签发授权。SearchRequest的回放请求不接受消费授权字段。
 
 专项运行、校准、复核、对照和单次消费预留均在DATA_DIR/evaluation-center。备份时停写并保存整个目录；不要只备份业务SQLite。真实调用规则见[单次授权runbook](runbooks/evaluation-paid-authorization.md)。Docker/远程部署及真实效果仍不在本轮验收内。
 

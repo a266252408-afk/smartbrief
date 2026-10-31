@@ -2402,6 +2402,14 @@
           },
           "title": "Experiment Case Ids",
           "type": "array"
+        },
+        "live_case_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Live Case Ids",
+          "type": "array"
         }
       },
       "required": [
@@ -2477,6 +2485,14 @@
                 "type": "string"
               },
               "title": "Experiment Case Ids",
+              "type": "array"
+            },
+            "live_case_ids": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Live Case Ids",
               "type": "array"
             }
           },
@@ -3249,6 +3265,19 @@
           "minItems": 1,
           "title": "Case Ids",
           "type": "array"
+        },
+        "authorization_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{8,80}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Authorization Id"
         }
       },
       "required": [
@@ -3846,6 +3875,304 @@
           "title": "Judgement",
           "type": "object"
         },
+        "LiveSearchMetrics": {
+          "additionalProperties": false,
+          "properties": {
+            "returned_count": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Returned Count"
+            },
+            "valid_url_count": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Valid Url Count"
+            },
+            "unique_sources": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Unique Sources"
+            },
+            "exact_duplicate_count": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Exact Duplicate Count"
+            },
+            "dated_documents": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Dated Documents"
+            },
+            "unknown_period_documents": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Unknown Period Documents"
+            },
+            "stale_documents": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stale Documents"
+            },
+            "freshness_target": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Freshness Target"
+            },
+            "unavailable_content_count": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Unavailable Content Count"
+            },
+            "network_calls": {
+              "enum": [
+                0,
+                1
+              ],
+              "title": "Network Calls",
+              "type": "integer"
+            },
+            "replay_queries": {
+              "const": 0,
+              "default": 0,
+              "title": "Replay Queries",
+              "type": "integer"
+            },
+            "relevance_at_5": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Relevance At 5"
+            },
+            "key_evidence_coverage": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Key Evidence Coverage"
+            },
+            "provider_estimated_cost_usd": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Provider Estimated Cost Usd"
+            }
+          },
+          "required": [
+            "returned_count",
+            "valid_url_count",
+            "unique_sources",
+            "exact_duplicate_count",
+            "dated_documents",
+            "unknown_period_documents",
+            "stale_documents",
+            "unavailable_content_count",
+            "network_calls"
+          ],
+          "title": "LiveSearchMetrics",
+          "type": "object"
+        },
+        "LiveSearchResult": {
+          "additionalProperties": false,
+          "properties": {
+            "case_id": {
+              "title": "Case Id",
+              "type": "string"
+            },
+            "check_status": {
+              "enum": [
+                "pass",
+                "fail",
+                "unknown"
+              ],
+              "title": "Check Status",
+              "type": "string"
+            },
+            "test_count": {
+              "title": "Test Count",
+              "type": "integer"
+            },
+            "passed": {
+              "title": "Passed",
+              "type": "integer"
+            },
+            "failed": {
+              "title": "Failed",
+              "type": "integer"
+            },
+            "skipped": {
+              "title": "Skipped",
+              "type": "integer"
+            },
+            "test_names": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Test Names",
+              "type": "array"
+            },
+            "execution_status": {
+              "enum": [
+                "completed",
+                "failed"
+              ],
+              "title": "Execution Status",
+              "type": "string"
+            },
+            "report_quality": {
+              "const": "unknown",
+              "default": "unknown",
+              "title": "Report Quality",
+              "type": "string"
+            },
+            "exit_code": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Exit Code"
+            },
+            "duration_seconds": {
+              "title": "Duration Seconds",
+              "type": "number"
+            },
+            "engine": {
+              "const": "exa_live_search",
+              "default": "exa_live_search",
+              "title": "Engine",
+              "type": "string"
+            },
+            "error": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error"
+            },
+            "scope": {
+              "title": "Scope",
+              "type": "string"
+            },
+            "trace": {
+              "default": [],
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "title": "Trace",
+              "type": "array"
+            },
+            "metrics": {
+              "$ref": "#/$defs/LiveSearchMetrics"
+            },
+            "evidence": {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "title": "Evidence",
+              "type": "array"
+            }
+          },
+          "required": [
+            "case_id",
+            "check_status",
+            "test_count",
+            "passed",
+            "failed",
+            "skipped",
+            "test_names",
+            "execution_status",
+            "exit_code",
+            "duration_seconds",
+            "error",
+            "scope",
+            "metrics",
+            "evidence"
+          ],
+          "title": "LiveSearchResult",
+          "type": "object"
+        },
         "MechanismResult": {
           "additionalProperties": false,
           "properties": {
@@ -4309,6 +4636,7 @@
           "enum": [
             "mechanism_regression",
             "search_replay",
+            "search_live",
             "report_grading",
             "grader_calibration",
             "full_task_local",
@@ -4342,6 +4670,9 @@
               },
               {
                 "$ref": "#/$defs/SearchResult"
+              },
+              {
+                "$ref": "#/$defs/LiveSearchResult"
               },
               {
                 "$ref": "#/$defs/ReportGradeResult"
@@ -5685,6 +6016,564 @@
         "always_passed"
       ],
       "title": "ExperimentArm",
+      "type": "object"
+    },
+    "SearchEvaluationGrant": {
+      "additionalProperties": false,
+      "properties": {
+        "authorization_id": {
+          "pattern": "^[A-Za-z0-9_-]{8,80}$",
+          "title": "Authorization Id",
+          "type": "string"
+        },
+        "dataset_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Dataset Hash",
+          "type": "string"
+        },
+        "case_ids": {
+          "items": {
+            "enum": [
+              "G001",
+              "G003",
+              "G005",
+              "G007",
+              "G009",
+              "G011",
+              "G013",
+              "G015"
+            ],
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Case Ids",
+          "type": "array"
+        },
+        "recipient": {
+          "const": "https://api.exa.ai/search",
+          "default": "https://api.exa.ai/search",
+          "title": "Recipient",
+          "type": "string"
+        },
+        "expires_at": {
+          "title": "Expires At",
+          "type": "string"
+        },
+        "max_search_calls": {
+          "maximum": 8,
+          "minimum": 1,
+          "title": "Max Search Calls",
+          "type": "integer"
+        },
+        "per_call_estimate_ceiling": {
+          "exclusiveMinimum": 0,
+          "title": "Per Call Estimate Ceiling",
+          "type": "number"
+        },
+        "estimated_cost_ceiling": {
+          "exclusiveMinimum": 0,
+          "title": "Estimated Cost Ceiling",
+          "type": "number"
+        },
+        "currency": {
+          "const": "USD",
+          "default": "USD",
+          "title": "Currency",
+          "type": "string"
+        },
+        "search_type": {
+          "const": "auto",
+          "default": "auto",
+          "title": "Search Type",
+          "type": "string"
+        },
+        "max_results": {
+          "const": 5,
+          "default": 5,
+          "title": "Max Results",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "authorization_id",
+        "dataset_hash",
+        "case_ids",
+        "expires_at",
+        "max_search_calls",
+        "per_call_estimate_ceiling",
+        "estimated_cost_ceiling"
+      ],
+      "title": "SearchEvaluationGrant",
+      "type": "object"
+    },
+    "LiveSearchMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "returned_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Returned Count"
+        },
+        "valid_url_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Valid Url Count"
+        },
+        "unique_sources": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Unique Sources"
+        },
+        "exact_duplicate_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Exact Duplicate Count"
+        },
+        "dated_documents": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Dated Documents"
+        },
+        "unknown_period_documents": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Unknown Period Documents"
+        },
+        "stale_documents": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Stale Documents"
+        },
+        "freshness_target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Freshness Target"
+        },
+        "unavailable_content_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Unavailable Content Count"
+        },
+        "network_calls": {
+          "enum": [
+            0,
+            1
+          ],
+          "title": "Network Calls",
+          "type": "integer"
+        },
+        "replay_queries": {
+          "const": 0,
+          "default": 0,
+          "title": "Replay Queries",
+          "type": "integer"
+        },
+        "relevance_at_5": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Relevance At 5"
+        },
+        "key_evidence_coverage": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key Evidence Coverage"
+        },
+        "provider_estimated_cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Estimated Cost Usd"
+        }
+      },
+      "required": [
+        "returned_count",
+        "valid_url_count",
+        "unique_sources",
+        "exact_duplicate_count",
+        "dated_documents",
+        "unknown_period_documents",
+        "stale_documents",
+        "unavailable_content_count",
+        "network_calls"
+      ],
+      "title": "LiveSearchMetrics",
+      "type": "object"
+    },
+    "LiveSearchResult": {
+      "$defs": {
+        "LiveSearchMetrics": {
+          "additionalProperties": false,
+          "properties": {
+            "returned_count": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Returned Count"
+            },
+            "valid_url_count": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Valid Url Count"
+            },
+            "unique_sources": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Unique Sources"
+            },
+            "exact_duplicate_count": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Exact Duplicate Count"
+            },
+            "dated_documents": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Dated Documents"
+            },
+            "unknown_period_documents": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Unknown Period Documents"
+            },
+            "stale_documents": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stale Documents"
+            },
+            "freshness_target": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Freshness Target"
+            },
+            "unavailable_content_count": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Unavailable Content Count"
+            },
+            "network_calls": {
+              "enum": [
+                0,
+                1
+              ],
+              "title": "Network Calls",
+              "type": "integer"
+            },
+            "replay_queries": {
+              "const": 0,
+              "default": 0,
+              "title": "Replay Queries",
+              "type": "integer"
+            },
+            "relevance_at_5": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Relevance At 5"
+            },
+            "key_evidence_coverage": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Key Evidence Coverage"
+            },
+            "provider_estimated_cost_usd": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Provider Estimated Cost Usd"
+            }
+          },
+          "required": [
+            "returned_count",
+            "valid_url_count",
+            "unique_sources",
+            "exact_duplicate_count",
+            "dated_documents",
+            "unknown_period_documents",
+            "stale_documents",
+            "unavailable_content_count",
+            "network_calls"
+          ],
+          "title": "LiveSearchMetrics",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "check_status": {
+          "enum": [
+            "pass",
+            "fail",
+            "unknown"
+          ],
+          "title": "Check Status",
+          "type": "string"
+        },
+        "test_count": {
+          "title": "Test Count",
+          "type": "integer"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "integer"
+        },
+        "failed": {
+          "title": "Failed",
+          "type": "integer"
+        },
+        "skipped": {
+          "title": "Skipped",
+          "type": "integer"
+        },
+        "test_names": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Test Names",
+          "type": "array"
+        },
+        "execution_status": {
+          "enum": [
+            "completed",
+            "failed"
+          ],
+          "title": "Execution Status",
+          "type": "string"
+        },
+        "report_quality": {
+          "const": "unknown",
+          "default": "unknown",
+          "title": "Report Quality",
+          "type": "string"
+        },
+        "exit_code": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Exit Code"
+        },
+        "duration_seconds": {
+          "title": "Duration Seconds",
+          "type": "number"
+        },
+        "engine": {
+          "const": "exa_live_search",
+          "default": "exa_live_search",
+          "title": "Engine",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
+        },
+        "scope": {
+          "title": "Scope",
+          "type": "string"
+        },
+        "trace": {
+          "default": [],
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Trace",
+          "type": "array"
+        },
+        "metrics": {
+          "$ref": "#/$defs/LiveSearchMetrics"
+        },
+        "evidence": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "case_id",
+        "check_status",
+        "test_count",
+        "passed",
+        "failed",
+        "skipped",
+        "test_names",
+        "execution_status",
+        "exit_code",
+        "duration_seconds",
+        "error",
+        "scope",
+        "metrics",
+        "evidence"
+      ],
+      "title": "LiveSearchResult",
       "type": "object"
     }
   }

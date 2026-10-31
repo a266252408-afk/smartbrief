@@ -7,9 +7,10 @@ from uuid import uuid4
 from db import evaluation_run_repository as repository
 from evaluation import catalog
 from evaluation.mechanism import MechanismRequest, MechanismResult, TESTS, run_case
-from evaluation.search_replay import SearchRequest, SearchResult, EvaluationRun, run_case as replay_case
+from evaluation.search_replay import SearchRequest, SearchResult, LiveSearchResult, EvaluationRun, run_case as replay_case
 from evaluation.full_task import FullTaskRequest, FullTaskResult, run_case as full_case
-from evaluation.authorization import reserve, EvaluationGrant
+from evaluation.authorization import reserve, reserve_search, EvaluationGrant, SearchEvaluationGrant
+from evaluation.search_live import run_case as live_search_case
 from evaluation.experiment import ExperimentRequest, ExperimentCaseResult, validate_sources, run_case as experiment_case
 from services.evaluation_service import EvaluationError
 
@@ -32,9 +33,7 @@ def start(body: MechanismRequest | SearchRequest | FullTaskRequest | ExperimentR
     global _handle,_run_id
     if _handle is not None and not _handle.done():
         raise EvaluationError('EVALUATION_RUNNING','已有专项评测正在运行',409)
-    if body.profile=='search_live':
-        raise EvaluationError('LIVE_SEARCH_NOT_AUTHORIZED','真实联网需另行批准数据去向、调用量和费用上限；本次未创建成绩',403)
-    grant = reserve(body) if body.profile == 'full_task_live' else None
+    grant = reserve_search(body) if body.profile == 'search_live' else reserve(body) if body.profile == 'full_task_live' else None
     if body.profile == 'bounded_experiment':
         try:
             validate_sources(body.case_ids)
@@ -51,6 +50,11 @@ def start(body: MechanismRequest | SearchRequest | FullTaskRequest | ExperimentR
     if body.profile=='search_replay':
         metadata.update(model='none',engine='frozen_search_replay',
                         evidence_scope='冻结资料卡或合成响应，不是当次联网结果',randomness='固定响应，仅耗时受本机负载影响')
+    if body.profile == 'search_live':
+        metadata.update(mode='online', engine='exa_live_search', model='none',
+            authorized_search_grant=grant.model_dump(), memory_protocol='不读写业务记忆',
+            evidence_scope='当次提供商摘要；语义/正文/统计期未知，非研究智能体自主检索',
+            randomness='固定公开查询和前5条；网页/供应商返回随时间变化，不作严格归因')
     if body.profile in ('full_task_local', 'full_task_live'):
         metadata.update(engine='isolated_full_workflow', model_group=body.group,
                         model=grant.model if grant else 'fixture-primary/fixture-backup',
@@ -88,7 +92,10 @@ def start(body: MechanismRequest | SearchRequest | FullTaskRequest | ExperimentR
 async def _execute(record):
     try:
         for cid in record['case_ids']:
-            if record['profile'] == 'bounded_experiment':
+            if record['profile'] == 'search_live':
+                result = LiveSearchResult.model_validate(await live_search_case(cid,
+                    SearchEvaluationGrant.model_validate(record['metadata']['authorized_search_grant']))).model_dump()
+            elif record['profile'] == 'bounded_experiment':
                 async def update(progress):
                     record['metadata']['experiment_progress'].append(progress)
                     record['updated_at'] = _now()

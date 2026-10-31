@@ -1,6 +1,6 @@
 # 评测真实调用的单次授权
 
-默认不运行付费模型或真实搜索。当前页面启动的是供应商替身完整图，真实模型入口是`POST /api/v2/evaluation-center/runs`的`full_task_live`，只支持固定资料G017～G020和primary组。真实搜索仍拒绝，不能用模型授权代替搜索授权。
+默认不运行付费模型或真实搜索。当前页面启动的是供应商替身完整图，真实模型入口是`POST /api/v2/evaluation-center/runs`的`full_task_live`，只支持固定资料G017～G020和primary组。真实搜索有独立单次授权，不能用模型授权代替搜索授权。
 
 实际执行前由用户另行批准：案例与资料哈希、公开题干和资料片段的数据去向、模型/HTTPS端点、调用上限、每次输入UTF-8字节/输出Token上限、单价/币种、估计费用上限、有效期。后台管理员令牌只表示操作权限，不表示消费授权。
 
@@ -13,3 +13,15 @@
 每个案例使用独立工作目录、任务库与检查点；搜索为冻结资料、RAG/长期记忆关闭，不加载真实.env。对外仅传本次公开题干/资料及被测模型生成上下文。归档含公开授权参数，不含密钥。真实运行、独立评分和评分器校准的成本分别管理；本阶段没有启用付费评分模型。
 
 备份时按停写runbook保存整个`evaluation-center`，包括runs、reviews、comparisons、authorizations；已有业务数据库备份不会自动覆盖这些JSON。代码回滚不恢复消费额度，也不删除失败尝试。
+
+## 真实搜索授权
+
+`search_live`从同一runs入口接受黄金搜索案例和authorization_id。由用户另外批准公开查询的数据去向和估计预算后，在服务端配置`SMARTBRIEF_SEARCH_EVALUATION_GRANT`，符合SearchEvaluationGrant公共契约。本轮没有设置真实授权或发起真实搜索。
+
+授权固定recipient=https://api.exa.ai/search、type=auto、numResults=5、contents.highlights；case_ids与请求精确匹配，dataset_hash与当前题库一致，到期时间带时区。max_search_calls为本轮总HTTP请求上限（1～8），每案例只请求一次，不自动重试、不回退、不跟随重定向。每请求估计上限per_call_estimate_ceiling与estimated_cost_ceiling用USD表示，预留为max_search_calls×每请求上限；单价上限必须由用户按当次报价批准，不使用脚本内猜测价格。
+
+模型与搜索共用排他消费预留仓储，授权编号不可跨类型复用。EXA_API_KEY只来自环境，不放授权JSON、请求或归档；客户端填写编号不能签发授权。未授权/到期/不匹配/预算不足不创建运行，已预留编号不可重用。
+
+费用仅保留供应商返回的估计值costDollars.total（如有），缺失/无效为null，不冒充实际账单或严格金额封顶。失败的请求也可能计费，预留不自动退还。没有实际调用时network_calls=0；已发但失败为1且采集数未知；有效空结果为0条且执行完成。返回片段是提供商摘要，不等于已抓取核验正文；发布日期不推断统计期，不用HTTP成功判语义通过。
+
+接口依据：[EXA官方Search API](https://exa.ai/docs/reference/search)。实际供应商、报价、内容质量仍待独立授权验证。

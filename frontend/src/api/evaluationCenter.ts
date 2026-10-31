@@ -7,7 +7,7 @@ export interface CatalogCase {
 export interface CatalogArea {
   area: string; label: string; case_count: number; runnable: boolean
   profile: string | null; availability: string; score: number | null
-  supported_case_ids?: string[]; experiment_case_ids?: string[]
+  supported_case_ids?: string[]; experiment_case_ids?: string[]; live_case_ids?: string[]
 }
 export interface EvaluationCatalog {
   version: string; dataset_hash: string; cutoff: string; total_cases: number
@@ -38,11 +38,11 @@ export interface MechanismResult {
   report?: string; report_sha256?: string; grader_version?: string
   judgements?: { rubric_id: string; label: string; reason: string; evidence_refs: string[] }[]
   trace?: Record<string, unknown>[]
-  metrics?: { returned_count: number; valid_url_count: number; unique_sources: number; exact_duplicate_count: number; dated_documents: number; unknown_period_documents: number; stale_documents: number | null; freshness_target: string | null; unavailable_content_count: number; network_calls: number; relevance_at_5: number | null; key_evidence_coverage: number | null }
+  metrics?: { returned_count: number | null; valid_url_count: number | null; unique_sources: number | null; exact_duplicate_count: number | null; dated_documents: number | null; unknown_period_documents: number | null; stale_documents: number | null; freshness_target: string | null; unavailable_content_count: number | null; network_calls: number; relevance_at_5: number | null; key_evidence_coverage: number | null; provider_estimated_cost_usd?: number | null }
   evidence?: { title: string; url: string | null; snippet?: string; excerpt?: string; published_at: string | null; data_period: string | null; origin: string; content_scope: string; content_available: boolean }[]
 }
 export interface MechanismRun {
-  profile?: 'mechanism_regression' | 'search_replay' | 'report_grading' | 'grader_calibration' | 'full_task_local' | 'full_task_live' | 'bounded_experiment'
+  profile?: 'mechanism_regression' | 'search_replay' | 'search_live' | 'report_grading' | 'grader_calibration' | 'full_task_local' | 'full_task_live' | 'bounded_experiment'
   run_id: string; execution_status: 'running' | 'completed' | 'failed'; report_quality: string
   created_at: string; error: string | null; results: MechanismResult[]
   summary: { planned: number; processed: number; passed: number; failed: number; unknown: number }
@@ -105,4 +105,8 @@ export async function fetchComparisons(): Promise<ComparisonResult[]> {
 
 export async function startExperiment(caseIds: string[], maxAttempts: number, callLimit: number): Promise<MechanismRun> {
   return (await http.post('/runs', { profile: 'bounded_experiment', case_ids: caseIds, max_attempts: maxAttempts, call_limit: callLimit })).data.data
+}
+
+export async function startLiveSearch(caseIds: string[], authorizationId: string): Promise<MechanismRun> {
+  return (await http.post('/runs', { profile: 'search_live', case_ids: caseIds, authorization_id: authorizationId })).data.data
 }

@@ -42,6 +42,7 @@ class CatalogArea(BaseModel):
     score: float | None = None
     supported_case_ids: list[str] = []
     experiment_case_ids: list[str] = []
+    live_case_ids: list[str] = []
 
 
 class EvaluationCatalog(BaseModel):
@@ -124,12 +125,13 @@ def summary(version=VERSION):
     robust.profile='mechanism_regression'
     robust.supported_case_ids=mechanism['supported_case_ids']
     robust.availability=f'本地机制回归已接通{len(robust.supported_case_ids)}个映射案例；其他场景待接通' if robust.runnable else '本地pytest环境不可用'
-    from evaluation.search_replay import SUPPORTED
+    from evaluation.search_replay import SUPPORTED, GOLDEN
     search=next(a for a in areas if a.area=='search')
     search.runnable=True
     search.profile='search_replay'
     search.supported_case_ids=list(SUPPORTED)
-    search.availability='12例冻结响应回放已接通；真实联网待授权，语义评分另列'
+    search.live_case_ids=list(GOLDEN)
+    search.availability='12例冻结回放；8例真实搜索有单次授权适配，默认拒绝未授权调用，语义评分另列'
     from evaluation.report_grading import SUPPORTED as REPORT_CASES
     report=next(a for a in areas if a.area=='report')
     report.runnable=True
