@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { createComparison, fetchComparisons, type ComparisonResult, startFullTask, gradeReport, calibrateGrader, type CalibrationSummary, fetchCatalog, fetchCatalogCase, startMechanism, startSearchReplay, fetchMechanismRuns, fetchMechanismRun, saveEvaluationReview, fetchEvaluationReviews, type MechanismResult, type EvaluationReview, type MechanismRun, type EvaluationCatalog, type CatalogDetail, type CatalogCase } from '../api/evaluationCenter'
+import { startExperiment, createComparison, fetchComparisons, type ComparisonResult, startFullTask, gradeReport, calibrateGrader, type CalibrationSummary, fetchCatalog, fetchCatalogCase, startMechanism, startSearchReplay, fetchMechanismRuns, fetchMechanismRun, saveEvaluationReview, fetchEvaluationReviews, type MechanismResult, type EvaluationReview, type MechanismRun, type EvaluationCatalog, type CatalogDetail, type CatalogCase } from '../api/evaluationCenter'
 import { fetchEvalReports, runEvaluation, type EvalReportSummary } from '../api/evaluation'
 import { authRole } from '../api/session'
 
@@ -13,6 +13,8 @@ const history = ref<EvalReportSummary[]>([]), historyError = ref(''), starting =
 const flags = ref({ rag: true, memory: true, review: true })
 const mechanismCases = ref(['R009', 'G023']), mechanismRuns = ref<MechanismRun[]>([]), mechanismError = ref('')
 const searchCases = ref(['G001'])
+const experimentCases = ref(['G002']), experimentAttempts = ref(2), experimentCallLimit = ref(10)
+const eligibleExperiments = computed(() => catalog.value?.areas.find(a => a.area === 'end_to_end')?.experiment_case_ids || [])
 const baselineId = ref(''), currentId = ref(''), changedDimension = ref<'code' | 'model_group'>('code')
 const comparisonRows = ref<ComparisonResult[]>([]), activeComparison = ref<ComparisonResult | null>(null), comparisonError = ref('')
 const compareRuns = computed(() => mechanismRuns.value.filter(r => r.profile === 'full_task_local'))
@@ -144,6 +146,13 @@ async function submitComparison() {
   starting.value = true; comparisonError.value = ''
   try { activeComparison.value = await createComparison({ baseline_id: baselineId.value, current_id: currentId.value, changed_dimension: changedDimension.value }); await loadComparisons() }
   catch { comparisonError.value = '对照未保存，请检查运行编号或重试' }
+  finally { starting.value = false }
+}
+async function runExperiment() {
+  if (starting.value || authRole.value !== 'admin' || !experimentCases.value.length) return
+  starting.value = true; comparisonError.value = ''
+  try { const data = await startExperiment(experimentCases.value, experimentAttempts.value, experimentCallLimit.value); await router.push(`/evaluation/runs/${data.run_id}`) }
+  catch { comparisonError.value = '有限实验未启动，请核对开发组案例与预算' }
   finally { starting.value = false }
 }
 async function inspect(id: string) {
@@ -287,13 +296,18 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
         </el-table><p v-if="!historyError && !history.length">尚无运行记录</p>
         <template v-if="tab === 'records'"><h4>专项评测记录</h4>
           <el-table :data="mechanismRuns"><el-table-column prop="run_id" label="运行编号" /><el-table-column label="执行状态"><template #default="{ row }">{{ runLabels[row.execution_status] }}</template></el-table-column>
-            <el-table-column label="类型"><template #default="{ row }">{{ row.profile?.startsWith('full_task_') ? '完整任务' : row.profile === 'grader_calibration' ? '评分器校准' : row.profile === 'report_grading' ? '独立报告评分' : row.profile === 'search_replay' ? '搜索回放' : '机制回归' }}</template></el-table-column>
+            <el-table-column label="类型"><template #default="{ row }">{{ row.profile === 'bounded_experiment' ? '有限重试实验' : row.profile?.startsWith('full_task_') ? '完整任务' : row.profile === 'grader_calibration' ? '评分器校准' : row.profile === 'report_grading' ? '独立报告评分' : row.profile === 'search_replay' ? '搜索回放' : '机制回归' }}</template></el-table-column>
             <el-table-column label="通过/计划"><template #default="{ row }">{{ row.profile === 'search_replay' ? '语义待评判' : `${row.summary.passed}/${row.summary.planned}` }}</template></el-table-column>
             <el-table-column prop="summary.unknown" label="待确认/未评分" />
             <el-table-column label="详情"><template #default="{ row }"><router-link :to="`/evaluation/runs/${row.run_id}`">查看实际回归结果</router-link></template></el-table-column>
           </el-table>
         </template>
-        <section v-if="tab === 'compare'"><h3>完整任务专项对照</h3><p>完整保留成功、失败和未知案例；不可比时只并排，不计算增益。</p>
+        <section v-if="tab === 'compare'"><h3>有限重试实验</h3><p>仅使用开发组公开资料。先实际注入替身主备故障，保留首次失败，再比较普通重试与公开执行状态的诊断反馈。</p><p>诊断反馈仅本次有效，不写长期记忆；未接通模型反思或真实付费调用。</p>
+          <el-select v-model="experimentCases" multiple aria-label="有限实验开发案例" :disabled="authRole !== 'admin'"><el-option v-for="id in eligibleExperiments" :key="id" :value="id" :label="id" /></el-select>
+          <p>每组附加尝试上限 <el-input-number v-model="experimentAttempts" aria-label="附加尝试上限" :min="1" :max="2" :disabled="authRole !== 'admin'" />；每次供应商尝试上限 <el-input-number v-model="experimentCallLimit" aria-label="供应商尝试上限" :min="1" :max="10" :disabled="authRole !== 'admin'" /></p>
+          <p>两组分配相同上限 {{ experimentAttempts }} × {{ experimentCallLimit }}；实际消耗分别记录，初始故障另记。</p>
+          <el-button :disabled="authRole !== 'admin' || !experimentCases.length || !eligibleExperiments.length" :loading="starting" @click="runExperiment">运行有限重试与诊断对照</el-button>
+          <h3>完整任务专项对照</h3><p>完整保留成功、失败和未知案例；不可比时只并排，不计算增益。</p>
           <el-select v-model="baselineId" aria-label="专项基线运行"><el-option v-for="r in compareRuns" :key="r.run_id" :value="r.run_id" :label="`${r.run_id} ${r.metadata?.model_group || ''}`" /></el-select>
           <el-select v-model="currentId" aria-label="专项当前运行"><el-option v-for="r in compareRuns" :key="r.run_id" :value="r.run_id" :label="`${r.run_id} ${r.metadata?.model_group || ''}`" /></el-select>
           <el-select v-model="changedDimension" aria-label="声明变化维度"><el-option label="源码版本" value="code" /><el-option label="模型运行组" value="model_group" /></el-select>
@@ -308,10 +322,20 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
         </section>
       </template>
       <template v-else-if="tab === 'run-detail'">
-        <h3>{{ activeRun?.profile?.startsWith('full_task_') ? '完整任务运行详情' : activeRun?.profile === 'grader_calibration' ? '评分器校准详情' : activeRun?.profile === 'report_grading' ? '独立报告评分详情' : activeRun?.profile === 'search_replay' ? '冻结搜索回放详情' : '主备与恢复机制回归详情' }}</h3><p v-if="activeRun?.profile !== 'report_grading' && activeRun?.profile !== 'grader_calibration'">报告质量尚未评判，真实供应商在线可用性尚未验证；冻结回放不代表自主搜索效果。</p><p v-else>独立判分与评分器校准分别展示；真实模型效果仍待授权验证。</p>
+        <h3>{{ activeRun?.profile === 'bounded_experiment' ? '有限重试实验详情' : activeRun?.profile?.startsWith('full_task_') ? '完整任务运行详情' : activeRun?.profile === 'grader_calibration' ? '评分器校准详情' : activeRun?.profile === 'report_grading' ? '独立报告评分详情' : activeRun?.profile === 'search_replay' ? '冻结搜索回放详情' : '主备与恢复机制回归详情' }}</h3><p v-if="activeRun?.profile !== 'report_grading' && activeRun?.profile !== 'grader_calibration'">报告质量尚未评判，真实供应商在线可用性尚未验证；冻结回放不代表自主搜索效果。</p><p v-else>独立判分与评分器校准分别展示；真实模型效果仍待授权验证。</p>
         <template v-if="activeRun"><p>{{ activeRun.run_id }} · {{ runLabels[activeRun.execution_status] }} · 已处理 {{ activeRun.summary.processed }}/{{ activeRun.summary.planned }}</p>
           <p v-if="activeRun.error" role="alert">{{ activeRun.error }}</p>
-          <section v-if="activeRun.profile?.startsWith('full_task_')"><p>工作流完成、业务审核、独立报告质量分别记录；替身模型结果不能当成真实模型效果。</p>
+          <section v-if="activeRun.profile === 'bounded_experiment'"><p>初始失败保留；诊断反馈来自公开执行状态，未使用隐藏答案。结果不证明真实模型或报告质量增益。</p>
+            <p>已保存过程：{{ activeRun.metadata?.experiment_progress?.length || 0 }} 条</p>
+            <details v-if="activeRun.metadata?.experiment_progress?.length"><summary>查看增量保存的尝试</summary><ol><li v-for="(p, index) in activeRun.metadata.experiment_progress" :key="index">{{ p.case_id }} · {{ p.phase }} · {{ p.attempt }} · {{ p.result.task_execution_status }} · 供应商尝试 {{ p.result.provider_calls ?? '未知' }}</li></ol></details>
+            <article v-for="r in activeRun.results" :key="r.case_id"><h4>{{ r.case_id }}</h4><p v-if="r.error" role="alert">{{ r.error }}</p>
+              <template v-if="r.baseline"><p>初始故障：{{ checkLabels[r.baseline.check_status] }}；供应商尝试 {{ r.baseline.provider_calls ?? '未知' }}</p><el-button link @click="showProcess(r.baseline)">查看首次失败</el-button></template>
+              <section v-for="arm in r.arms || []" :key="arm.mode"><h4>{{ arm.mode === 'plain_retry' ? '普通重试' : '公开诊断反馈' }}</h4><p>{{ arm.ever_passed ? '至少一次完成' : '尚未完成' }}；{{ arm.always_passed ? '每次均完成' : '存在未完成尝试' }}；新增供应商尝试 {{ arm.provider_calls ?? '未知' }}</p>
+                <el-table :data="arm.attempts"><el-table-column label="附加尝试"><template #default="{ $index }">{{ $index + 1 }}</template></el-table-column><el-table-column prop="task_execution_status" label="工作流状态" /><el-table-column label="供应商尝试"><template #default="{ row }">{{ row.provider_calls ?? '未知' }}</template></el-table-column><el-table-column prop="calls" label="账本行数" /><el-table-column label="独立质量"><template #default>待独立评判</template></el-table-column><el-table-column label="过程"><template #default="{ row }"><el-button link @click="showProcess(row)">查看尝试过程</el-button></template></el-table-column></el-table>
+              </section>
+            </article>
+          </section>
+          <section v-else-if="activeRun.profile?.startsWith('full_task_')"><p>工作流完成、业务审核、独立报告质量分别记录；替身模型结果不能当成真实模型效果。</p>
             <el-table :data="activeRun.results"><el-table-column prop="case_id" label="案例" /><el-table-column prop="task_execution_status" label="工作流状态" /><el-table-column prop="business_quality" label="业务审核" /><el-table-column label="独立报告质量"><template #default>待独立评判</template></el-table-column><el-table-column prop="calls" label="账本调用数" /><el-table-column label="结果"><template #default="{ row }"><el-button link @click="showProcess(row)">查看完整任务过程</el-button></template></el-table-column></el-table>
             <article v-for="r in activeRun.results" :key="r.case_id"><h4>{{ r.case_id }} 报告</h4><pre>{{ r.report }}</pre><p v-if="r.error" role="alert">{{ r.error }}</p></article>
           </section>

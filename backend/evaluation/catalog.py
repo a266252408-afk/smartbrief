@@ -41,6 +41,7 @@ class CatalogArea(BaseModel):
     availability: str
     score: float | None = None
     supported_case_ids: list[str] = []
+    experiment_case_ids: list[str] = []
 
 
 class EvaluationCatalog(BaseModel):
@@ -141,6 +142,8 @@ def summary(version=VERSION):
     full.profile='full_task_local'
     full.supported_case_ids=list(FULL_CASES)
     full.availability='固定资料完整图和三组主备配置已接通；默认供应商替身，真实调用需单独授权'
+    from evaluation.full_task import DEVELOPMENT_CASES
+    full.experiment_case_ids=list(DEVELOPMENT_CASES)
     return EvaluationCatalog(version=VERSION,
         dataset_hash=hashlib.sha256(json.dumps(manifest,sort_keys=True,ensure_ascii=False).encode()).hexdigest(),
         cutoff=manifest['cutoff'],total_cases=len(rows),

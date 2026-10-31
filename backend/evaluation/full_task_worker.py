@@ -35,6 +35,9 @@ async def execute(directory, case_id, group):
     detail = catalog.detail(case_id)
     sources = detail['sources']  # 不读取case.oracle；供应商只能看到公开题干与给定资料。
     topic = detail['case']['input']['user_request']
+    feedback = os.environ.get('SMARTBRIEF_EVAL_PUBLIC_FEEDBACK', '')
+    if feedback:
+        topic += '\n本次公开状态诊断反馈：' + feedback
     database.DB_PATH = directory / 'tasks.db'
     checkpointer.CHECKPOINT_DB = directory / 'checkpoints.db'
     database.init_db()
@@ -53,9 +56,12 @@ async def execute(directory, case_id, group):
             bind_backup(ModelRoute(task_id=tid, model='fixture-backup', provider='fixture', reason='MODEL_CONNECTION', switched_at='fixture'))
 
     async def supplied(**kwargs):
+        from services.budget import BudgetExceeded
+        if calls['primary'] + calls['backup'] >= int(os.environ.get('SMARTBRIEF_LOCAL_MODEL_CALL_LIMIT', '10')):
+            raise BudgetExceeded('替身供应商尝试次数上限已到')
         role = 'backup' if kwargs['model'] == 'fixture-backup' else 'primary'
         calls[role] += 1
-        if group == 'mixed' and role == 'primary':
+        if os.environ.get('SMARTBRIEF_EVAL_FAULT') == 'both_unavailable' or group == 'mixed' and role == 'primary':
             import httpx
             from openai import APIConnectionError
             raise APIConnectionError(request=httpx.Request('POST', 'https://fixture.invalid'))
@@ -121,6 +127,7 @@ async def execute(directory, case_id, group):
         task_execution_status=task['execution_status'], business_quality=task['quality_status'],
         report=report, report_sha256=digest(report), evidence=task['evidence'], trace=trace,
         calls=len(rows), input_tokens=sum(r['input_tokens'] for r in rows) if known else None,
+        provider_calls=create.calls if live else calls['primary'] + calls['backup'],
         output_tokens=sum(r['output_tokens'] for r in rows) if known else None,
         duration_seconds=round(perf_counter()-start, 3), error=None if task['execution_status']=='completed' else '完整工作流未完成，请查看状态和调用分类')
     (directory / 'result.json').write_text(result.model_dump_json(indent=2), encoding='utf8')

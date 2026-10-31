@@ -10,6 +10,7 @@ from evaluation import catalog
 from evaluation.mechanism import MechanismResult, MechanismRun
 from evaluation.report_grading import ReportGradeResult, CalibrationRow
 from evaluation.full_task import FullTaskResult
+from evaluation.experiment import ExperimentCaseResult
 
 GOLDEN=[f'G{i:03}' for i in range(1,17,2)]
 SUPPORTED=GOLDEN+['C003','C004','C006','C007']
@@ -52,9 +53,9 @@ class SearchResult(MechanismResult):
 
 
 class EvaluationRun(MechanismRun):
-    profile: Literal['mechanism_regression','search_replay','report_grading','grader_calibration','full_task_local','full_task_live']
+    profile: Literal['mechanism_regression','search_replay','report_grading','grader_calibration','full_task_local','full_task_live','bounded_experiment']
     report_quality: Literal['unknown','passed','rejected']
-    results: list[MechanismResult | SearchResult | ReportGradeResult | CalibrationRow | FullTaskResult]
+    results: list[MechanismResult | SearchResult | ReportGradeResult | CalibrationRow | FullTaskResult | ExperimentCaseResult]
 
 
 def canonical_url(value):

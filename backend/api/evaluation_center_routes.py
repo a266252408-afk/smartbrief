@@ -14,6 +14,7 @@ from evaluation.report_grading import ReportGradeRequest
 from evaluation.full_task import FullTaskRequest
 from evaluation.comparison import ComparisonRequest
 from services import evaluation_comparison_service as comparisons
+from evaluation.experiment import ExperimentRequest
 
 router = APIRouter(prefix='/api/v2/evaluation-center')
 
@@ -88,7 +89,8 @@ async def start_run(request: Request):
     try:
         raw=await request.json()
         profile = raw.get('profile') if isinstance(raw, dict) else None
-        model = (FullTaskRequest if profile in ('full_task_local', 'full_task_live') else
+        model = (ExperimentRequest if profile == 'bounded_experiment' else
+                 FullTaskRequest if profile in ('full_task_local', 'full_task_live') else
                  SearchRequest if profile in ('search_replay', 'search_live') else MechanismRequest)
         body=model.model_validate(raw)
     except ValueError:

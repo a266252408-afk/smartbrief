@@ -7,7 +7,7 @@ export interface CatalogCase {
 export interface CatalogArea {
   area: string; label: string; case_count: number; runnable: boolean
   profile: string | null; availability: string; score: number | null
-  supported_case_ids?: string[]
+  supported_case_ids?: string[]; experiment_case_ids?: string[]
 }
 export interface EvaluationCatalog {
   version: string; dataset_hash: string; cutoff: string; total_cases: number
@@ -33,6 +33,8 @@ export interface MechanismResult {
   case_id: string; check_status: 'pass' | 'fail' | 'unknown'; test_count?: number
   passed?: number; failed?: number; skipped?: number; report_quality?: string; duration_seconds?: number; error: string | null
   task_execution_status?: string; business_quality?: string; calls?: number | null; input_tokens?: number | null; output_tokens?: number | null
+  provider_calls?: number | null; baseline?: MechanismResult
+  arms?: { mode: string; attempts: MechanismResult[]; provider_calls: number | null; ever_passed: boolean; always_passed: boolean }[]
   report?: string; report_sha256?: string; grader_version?: string
   judgements?: { rubric_id: string; label: string; reason: string; evidence_refs: string[] }[]
   trace?: Record<string, unknown>[]
@@ -40,11 +42,11 @@ export interface MechanismResult {
   evidence?: { title: string; url: string | null; snippet?: string; excerpt?: string; published_at: string | null; data_period: string | null; origin: string; content_scope: string; content_available: boolean }[]
 }
 export interface MechanismRun {
-  profile?: 'mechanism_regression' | 'search_replay' | 'report_grading' | 'grader_calibration' | 'full_task_local' | 'full_task_live'
+  profile?: 'mechanism_regression' | 'search_replay' | 'report_grading' | 'grader_calibration' | 'full_task_local' | 'full_task_live' | 'bounded_experiment'
   run_id: string; execution_status: 'running' | 'completed' | 'failed'; report_quality: string
   created_at: string; error: string | null; results: MechanismResult[]
   summary: { planned: number; processed: number; passed: number; failed: number; unknown: number }
-  metadata?: { dataset_hash: string; model_group?: string; source_hash?: string; code_commit?: string }
+  metadata?: { dataset_hash: string; model_group?: string; source_hash?: string; code_commit?: string; experiment_progress?: { case_id: string; phase: string; attempt: number; result: MechanismResult }[] }
 }
 export async function startMechanism(caseIds: string[]): Promise<MechanismRun> {
   return (await http.post('/runs', { profile: 'mechanism_regression', case_ids: caseIds })).data.data
@@ -99,4 +101,8 @@ export async function createComparison(body: ComparisonInput): Promise<Compariso
 }
 export async function fetchComparisons(): Promise<ComparisonResult[]> {
   return (await http.get('/comparisons')).data.data.items
+}
+
+export async function startExperiment(caseIds: string[], maxAttempts: number, callLimit: number): Promise<MechanismRun> {
+  return (await http.post('/runs', { profile: 'bounded_experiment', case_ids: caseIds, max_attempts: maxAttempts, call_limit: callLimit })).data.data
 }

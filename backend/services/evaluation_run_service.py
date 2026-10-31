@@ -10,6 +10,7 @@ from evaluation.mechanism import MechanismRequest, MechanismResult, TESTS, run_c
 from evaluation.search_replay import SearchRequest, SearchResult, EvaluationRun, run_case as replay_case
 from evaluation.full_task import FullTaskRequest, FullTaskResult, run_case as full_case
 from evaluation.authorization import reserve, EvaluationGrant
+from evaluation.experiment import ExperimentRequest, ExperimentCaseResult, validate_sources, run_case as experiment_case
 from services.evaluation_service import EvaluationError
 
 _handle=None
@@ -27,13 +28,18 @@ def capabilities():
                 scope='本地白名单工程回归；真实路由与存储、替身供应商，非在线效果')
 
 
-def start(body: MechanismRequest | SearchRequest | FullTaskRequest):
+def start(body: MechanismRequest | SearchRequest | FullTaskRequest | ExperimentRequest):
     global _handle,_run_id
     if _handle is not None and not _handle.done():
         raise EvaluationError('EVALUATION_RUNNING','已有专项评测正在运行',409)
     if body.profile=='search_live':
         raise EvaluationError('LIVE_SEARCH_NOT_AUTHORIZED','真实联网需另行批准数据去向、调用量和费用上限；本次未创建成绩',403)
     grant = reserve(body) if body.profile == 'full_task_live' else None
+    if body.profile == 'bounded_experiment':
+        try:
+            validate_sources(body.case_ids)
+        except ValueError:
+            raise EvaluationError('EXPERIMENT_DEVELOPMENT_ONLY', '仅开发组可用于有限实验', 422) from None
     if body.profile=='mechanism_regression' and not capabilities()['available']:
         raise EvaluationError('MECHANISM_ENGINE_UNAVAILABLE','本地pytest环境不可用，不能运行机制回归')
     pack=catalog.summary()
@@ -56,6 +62,16 @@ def start(body: MechanismRequest | SearchRequest | FullTaskRequest):
             max_output_tokens=grant.max_output_tokens, estimated_cost_ceiling=grant.estimated_cost_ceiling,
             currency=grant.currency) if grant else dict(deadline_seconds=180, max_task_tokens=500000,
                 completion_reserve=2048, per_call_timeout_seconds=30, model_max_retries=0))
+        if not grant:
+            metadata['execution_budget']['max_provider_attempts'] = 10
+    if body.profile == 'bounded_experiment':
+        metadata.update(engine='bounded_public_feedback_1', model='fixture-primary/fixture-backup',
+            model_group='primary', feature_flags=dict(rag=False, memory=False, review=True),
+            memory_protocol='每次尝试独立冷启动，不写长期记忆；反馈仅单次上下文',
+            evidence_scope='开发组公开输入；实际初始SDK故障，非线上事故；独立质量未知',
+            experiment_config=dict(max_attempts=body.max_attempts, call_limit=body.call_limit,
+                                   feedback_scope='public_execution_state_only', initial_fault='both_unavailable'),
+            experiment_progress=[])
     run_id='er_'+uuid4().hex
     record=EvaluationRun(run_id=run_id,profile=body.profile,execution_status='running',case_ids=body.case_ids,
                 results=[],metadata=metadata,created_at=_now(),updated_at=_now(),
@@ -72,7 +88,16 @@ def start(body: MechanismRequest | SearchRequest | FullTaskRequest):
 async def _execute(record):
     try:
         for cid in record['case_ids']:
-            if record['profile'] in ('full_task_local', 'full_task_live'):
+            if record['profile'] == 'bounded_experiment':
+                async def update(progress):
+                    record['metadata']['experiment_progress'].append(progress)
+                    record['updated_at'] = _now()
+                    repository.save(record)
+                result = ExperimentCaseResult.model_validate(await experiment_case(cid,
+                    repository.root()/'work'/record['run_id']/cid,
+                    **{k:record['metadata']['experiment_config'][k] for k in ('max_attempts','call_limit')},
+                    on_update=update)).model_dump()
+            elif record['profile'] in ('full_task_local', 'full_task_live'):
                 raw_grant = record['metadata'].get('authorized_grant')
                 grant = EvaluationGrant.model_validate(raw_grant) if raw_grant else None
                 result=FullTaskResult.model_validate(await full_case(cid, record['metadata']['model_group'],

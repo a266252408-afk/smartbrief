@@ -12,4 +12,4 @@
 
 每个案例使用独立工作目录、任务库与检查点；搜索为冻结资料、RAG/长期记忆关闭，不加载真实.env。对外仅传本次公开题干/资料及被测模型生成上下文。归档含公开授权参数，不含密钥。真实运行、独立评分和评分器校准的成本分别管理；本阶段没有启用付费评分模型。
 
-备份时按停写runbook保存整个`evaluation-center`，包括runs、reviews、authorizations；已有业务数据库备份不会自动覆盖这些JSON。代码回滚不恢复消费额度，也不删除失败尝试。
+备份时按停写runbook保存整个`evaluation-center`，包括runs、reviews、comparisons、authorizations；已有业务数据库备份不会自动覆盖这些JSON。代码回滚不恢复消费额度，也不删除失败尝试。

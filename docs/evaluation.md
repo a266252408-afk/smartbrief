@@ -4,7 +4,7 @@
 
 评测中心现有总览、测试集与标准、运行、记录、复核和对照子路由；题库接入docs/evaluation-datasets/v1的88新例及原20例。来源、隐藏验收标准和合成场景仅用于管理查看，不代表实际运行结果或人工核验。接口GET /api/v2/evaluation-center/catalog及/cases/{id}使用现有鉴权和v2包，数据指纹/引用损坏明确拒绝。
 
-本阶段仅原protocol-1执行器可运行，其他板块显示待接通，人工持久化复核尚未实现；旧完整页面在/evaluation/protocol，支持eval查询定位指定历史。线上供应商验证仍未执行。题库随仓库本地源码读取；现有Docker构建尚未打包docs资料，Docker相关仍按既有延后范围，不宣称容器可用。
+专项执行与人工复核现状见下文；旧完整页面在/evaluation/protocol，支持eval查询定位指定历史。线上供应商验证仍未执行。题库随仓库本地源码读取；现有Docker构建尚未打包docs资料，Docker相关仍按既有延后范围，不宣称容器可用。
 
 后续EVAL-NEXT-02-01增加本地机制回归：固定16个案例映射到已有真实路由/恢复测试，隔离子进程执行pytest，读取实际JUnit归档。启动/列表/详情在/api/v2/evaluation-center/runs，结果与旧协议分开。跳过、无测试、启动失败和超时均不算通过；report_quality为unknown，不证明真实备用接口或报告质量。服务关闭/重启保留已完成部分并将旧运行标为中断。需要本地pytest与测试源码，缺失时明确不可用。
 
@@ -13,6 +13,28 @@
 EVAL-NEXT-02-02新增C026/C027真实测试子进程中断演练，共18个机制映射。先确认A已落盘、B正执行或已返回未提交，再结束测试子进程，新进程读取SQLite并恢复；只保证已提交单元，B可能重放。运行详情可查看实际调用账本、演练事件及检查点恢复结果，未记录的过程不补造。子进程关闭清理只作用于自己创建的进程树；Windows与POSIX分支分别有实际运行/模拟测试，不把Windows测试当作Linux实机验收。
 
 EVAL-NEXT-03接通人工核验：/api/v2/evaluation-center/reviews管理员追加、只读查询；题目/参考依据与某次运行结果两个目标分开，必须绑定dataset_hash。重复判定保留supersedes链；当前版本最新题目核验叠加显示，但不改冻结数据包。运行结果复核也不回写机器check_status或report_quality。记录存evaluation-center/reviews，停写备份时连同runs保存。界面可从案例详情、运行详情显式提交，人工复核页查历史；默认无法确认，未抽查项保持pending。
+
+## 专项执行现状（EVAL-NEXT-04～07）
+
+以下是当前实现范围；施工凭据和最终门禁以[交接](HANDOFF.md)及state.json为准，软件测试数量不是模型效果成绩。
+
+| 类型 | 入口/规模 | 判定边界 |
+| --- | --- | --- |
+| 机制回归 | runs / mechanism_regression，18个固定映射 | 真实pytest/JUnit、真实路由和存储、替身供应商；报告质量unknown |
+| 搜索回放 | runs / search_replay，12例 | 冻结资料卡/合成响应；URL、去重、统计期/可用性；相关性与关键证据覆盖null，不证明联网 |
+| 固定资料报告 | grade-report，8例 | 实际提交稿件的程序检查＋独立语义适配；缺少语义评分器为unknown，硬违规优先拒绝 |
+| 评分器校准 | calibrate，10例 | 预期标签只在评分后用于统计；开发/仅验收分组，未启用语义评分器时10例unknown、准确率null |
+| 完整任务 | runs / full_task_local，4例 | 隔离子进程实际完整图；primary/backup/mixed三组；业务审核与独立质量分列 |
+| 真实模型入口 | runs / full_task_live | 固定公开资料，仅primary；需服务端单次授权，默认403，无真实付费成绩 |
+| 有限实验 | runs / bounded_experiment，6个开发输入，每轮至多2例 | 真实注入一次替身主备故障，保留初始失败；两组最多各2次冷启动重试，供应商尝试上限每次1～10 |
+
+完整任务黄金G017～G020为evaluation_only，有限实验不会用其反思迭代；仅复用G002/G004/G008/G012/G014/G016的公开题干/资料，不传隐藏oracle。反馈是公开执行状态的确定性诊断接口，不是已安装Reflexion模型或已验证的质量增益；不写长期记忆。每次尝试增量归档，关闭/重启保留已完成部分。provider_calls为供应商边界尝试，calls为账本行数；预算拒绝可能有账本行而没有外部调用，未知不填零。
+
+OpenJudgeAdapter仅验证预构造grader的aevaluate协议，未安装/验收SDK依赖或真实语义准确率。业务Reviewer不作为独立评分器；人工复核保留机器原始结果，校准J01～J10亦可绑定运行复核。
+
+专项对照POST/GET comparisons保留基线/当前归档指纹，允许声明code或model_group一个维度变化。案例/顺序、资料、模型、提示、预算、记忆等需冻结且运行完整，缺失或多处变化仅并排，不算差值；原协议409单开关规则不变。逐例保存退化/改善/未知，质量未评分为null；所有尝试耗时计入，不能只挑成功案例或宣称统计显著。
+
+专项运行、校准、复核、对照和单次消费预留均在DATA_DIR/evaluation-center。备份时停写并保存整个目录；不要只备份业务SQLite。真实调用规则见[单次授权runbook](runbooks/evaluation-paid-authorization.md)。Docker/远程部署及真实效果仍不在本轮验收内。
 
 ## 默认运行范围
 

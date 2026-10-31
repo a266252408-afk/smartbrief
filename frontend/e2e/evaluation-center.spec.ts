@@ -7,6 +7,35 @@ const golden = JSON.parse(readFileSync(fileURLToPath(new URL('private/golden.jso
 const collections = ['golden', 'regression', 'challenge']
 const cases = collections.flatMap(collection => JSON.parse(readFileSync(fileURLToPath(new URL(`private/${collection}.json`, root)), 'utf8')).cases)
 const labels = { protocol: '流程与故障', search: '网络搜索', report: '报告质量', robustness: '鲁棒性与恢复', end_to_end: '完整任务' }
+test('有限实验保留首次故障和两组尝试，质量未知不冒充改进', async ({ page }) => {
+  const rid = 'er_'+'f'.repeat(32), writes: unknown[] = []
+  const baseline = { case_id: 'G002', check_status: 'fail', task_execution_status: 'paused', provider_calls: 2, calls: 2, trace: [{ kind: 'model_call', model_role: 'primary', status: 'failed', error_code: 'MODEL_CONNECTION' }, { kind: 'model_call', model_role: 'backup', status: 'failed', error_code: 'MODEL_CONNECTION' }] }
+  const attempt = { case_id: 'G002', check_status: 'pass', task_execution_status: 'completed', provider_calls: 5, calls: 5, trace: [], report_quality: 'unknown' }
+  await page.route('**/api/v*/**', async route => {
+    const path = new URL(route.request().url()).pathname, env = (data: unknown) => ({ data, meta: { request_id: 'fixture' } })
+    if (path === '/api/v2/auth/session') return route.fulfill({ json: env({ role: 'admin' }) })
+    if (path.endsWith('/catalog')) return route.fulfill({ json: env({ version: 'sb-eval-data-1', cutoff: '2026-10-31', total_cases: 108, areas: [{ area: 'end_to_end', experiment_case_ids: ['G002'] }], cases: [], collections: {} }) })
+    if (path === '/api/v2/evaluations') return route.fulfill({ json: env({ items: [], total: 0, page: 1, page_size: 20 }) })
+    if (path.endsWith('/comparisons')) return route.fulfill({ json: env({ items: [] }) })
+    if (path.endsWith('/runs') && route.request().method() === 'POST') { writes.push(route.request().postDataJSON()); return route.fulfill({ status: 202, json: env({ run_id: rid }) }) }
+    if (path.endsWith('/runs')) return route.fulfill({ json: env({ items: [] }) })
+    if (path.endsWith('/runs/' + rid)) return route.fulfill({ json: env({ run_id: rid, profile: 'bounded_experiment', execution_status: 'completed', report_quality: 'unknown', metadata: { dataset_hash: 'a'.repeat(64), experiment_progress: [{ case_id: 'G002', phase: 'baseline', attempt: 0, result: baseline }, ...['plain_retry', 'reflection'].map(phase => ({ case_id: 'G002', phase, attempt: 1, result: attempt }))] }, summary: { planned: 1, processed: 1, passed: 1, failed: 0, unknown: 0 }, results: [{ case_id: 'G002', check_status: 'pass', baseline, arms: ['plain_retry', 'reflection'].map(mode => ({ mode, provider_calls: 5, ever_passed: true, always_passed: false, attempts: [attempt] })), error: null }] }) })
+    return route.fulfill({ status: 404, json: { error: { message: '未声明请求' } } })
+  })
+  await page.goto('/evaluation/compare')
+  await page.getByLabel('访问令牌').fill('fixture-experiment')
+  await page.getByRole('button', { name: '验证并进入' }).click()
+  await page.getByRole('button', { name: '运行有限重试与诊断对照', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '有限重试实验详情' })).toBeVisible()
+  await expect(page.getByText('初始故障：未通过；供应商尝试 2', { exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '普通重试', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '公开诊断反馈', exact: true })).toBeVisible()
+  await expect(page.getByRole('cell', { name: '待独立评判', exact: true })).toHaveCount(2)
+  await page.getByRole('button', { name: '查看首次失败', exact: true }).click()
+  await expect(page.getByText('主模型调用未成功', { exact: false })).toBeVisible()
+  expect(writes).toEqual([{ profile: 'bounded_experiment', case_ids: ['G002'], max_attempts: 2, call_limit: 10 }])
+  await page.screenshot({ path: '../docs/verification/EVAL-NEXT-07-02-experiment.png', fullPage: true })
+})
 test('专项跨版本比较预算不同时只并排且未知质量不填零', async ({ page }) => {
   const baseline = 'er_'+'a'.repeat(32), current = 'er_'+'b'.repeat(32), saved: any[] = []
   await page.route('**/api/v*/**', async route => {

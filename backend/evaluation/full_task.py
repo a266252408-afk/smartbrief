@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from evaluation.mechanism import REPO, child_environment, stop_owned_process
 
 SUPPORTED = ['G017', 'G018', 'G019', 'G020']
+DEVELOPMENT_CASES = ['G002', 'G004', 'G008', 'G012', 'G014', 'G016']
 
 
 class FullTaskRequest(BaseModel):
@@ -40,20 +41,25 @@ class FullTaskResult(BaseModel):
     evidence: list[dict]
     trace: list[dict]
     calls: int | None
+    provider_calls: int | None = None
     input_tokens: int | None
     output_tokens: int | None
     duration_seconds: float
     error: str | None
 
 
-async def run_case(case_id, group, directory, grant=None, timeout=180):
-    if case_id not in SUPPORTED or group not in ('primary', 'backup', 'mixed'):
+async def run_case(case_id, group, directory, grant=None, timeout=180, *, max_calls=10, feedback='', fault='none'):
+    if (case_id not in SUPPORTED + DEVELOPMENT_CASES or group not in ('primary', 'backup', 'mixed')
+            or type(max_calls) is not int or not 1 <= max_calls <= 10 or fault not in ('none', 'both_unavailable')
+            or not isinstance(feedback, str) or len(feedback) > 1000):
         raise ValueError('未接通的完整任务配置')
     directory = Path(directory).resolve()
     directory.mkdir(parents=True, exist_ok=True)
     env = child_environment(directory)
     # 即使父进程配置了授权，本地子进程也不能继承它。
     env.pop('SMARTBRIEF_EVALUATION_GRANT', None)
+    env.update(SMARTBRIEF_LOCAL_MODEL_CALL_LIMIT=str(max_calls), SMARTBRIEF_EVAL_PUBLIC_FEEDBACK=feedback,
+               SMARTBRIEF_EVAL_FAULT=fault)
     if grant is not None:
         env.update(SMARTBRIEF_EVALUATION_GRANT=grant.model_dump_json(), OPENAI_API_KEY=os.environ['OPENAI_API_KEY'])
     command = [sys.executable, '-m', 'evaluation.full_task_worker', str(directory), case_id, group]
