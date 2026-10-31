@@ -52,6 +52,10 @@ def start(body: MechanismRequest | SearchRequest | FullTaskRequest):
                         evidence_scope='冻结公开资料；独立语义质量未评判',
                         authorized_grant=grant.model_dump() if grant else None,
                         feature_flags=dict(rag=False, memory=False, review=True))
+        metadata['execution_budget'] = (dict(max_model_calls=grant.max_model_calls, max_input_bytes=grant.max_input_bytes,
+            max_output_tokens=grant.max_output_tokens, estimated_cost_ceiling=grant.estimated_cost_ceiling,
+            currency=grant.currency) if grant else dict(deadline_seconds=180, max_task_tokens=500000,
+                completion_reserve=2048, per_call_timeout_seconds=30, model_max_retries=0))
     run_id='er_'+uuid4().hex
     record=EvaluationRun(run_id=run_id,profile=body.profile,execution_status='running',case_ids=body.case_ids,
                 results=[],metadata=metadata,created_at=_now(),updated_at=_now(),

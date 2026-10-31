@@ -44,7 +44,7 @@ export interface MechanismRun {
   run_id: string; execution_status: 'running' | 'completed' | 'failed'; report_quality: string
   created_at: string; error: string | null; results: MechanismResult[]
   summary: { planned: number; processed: number; passed: number; failed: number; unknown: number }
-  metadata?: { dataset_hash: string }
+  metadata?: { dataset_hash: string; model_group?: string; source_hash?: string; code_commit?: string }
 }
 export async function startMechanism(caseIds: string[]): Promise<MechanismRun> {
   return (await http.post('/runs', { profile: 'mechanism_regression', case_ids: caseIds })).data.data
@@ -86,4 +86,17 @@ export async function fetchEvaluationReviews(): Promise<EvaluationReview[]> {
 
 export async function startFullTask(caseIds: string[], group: 'primary' | 'backup' | 'mixed'): Promise<MechanismRun> {
   return (await http.post('/runs', { profile: 'full_task_local', case_ids: caseIds, group })).data.data
+}
+
+export interface ComparisonInput { baseline_id: string; current_id: string; changed_dimension: 'code' | 'model_group' }
+export interface ComparisonResult extends ComparisonInput {
+  comparison_id: string; attribution_allowed: boolean; reasons: string[]; differences: string[]
+  execution_pass_rate_delta: number | null; quality_pass_rate_delta: number | null; all_attempt_seconds_delta: number | null
+  case_changes: { case_id: string; baseline: string; current: string; transition: string }[]; interpretation: string
+}
+export async function createComparison(body: ComparisonInput): Promise<ComparisonResult> {
+  return (await http.post('/comparisons', body)).data.data
+}
+export async function fetchComparisons(): Promise<ComparisonResult[]> {
+  return (await http.get('/comparisons')).data.data.items
 }

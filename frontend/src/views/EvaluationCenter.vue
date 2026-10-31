@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { startFullTask, gradeReport, calibrateGrader, type CalibrationSummary, fetchCatalog, fetchCatalogCase, startMechanism, startSearchReplay, fetchMechanismRuns, fetchMechanismRun, saveEvaluationReview, fetchEvaluationReviews, type MechanismResult, type EvaluationReview, type MechanismRun, type EvaluationCatalog, type CatalogDetail, type CatalogCase } from '../api/evaluationCenter'
+import { createComparison, fetchComparisons, type ComparisonResult, startFullTask, gradeReport, calibrateGrader, type CalibrationSummary, fetchCatalog, fetchCatalogCase, startMechanism, startSearchReplay, fetchMechanismRuns, fetchMechanismRun, saveEvaluationReview, fetchEvaluationReviews, type MechanismResult, type EvaluationReview, type MechanismRun, type EvaluationCatalog, type CatalogDetail, type CatalogCase } from '../api/evaluationCenter'
 import { fetchEvalReports, runEvaluation, type EvalReportSummary } from '../api/evaluation'
 import { authRole } from '../api/session'
 
@@ -13,6 +13,9 @@ const history = ref<EvalReportSummary[]>([]), historyError = ref(''), starting =
 const flags = ref({ rag: true, memory: true, review: true })
 const mechanismCases = ref(['R009', 'G023']), mechanismRuns = ref<MechanismRun[]>([]), mechanismError = ref('')
 const searchCases = ref(['G001'])
+const baselineId = ref(''), currentId = ref(''), changedDimension = ref<'code' | 'model_group'>('code')
+const comparisonRows = ref<ComparisonResult[]>([]), activeComparison = ref<ComparisonResult | null>(null), comparisonError = ref('')
+const compareRuns = computed(() => mechanismRuns.value.filter(r => r.profile === 'full_task_local'))
 const fullCases = ref(['G017']), modelGroup = ref<'primary' | 'backup' | 'mixed'>('primary')
 const reportCase = ref('G002'), reportText = ref(''), calibration = ref<CalibrationSummary | null>(null)
 const gradingError = ref('')
@@ -131,6 +134,18 @@ async function startFull() {
   catch { mechanismError.value = '完整任务未启动，请检查案例和运行状态' }
   finally { starting.value = false }
 }
+async function loadComparisons() {
+  comparisonError.value = ''
+  try { comparisonRows.value = await fetchComparisons() }
+  catch { comparisonError.value = '专项对照归档不可读，请重试' }
+}
+async function submitComparison() {
+  if (starting.value || authRole.value !== 'admin' || !baselineId.value || !currentId.value || baselineId.value === currentId.value) return
+  starting.value = true; comparisonError.value = ''
+  try { activeComparison.value = await createComparison({ baseline_id: baselineId.value, current_id: currentId.value, changed_dimension: changedDimension.value }); await loadComparisons() }
+  catch { comparisonError.value = '对照未保存，请检查运行编号或重试' }
+  finally { starting.value = false }
+}
 async function inspect(id: string) {
   const version = ++detailVersion
   selected.value = null; detailError.value = ''; detailLoading.value = true
@@ -148,7 +163,8 @@ async function startProtocol() {
 function loadTab() {
   clearTimeout(runPoll)
   if (['overview', 'records', 'compare'].includes(tab.value)) void loadHistory()
-  if (tab.value === 'records') void loadMechanisms()
+  if (['records', 'compare'].includes(tab.value)) void loadMechanisms()
+  if (tab.value === 'compare') void loadComparisons()
   if (tab.value === 'run-detail') void loadRun()
   if (tab.value === 'review') void loadReviews()
 }
@@ -263,7 +279,7 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
       </template>
       <template v-else-if="tab === 'records' || tab === 'compare'">
         <h3>{{ tab === 'compare' ? '对照实验' : '评测记录' }}</h3>
-        <p v-if="tab === 'compare'">原协议只允许同配置下改变一个开关；跨版本与其他专项尚未接通。</p>
+        <p v-if="tab === 'compare'">原协议保留单开关规则；专项跨版本比较需明确声明变化，并核对全部冻结条件。</p>
         <p v-if="historyError" role="alert">{{ historyError }} <el-button @click="loadHistory">重试</el-button></p>
         <el-table :data="history"><el-table-column prop="eval_id" label="评测编号" /><el-table-column prop="status" label="执行状态" />
           <el-table-column label="已归档/计划"><template #default="{ row }">{{ row.completed_cases }}/{{ row.total_cases }}</template></el-table-column>
@@ -277,6 +293,19 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
             <el-table-column label="详情"><template #default="{ row }"><router-link :to="`/evaluation/runs/${row.run_id}`">查看实际回归结果</router-link></template></el-table-column>
           </el-table>
         </template>
+        <section v-if="tab === 'compare'"><h3>完整任务专项对照</h3><p>完整保留成功、失败和未知案例；不可比时只并排，不计算增益。</p>
+          <el-select v-model="baselineId" aria-label="专项基线运行"><el-option v-for="r in compareRuns" :key="r.run_id" :value="r.run_id" :label="`${r.run_id} ${r.metadata?.model_group || ''}`" /></el-select>
+          <el-select v-model="currentId" aria-label="专项当前运行"><el-option v-for="r in compareRuns" :key="r.run_id" :value="r.run_id" :label="`${r.run_id} ${r.metadata?.model_group || ''}`" /></el-select>
+          <el-select v-model="changedDimension" aria-label="声明变化维度"><el-option label="源码版本" value="code" /><el-option label="模型运行组" value="model_group" /></el-select>
+          <p><el-button :disabled="authRole !== 'admin' || !baselineId || !currentId || baselineId === currentId" :loading="starting" @click="submitComparison">保存专项对照</el-button></p>
+          <p v-if="comparisonError" role="alert">{{ comparisonError }}</p>
+          <article v-if="activeComparison" data-testid="comparison-result"><h4>{{ activeComparison.attribution_allowed ? '满足协议可比条件' : '仅并排，不可归因' }}</h4>
+            <p>{{ activeComparison.interpretation }}</p><ul><li v-for="reason in activeComparison.reasons" :key="reason">{{ reason }}</li></ul>
+            <p>执行通过率差值：{{ activeComparison.execution_pass_rate_delta ?? '不可计算' }}；独立质量差值：{{ activeComparison.quality_pass_rate_delta ?? '尚未独立评分' }}；全部尝试耗时差值：{{ activeComparison.all_attempt_seconds_delta ?? '未知' }}</p>
+            <el-table :data="activeComparison.case_changes"><el-table-column prop="case_id" label="案例" /><el-table-column prop="baseline" label="基线" /><el-table-column prop="current" label="当前" /><el-table-column prop="transition" label="变化" /></el-table>
+          </article>
+          <el-table :data="comparisonRows"><el-table-column prop="comparison_id" label="对照编号" /><el-table-column label="状态"><template #default="{ row }">{{ row.attribution_allowed ? '协议可比' : '仅并排' }}</template></el-table-column><el-table-column label="详情"><template #default="{ row }"><el-button link @click="activeComparison = row">查看专项对照</el-button></template></el-table-column></el-table>
+        </section>
       </template>
       <template v-else-if="tab === 'run-detail'">
         <h3>{{ activeRun?.profile?.startsWith('full_task_') ? '完整任务运行详情' : activeRun?.profile === 'grader_calibration' ? '评分器校准详情' : activeRun?.profile === 'report_grading' ? '独立报告评分详情' : activeRun?.profile === 'search_replay' ? '冻结搜索回放详情' : '主备与恢复机制回归详情' }}</h3><p v-if="activeRun?.profile !== 'report_grading' && activeRun?.profile !== 'grader_calibration'">报告质量尚未评判，真实供应商在线可用性尚未验证；冻结回放不代表自主搜索效果。</p><p v-else>独立判分与评分器校准分别展示；真实模型效果仍待授权验证。</p>

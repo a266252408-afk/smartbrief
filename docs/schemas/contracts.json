@@ -4922,6 +4922,155 @@
       ],
       "title": "EvaluationGrant",
       "type": "object"
+    },
+    "ComparisonRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline_id": {
+          "pattern": "^er_[0-9a-f]{32}$",
+          "title": "Baseline Id",
+          "type": "string"
+        },
+        "current_id": {
+          "pattern": "^er_[0-9a-f]{32}$",
+          "title": "Current Id",
+          "type": "string"
+        },
+        "changed_dimension": {
+          "enum": [
+            "code",
+            "model_group"
+          ],
+          "title": "Changed Dimension",
+          "type": "string"
+        }
+      },
+      "required": [
+        "baseline_id",
+        "current_id",
+        "changed_dimension"
+      ],
+      "title": "ComparisonRequest",
+      "type": "object"
+    },
+    "Comparison": {
+      "additionalProperties": false,
+      "properties": {
+        "comparison_id": {
+          "title": "Comparison Id",
+          "type": "string"
+        },
+        "baseline_id": {
+          "title": "Baseline Id",
+          "type": "string"
+        },
+        "current_id": {
+          "title": "Current Id",
+          "type": "string"
+        },
+        "changed_dimension": {
+          "enum": [
+            "code",
+            "model_group"
+          ],
+          "title": "Changed Dimension",
+          "type": "string"
+        },
+        "attribution_allowed": {
+          "title": "Attribution Allowed",
+          "type": "boolean"
+        },
+        "baseline_sha256": {
+          "title": "Baseline Sha256",
+          "type": "string"
+        },
+        "current_sha256": {
+          "title": "Current Sha256",
+          "type": "string"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "differences": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Differences",
+          "type": "array"
+        },
+        "case_changes": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Case Changes",
+          "type": "array"
+        },
+        "execution_pass_rate_delta": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Execution Pass Rate Delta"
+        },
+        "quality_pass_rate_delta": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Quality Pass Rate Delta"
+        },
+        "all_attempt_seconds_delta": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "All Attempt Seconds Delta"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "interpretation": {
+          "title": "Interpretation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "comparison_id",
+        "baseline_id",
+        "current_id",
+        "changed_dimension",
+        "attribution_allowed",
+        "baseline_sha256",
+        "current_sha256",
+        "reasons",
+        "differences",
+        "case_changes",
+        "execution_pass_rate_delta",
+        "quality_pass_rate_delta",
+        "all_attempt_seconds_delta",
+        "created_at",
+        "interpretation"
+      ],
+      "title": "Comparison",
+      "type": "object"
     }
   }
 }

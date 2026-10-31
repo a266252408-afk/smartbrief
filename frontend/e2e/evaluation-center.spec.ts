@@ -7,6 +7,36 @@ const golden = JSON.parse(readFileSync(fileURLToPath(new URL('private/golden.jso
 const collections = ['golden', 'regression', 'challenge']
 const cases = collections.flatMap(collection => JSON.parse(readFileSync(fileURLToPath(new URL(`private/${collection}.json`, root)), 'utf8')).cases)
 const labels = { protocol: '流程与故障', search: '网络搜索', report: '报告质量', robustness: '鲁棒性与恢复', end_to_end: '完整任务' }
+test('专项跨版本比较预算不同时只并排且未知质量不填零', async ({ page }) => {
+  const baseline = 'er_'+'a'.repeat(32), current = 'er_'+'b'.repeat(32), saved: any[] = []
+  await page.route('**/api/v*/**', async route => {
+    const path = new URL(route.request().url()).pathname, env = (data: unknown) => ({ data, meta: { request_id: 'fixture' } })
+    if (path === '/api/v2/auth/session') return route.fulfill({ json: env({ role: 'admin' }) })
+    if (path.endsWith('/catalog')) return route.fulfill({ json: env({ version: 'sb-eval-data-1', cutoff: '2026-10-31', total_cases: 108, areas: [], cases: [], collections: {} }) })
+    if (path === '/api/v2/evaluations') return route.fulfill({ json: env({ items: [], total: 0, page: 1, page_size: 20 }) })
+    if (path.endsWith('/runs')) return route.fulfill({ json: env({ items: [baseline, current].map(run_id => ({ run_id, profile: 'full_task_local', metadata: { model_group: 'primary' } })) }) })
+    if (path.endsWith('/comparisons') && route.request().method() === 'POST') {
+      saved.push({ ...route.request().postDataJSON(), comparison_id: 'ec_fixture', attribution_allowed: false, reasons: ['预算不同，不能归因'], differences: ['source_hash', 'execution_budget'], case_changes: [], execution_pass_rate_delta: null, quality_pass_rate_delta: null, all_attempt_seconds_delta: null, interpretation: '仅固定资料软件协议差异' })
+      return route.fulfill({ status: 201, json: env(saved[0]) })
+    }
+    if (path.endsWith('/comparisons')) return route.fulfill({ json: env({ items: saved }) })
+    return route.fulfill({ status: 404, json: { error: { message: '未声明请求' } } })
+  })
+  await page.goto('/evaluation/compare')
+  await page.getByLabel('访问令牌').fill('fixture-comparison')
+  await page.getByRole('button', { name: '验证并进入' }).click()
+  for (const [label, id] of [['专项基线运行', baseline], ['专项当前运行', current]]) {
+    const input = page.getByRole('combobox', { name: label, exact: true })
+    await input.focus(); await input.press('Enter')
+    await page.getByRole('listbox', { name: label, exact: true }).getByRole('option', { name: id+' primary', exact: true }).click()
+  }
+  await page.getByRole('button', { name: '保存专项对照', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '仅并排，不可归因', exact: true })).toBeVisible()
+  await expect(page.getByText('预算不同，不能归因', { exact: true })).toBeVisible()
+  await expect(page.getByTestId('comparison-result')).toContainText('独立质量差值：尚未独立评分')
+  expect(saved[0]).toMatchObject({ baseline_id: baseline, current_id: current, changed_dimension: 'code' })
+  await page.screenshot({ path: '../docs/verification/EVAL-NEXT-07-01-compare.png', fullPage: true })
+})
 test('完整任务选择接管组，完成和独立质量分开展示', async ({ page }) => {
   const rid = 'er_' + 'e'.repeat(32), writes: unknown[] = []
   await page.route('**/api/v*/**', async route => {

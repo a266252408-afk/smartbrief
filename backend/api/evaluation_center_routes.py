@@ -12,8 +12,30 @@ from services import evaluation_review_service as reviews
 from services import evaluation_grading_service as grading
 from evaluation.report_grading import ReportGradeRequest
 from evaluation.full_task import FullTaskRequest
+from evaluation.comparison import ComparisonRequest
+from services import evaluation_comparison_service as comparisons
 
 router = APIRouter(prefix='/api/v2/evaluation-center')
+
+
+@router.get('/comparisons')
+async def comparison_list(request: Request):
+    try:
+        return result(request, dict(items=comparisons.listing()))
+    except EvaluationError as exc:
+        return failure(request, exc.status, exc.code, str(exc))
+
+
+@router.post('/comparisons')
+async def comparison_create(request: Request):
+    try:
+        body = ComparisonRequest.model_validate(await request.json())
+    except ValueError:
+        return failure(request, 422, 'INVALID_COMPARISON', '需要两次不同运行及声明变化维度')
+    try:
+        return result(request, comparisons.create(body), 201)
+    except EvaluationError as exc:
+        return failure(request, exc.status, exc.code, str(exc))
 
 
 @router.post('/grade-report')
