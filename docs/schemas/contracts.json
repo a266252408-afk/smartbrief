@@ -3047,7 +3047,7 @@
           "type": "string"
         },
         "case_id": {
-          "pattern": "^(?:[GRC][0-9]{3}|P-C[0-9]{2})$",
+          "pattern": "^(?:[GRC][0-9]{3}|P-C[0-9]{2}|J(?:0[1-9]|10))$",
           "title": "Case Id",
           "type": "string"
         },
@@ -3136,7 +3136,7 @@
           "type": "string"
         },
         "case_id": {
-          "pattern": "^(?:[GRC][0-9]{3}|P-C[0-9]{2})$",
+          "pattern": "^(?:[GRC][0-9]{3}|P-C[0-9]{2}|J(?:0[1-9]|10))$",
           "title": "Case Id",
           "type": "string"
         },
@@ -3476,6 +3476,120 @@
     },
     "EvaluationRun": {
       "$defs": {
+        "CalibrationRow": {
+          "additionalProperties": false,
+          "properties": {
+            "rubric_id": {
+              "title": "Rubric Id",
+              "type": "string"
+            },
+            "label": {
+              "enum": [
+                "pass",
+                "fail",
+                "unknown",
+                "not_applicable"
+              ],
+              "title": "Label",
+              "type": "string"
+            },
+            "reason": {
+              "maxLength": 4000,
+              "minLength": 1,
+              "title": "Reason",
+              "type": "string"
+            },
+            "evidence_refs": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Evidence Refs",
+              "type": "array"
+            },
+            "case_id": {
+              "title": "Case Id",
+              "type": "string"
+            },
+            "check_status": {
+              "enum": [
+                "pass",
+                "fail",
+                "unknown"
+              ],
+              "title": "Check Status",
+              "type": "string"
+            },
+            "split": {
+              "enum": [
+                "development",
+                "evaluation_only"
+              ],
+              "title": "Split",
+              "type": "string"
+            },
+            "expected": {
+              "enum": [
+                "pass",
+                "fail",
+                "unknown"
+              ],
+              "title": "Expected",
+              "type": "string"
+            }
+          },
+          "required": [
+            "rubric_id",
+            "label",
+            "reason",
+            "case_id",
+            "check_status",
+            "split",
+            "expected"
+          ],
+          "title": "CalibrationRow",
+          "type": "object"
+        },
+        "Judgement": {
+          "additionalProperties": false,
+          "properties": {
+            "rubric_id": {
+              "title": "Rubric Id",
+              "type": "string"
+            },
+            "label": {
+              "enum": [
+                "pass",
+                "fail",
+                "unknown",
+                "not_applicable"
+              ],
+              "title": "Label",
+              "type": "string"
+            },
+            "reason": {
+              "maxLength": 4000,
+              "minLength": 1,
+              "title": "Reason",
+              "type": "string"
+            },
+            "evidence_refs": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Evidence Refs",
+              "type": "array"
+            }
+          },
+          "required": [
+            "rubric_id",
+            "label",
+            "reason"
+          ],
+          "title": "Judgement",
+          "type": "object"
+        },
         "MechanismResult": {
           "additionalProperties": false,
           "properties": {
@@ -3624,6 +3738,75 @@
             "unknown"
           ],
           "title": "MechanismSummary",
+          "type": "object"
+        },
+        "ReportGradeResult": {
+          "additionalProperties": false,
+          "properties": {
+            "case_id": {
+              "title": "Case Id",
+              "type": "string"
+            },
+            "check_status": {
+              "enum": [
+                "pass",
+                "fail",
+                "unknown"
+              ],
+              "title": "Check Status",
+              "type": "string"
+            },
+            "report_quality": {
+              "enum": [
+                "passed",
+                "rejected",
+                "unknown"
+              ],
+              "title": "Report Quality",
+              "type": "string"
+            },
+            "report": {
+              "title": "Report",
+              "type": "string"
+            },
+            "report_sha256": {
+              "title": "Report Sha256",
+              "type": "string"
+            },
+            "judgements": {
+              "items": {
+                "$ref": "#/$defs/Judgement"
+              },
+              "title": "Judgements",
+              "type": "array"
+            },
+            "grader_version": {
+              "title": "Grader Version",
+              "type": "string"
+            },
+            "error": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error"
+            }
+          },
+          "required": [
+            "case_id",
+            "check_status",
+            "report_quality",
+            "report",
+            "report_sha256",
+            "judgements",
+            "grader_version",
+            "error"
+          ],
+          "title": "ReportGradeResult",
           "type": "object"
         },
         "SearchMetrics": {
@@ -3869,7 +4052,9 @@
         "profile": {
           "enum": [
             "mechanism_regression",
-            "search_replay"
+            "search_replay",
+            "report_grading",
+            "grader_calibration"
           ],
           "title": "Profile",
           "type": "string"
@@ -3898,6 +4083,12 @@
               },
               {
                 "$ref": "#/$defs/SearchResult"
+              },
+              {
+                "$ref": "#/$defs/ReportGradeResult"
+              },
+              {
+                "$ref": "#/$defs/CalibrationRow"
               }
             ]
           },
@@ -3929,7 +4120,11 @@
           "title": "Error"
         },
         "report_quality": {
-          "const": "unknown",
+          "enum": [
+            "unknown",
+            "passed",
+            "rejected"
+          ],
           "title": "Report Quality",
           "type": "string"
         },
@@ -3951,6 +4146,389 @@
         "summary"
       ],
       "title": "EvaluationRun",
+      "type": "object"
+    },
+    "ReportGradeRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "const": "report_grading",
+          "default": "report_grading",
+          "title": "Profile",
+          "type": "string"
+        },
+        "case_id": {
+          "enum": [
+            "G002",
+            "G004",
+            "G006",
+            "G008",
+            "G010",
+            "G012",
+            "G014",
+            "G016"
+          ],
+          "title": "Case Id",
+          "type": "string"
+        },
+        "report": {
+          "maxLength": 100000,
+          "title": "Report",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "report"
+      ],
+      "title": "ReportGradeRequest",
+      "type": "object"
+    },
+    "Judgement": {
+      "additionalProperties": false,
+      "properties": {
+        "rubric_id": {
+          "title": "Rubric Id",
+          "type": "string"
+        },
+        "label": {
+          "enum": [
+            "pass",
+            "fail",
+            "unknown",
+            "not_applicable"
+          ],
+          "title": "Label",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "rubric_id",
+        "label",
+        "reason"
+      ],
+      "title": "Judgement",
+      "type": "object"
+    },
+    "ReportGradeResult": {
+      "$defs": {
+        "Judgement": {
+          "additionalProperties": false,
+          "properties": {
+            "rubric_id": {
+              "title": "Rubric Id",
+              "type": "string"
+            },
+            "label": {
+              "enum": [
+                "pass",
+                "fail",
+                "unknown",
+                "not_applicable"
+              ],
+              "title": "Label",
+              "type": "string"
+            },
+            "reason": {
+              "maxLength": 4000,
+              "minLength": 1,
+              "title": "Reason",
+              "type": "string"
+            },
+            "evidence_refs": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Evidence Refs",
+              "type": "array"
+            }
+          },
+          "required": [
+            "rubric_id",
+            "label",
+            "reason"
+          ],
+          "title": "Judgement",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "check_status": {
+          "enum": [
+            "pass",
+            "fail",
+            "unknown"
+          ],
+          "title": "Check Status",
+          "type": "string"
+        },
+        "report_quality": {
+          "enum": [
+            "passed",
+            "rejected",
+            "unknown"
+          ],
+          "title": "Report Quality",
+          "type": "string"
+        },
+        "report": {
+          "title": "Report",
+          "type": "string"
+        },
+        "report_sha256": {
+          "title": "Report Sha256",
+          "type": "string"
+        },
+        "judgements": {
+          "items": {
+            "$ref": "#/$defs/Judgement"
+          },
+          "title": "Judgements",
+          "type": "array"
+        },
+        "grader_version": {
+          "title": "Grader Version",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
+        }
+      },
+      "required": [
+        "case_id",
+        "check_status",
+        "report_quality",
+        "report",
+        "report_sha256",
+        "judgements",
+        "grader_version",
+        "error"
+      ],
+      "title": "ReportGradeResult",
+      "type": "object"
+    },
+    "CalibrationResult": {
+      "$defs": {
+        "CalibrationCounts": {
+          "additionalProperties": false,
+          "properties": {
+            "total": {
+              "title": "Total",
+              "type": "integer"
+            },
+            "unknown": {
+              "title": "Unknown",
+              "type": "integer"
+            },
+            "false_accepts": {
+              "title": "False Accepts",
+              "type": "integer"
+            },
+            "false_rejects": {
+              "title": "False Rejects",
+              "type": "integer"
+            },
+            "accuracy": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Accuracy"
+            }
+          },
+          "required": [
+            "total",
+            "unknown",
+            "false_accepts",
+            "false_rejects",
+            "accuracy"
+          ],
+          "title": "CalibrationCounts",
+          "type": "object"
+        },
+        "CalibrationRow": {
+          "additionalProperties": false,
+          "properties": {
+            "rubric_id": {
+              "title": "Rubric Id",
+              "type": "string"
+            },
+            "label": {
+              "enum": [
+                "pass",
+                "fail",
+                "unknown",
+                "not_applicable"
+              ],
+              "title": "Label",
+              "type": "string"
+            },
+            "reason": {
+              "maxLength": 4000,
+              "minLength": 1,
+              "title": "Reason",
+              "type": "string"
+            },
+            "evidence_refs": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Evidence Refs",
+              "type": "array"
+            },
+            "case_id": {
+              "title": "Case Id",
+              "type": "string"
+            },
+            "check_status": {
+              "enum": [
+                "pass",
+                "fail",
+                "unknown"
+              ],
+              "title": "Check Status",
+              "type": "string"
+            },
+            "split": {
+              "enum": [
+                "development",
+                "evaluation_only"
+              ],
+              "title": "Split",
+              "type": "string"
+            },
+            "expected": {
+              "enum": [
+                "pass",
+                "fail",
+                "unknown"
+              ],
+              "title": "Expected",
+              "type": "string"
+            }
+          },
+          "required": [
+            "rubric_id",
+            "label",
+            "reason",
+            "case_id",
+            "check_status",
+            "split",
+            "expected"
+          ],
+          "title": "CalibrationRow",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "unknown": {
+          "title": "Unknown",
+          "type": "integer"
+        },
+        "false_accepts": {
+          "title": "False Accepts",
+          "type": "integer"
+        },
+        "false_rejects": {
+          "title": "False Rejects",
+          "type": "integer"
+        },
+        "accuracy": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Accuracy"
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Id"
+        },
+        "groups": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CalibrationCounts"
+          },
+          "title": "Groups",
+          "type": "object"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/$defs/CalibrationRow"
+          },
+          "title": "Results",
+          "type": "array"
+        },
+        "grader_version": {
+          "title": "Grader Version",
+          "type": "string"
+        },
+        "scope": {
+          "title": "Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "total",
+        "unknown",
+        "false_accepts",
+        "false_rejects",
+        "accuracy",
+        "groups",
+        "results",
+        "grader_version",
+        "scope"
+      ],
+      "title": "CalibrationResult",
       "type": "object"
     }
   }

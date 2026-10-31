@@ -129,6 +129,12 @@ def summary(version=VERSION):
     search.profile='search_replay'
     search.supported_case_ids=list(SUPPORTED)
     search.availability='12例冻结响应回放已接通；真实联网待授权，语义评分另列'
+    from evaluation.report_grading import SUPPORTED as REPORT_CASES
+    report=next(a for a in areas if a.area=='report')
+    report.runnable=True
+    report.profile='report_grading'
+    report.supported_case_ids=list(REPORT_CASES)
+    report.availability='固定资料报告程序检查与独立判分已接通；未启用语义模型时为未知'
     return EvaluationCatalog(version=VERSION,
         dataset_hash=hashlib.sha256(json.dumps(manifest,sort_keys=True,ensure_ascii=False).encode()).hexdigest(),
         cutoff=manifest['cutoff'],total_cases=len(rows),

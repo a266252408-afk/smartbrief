@@ -17,7 +17,7 @@ class EvaluationReviewRequest(BaseModel):
         'then':{'required':['run_id'],'properties':{'run_id':{'type':'string'}}},
         'else':{'properties':{'run_id':{'type':'null'}}}}]})
     target: Literal['case_definition','run_result']
-    case_id: str=Field(pattern=r'^(?:[GRC][0-9]{3}|P-C[0-9]{2})$')
+    case_id: str=Field(pattern=r'^(?:[GRC][0-9]{3}|P-C[0-9]{2}|J(?:0[1-9]|10))$')
     run_id: str | None=Field(default=None,pattern=r'^er_[0-9a-f]{32}$')
     dataset_hash: str=Field(pattern=r'^[0-9a-f]{64}$')
     decision: Literal['pass','fail','unknown']
@@ -27,6 +27,8 @@ class EvaluationReviewRequest(BaseModel):
     def validate_target(self):
         if (self.target=='run_result') != (self.run_id is not None):
             raise ValueError('运行结果需指定运行编号，题目核验不得附加运行编号')
+        if self.case_id.startswith('J') and self.target != 'run_result':
+            raise ValueError('校准样本仅复核运行结果')
         return self
 
 
@@ -48,7 +50,8 @@ def create(body: EvaluationReviewRequest,actor):
     if actor!='admin':
         raise EvaluationError('READ_ONLY','只读访问不能提交人工核验',403)
     pack=catalog.summary()
-    catalog.detail(body.case_id)
+    if not body.case_id.startswith('J'):
+        catalog.detail(body.case_id)
     if body.dataset_hash!=pack['dataset_hash']:
         raise EvaluationError('REVIEW_VERSION_MISMATCH','资料版本已变化，请重新查看后核验',409)
     if body.target=='run_result':

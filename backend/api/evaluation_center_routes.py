@@ -9,8 +9,30 @@ from evaluation.mechanism import MechanismRequest
 from evaluation.search_replay import SearchRequest
 from services.evaluation_service import EvaluationError
 from services import evaluation_review_service as reviews
+from services import evaluation_grading_service as grading
+from evaluation.report_grading import ReportGradeRequest
 
 router = APIRouter(prefix='/api/v2/evaluation-center')
+
+
+@router.post('/grade-report')
+async def grade_report(request: Request):
+    try:
+        body = ReportGradeRequest.model_validate(await request.json())
+    except ValueError:
+        return failure(request, 422, 'INVALID_REPORT_GRADE', '报告案例或输入无效')
+    try:
+        return result(request, await grading.create(body), 201)
+    except (EvaluationError, catalog.CatalogError) as exc:
+        return failure(request, exc.status, exc.code, str(exc))
+
+
+@router.post('/calibrate')
+async def calibrate(request: Request):
+    try:
+        return result(request, await grading.calibration())
+    except (EvaluationError, catalog.CatalogError) as exc:
+        return failure(request, exc.status, exc.code, str(exc))
 
 
 @router.get('/reviews')

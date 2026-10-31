@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { fetchCatalog, fetchCatalogCase, startMechanism, startSearchReplay, fetchMechanismRuns, fetchMechanismRun, saveEvaluationReview, fetchEvaluationReviews, type MechanismResult, type EvaluationReview, type MechanismRun, type EvaluationCatalog, type CatalogDetail, type CatalogCase } from '../api/evaluationCenter'
+import { gradeReport, calibrateGrader, type CalibrationSummary, fetchCatalog, fetchCatalogCase, startMechanism, startSearchReplay, fetchMechanismRuns, fetchMechanismRun, saveEvaluationReview, fetchEvaluationReviews, type MechanismResult, type EvaluationReview, type MechanismRun, type EvaluationCatalog, type CatalogDetail, type CatalogCase } from '../api/evaluationCenter'
 import { fetchEvalReports, runEvaluation, type EvalReportSummary } from '../api/evaluation'
 import { authRole } from '../api/session'
 
@@ -13,6 +13,8 @@ const history = ref<EvalReportSummary[]>([]), historyError = ref(''), starting =
 const flags = ref({ rag: true, memory: true, review: true })
 const mechanismCases = ref(['R009', 'G023']), mechanismRuns = ref<MechanismRun[]>([]), mechanismError = ref('')
 const searchCases = ref(['G001'])
+const reportCase = ref('G002'), reportText = ref(''), calibration = ref<CalibrationSummary | null>(null)
+const gradingError = ref('')
 const activeRun = ref<MechanismRun | null>(null)
 const traceRows = ref<Record<string, unknown>[] | null>(null)
 const evidenceRows = ref<NonNullable<MechanismResult['evidence']>>([])
@@ -105,6 +107,20 @@ async function startSearch() {
   starting.value = true; mechanismError.value = ''
   try { const data = await startSearchReplay(searchCases.value); await router.push(`/evaluation/runs/${encodeURIComponent(data.run_id)}`) }
   catch { mechanismError.value = '搜索回放未启动，请检查所选案例或是否已有运行' }
+  finally { starting.value = false }
+}
+async function submitReport() {
+  if (starting.value || authRole.value !== 'admin') return
+  starting.value = true; gradingError.value = ''
+  try { const data = await gradeReport(reportCase.value, reportText.value); await router.push(`/evaluation/runs/${data.run_id}`) }
+  catch { gradingError.value = '独立评分未保存，请检查案例和输入后重试' }
+  finally { starting.value = false }
+}
+async function runCalibration() {
+  if (starting.value || authRole.value !== 'admin') return
+  starting.value = true; gradingError.value = ''
+  try { calibration.value = await calibrateGrader() }
+  catch { gradingError.value = '评分器校准读取失败，请重试' }
   finally { starting.value = false }
 }
 async function inspect(id: string) {
@@ -215,8 +231,20 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
               <p><el-button :disabled="!a.runnable || authRole !== 'admin' || !searchCases.length" :loading="starting" @click="startSearch">运行搜索回放</el-button></p>
               <p>真实联网：等待调用量、费用与数据去向授权。</p>
             </template>
+            <template v-else-if="a.profile === 'report_grading'">
+              <p>提交实际报告，按当前固定资料独立检查。引用使用资料编号，如 [S01]；语义模型未启用时保留未知。</p>
+              <el-select v-model="reportCase" aria-label="报告评分案例" :disabled="authRole !== 'admin'"><el-option v-for="id in a.supported_case_ids || []" :key="id" :value="id" :label="id" /></el-select>
+              <el-input v-model="reportText" type="textarea" aria-label="待评报告" :maxlength="100000" :disabled="authRole !== 'admin'" />
+              <p><el-button :disabled="authRole !== 'admin'" :loading="starting" @click="submitReport">独立评分并归档</el-button></p>
+              <el-button :disabled="authRole !== 'admin'" :loading="starting" @click="runCalibration">运行评分器校准</el-button>
+            </template>
             <el-button v-else disabled>执行器待接通</el-button>
           </article></div>
+        <p v-if="gradingError" role="alert">{{ gradingError }}</p>
+        <section v-if="calibration"><h3>评分器校准结果</h3><p>校准样本 {{ calibration.total }}；未知 {{ calibration.unknown }}；误放行 {{ calibration.false_accepts }}；误拒绝 {{ calibration.false_rejects }}；准确率 {{ calibration.accuracy === null ? '待真实校准' : calibration.accuracy }}</p>
+          <p>这是评分器样本，不能作为被测系统成绩。留出资料仅用于验收。</p><router-link v-if="calibration.run_id" :to="`/evaluation/runs/${calibration.run_id}`">查看校准归档与人工复核</router-link>
+          <el-table :data="calibration.results"><el-table-column prop="case_id" label="样本" /><el-table-column prop="split" label="资料分组" /><el-table-column prop="expected" label="参考" /><el-table-column prop="label" label="判分" /><el-table-column prop="reason" label="依据" /></el-table>
+        </section>
       </template>
       <template v-else-if="tab === 'records' || tab === 'compare'">
         <h3>{{ tab === 'compare' ? '对照实验' : '评测记录' }}</h3>
@@ -228,7 +256,7 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
         </el-table><p v-if="!historyError && !history.length">尚无运行记录</p>
         <template v-if="tab === 'records'"><h4>专项评测记录</h4>
           <el-table :data="mechanismRuns"><el-table-column prop="run_id" label="运行编号" /><el-table-column label="执行状态"><template #default="{ row }">{{ runLabels[row.execution_status] }}</template></el-table-column>
-            <el-table-column label="类型"><template #default="{ row }">{{ row.profile === 'search_replay' ? '搜索回放' : '机制回归' }}</template></el-table-column>
+            <el-table-column label="类型"><template #default="{ row }">{{ row.profile === 'grader_calibration' ? '评分器校准' : row.profile === 'report_grading' ? '独立报告评分' : row.profile === 'search_replay' ? '搜索回放' : '机制回归' }}</template></el-table-column>
             <el-table-column label="通过/计划"><template #default="{ row }">{{ row.profile === 'search_replay' ? '语义待评判' : `${row.summary.passed}/${row.summary.planned}` }}</template></el-table-column>
             <el-table-column prop="summary.unknown" label="待确认/未评分" />
             <el-table-column label="详情"><template #default="{ row }"><router-link :to="`/evaluation/runs/${row.run_id}`">查看实际回归结果</router-link></template></el-table-column>
@@ -236,10 +264,17 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
         </template>
       </template>
       <template v-else-if="tab === 'run-detail'">
-        <h3>{{ activeRun?.profile === 'search_replay' ? '冻结搜索回放详情' : '主备与恢复机制回归详情' }}</h3><p>报告质量尚未评判，真实供应商在线可用性尚未验证；冻结回放不代表自主搜索效果。</p>
+        <h3>{{ activeRun?.profile === 'grader_calibration' ? '评分器校准详情' : activeRun?.profile === 'report_grading' ? '独立报告评分详情' : activeRun?.profile === 'search_replay' ? '冻结搜索回放详情' : '主备与恢复机制回归详情' }}</h3><p v-if="activeRun?.profile !== 'report_grading' && activeRun?.profile !== 'grader_calibration'">报告质量尚未评判，真实供应商在线可用性尚未验证；冻结回放不代表自主搜索效果。</p><p v-else>独立判分与评分器校准分别展示；真实模型效果仍待授权验证。</p>
         <template v-if="activeRun"><p>{{ activeRun.run_id }} · {{ runLabels[activeRun.execution_status] }} · 已处理 {{ activeRun.summary.processed }}/{{ activeRun.summary.planned }}</p>
           <p v-if="activeRun.error" role="alert">{{ activeRun.error }}</p>
-          <el-table v-if="activeRun.profile !== 'search_replay'" :data="activeRun.results"><el-table-column prop="case_id" label="案例" /><el-table-column label="机制判定"><template #default="{ row }">{{ checkLabels[row.check_status] }}</template></el-table-column><el-table-column prop="test_count" label="实际测试数" /><el-table-column prop="skipped" label="跳过数" /><el-table-column prop="duration_seconds" label="耗时（秒）" /><el-table-column prop="error" label="异常" /><el-table-column label="过程"><template #default="{ row }"><el-button link @click="showProcess(row)">查看过程</el-button></template></el-table-column></el-table>
+          <section v-if="activeRun.profile === 'grader_calibration'"><p>校准样本不计被测系统质量；未知项需另行授权真实校准。</p>
+            <el-table :data="activeRun.results"><el-table-column prop="case_id" label="样本" /><el-table-column prop="split" label="资料分组" /><el-table-column prop="expected" label="参考" /><el-table-column prop="label" label="判分" /><el-table-column prop="reason" label="依据" /></el-table>
+          </section>
+          <section v-else-if="activeRun.profile === 'report_grading'"><p>独立评分不改变业务任务的原始质量状态；缺失语义判分为未知。</p>
+            <article v-for="r in activeRun.results" :key="r.case_id"><h4>{{ r.case_id }} · {{ checkLabels[r.check_status] }}</h4><p>报告指纹：{{ r.report_sha256 }}</p><pre>{{ r.report }}</pre>
+              <el-table :data="r.judgements"><el-table-column prop="rubric_id" label="检查" /><el-table-column prop="label" label="结论" /><el-table-column prop="reason" label="依据" /></el-table>
+            </article></section>
+          <el-table v-else-if="activeRun.profile !== 'search_replay'" :data="activeRun.results"><el-table-column prop="case_id" label="案例" /><el-table-column label="机制判定"><template #default="{ row }">{{ checkLabels[row.check_status] }}</template></el-table-column><el-table-column prop="test_count" label="实际测试数" /><el-table-column prop="skipped" label="跳过数" /><el-table-column prop="duration_seconds" label="耗时（秒）" /><el-table-column prop="error" label="异常" /><el-table-column label="过程"><template #default="{ row }"><el-button link @click="showProcess(row)">查看过程</el-button></template></el-table-column></el-table>
           <el-table v-else :data="activeRun.results"><el-table-column prop="case_id" label="案例" /><el-table-column prop="metrics.returned_count" label="回放结果数" /><el-table-column prop="metrics.unique_sources" label="去重后来源数" /><el-table-column prop="metrics.unknown_period_documents" label="统计期未知" /><el-table-column label="过期数"><template #default="{ row }">{{ row.metrics?.stale_documents ?? '未指定窗口' }}</template></el-table-column><el-table-column label="语义质量"><template #default>待独立评判</template></el-table-column><el-table-column label="过程与资料"><template #default="{ row }"><el-button link @click="showProcess(row)">查看回放资料</el-button></template></el-table-column></el-table>
           <section v-if="traceRows !== null"><h4>实际执行事件</h4><p v-if="!traceRows.length">该记录没有可用轨迹证据，不补造过程。</p><ol><li v-for="(event, index) in traceRows" :key="index">{{ traceLabel(event) }}</li></ol></section>
           <article v-for="(doc, index) in evidenceRows" :key="index"><h4>{{ doc.title }}</h4><a v-if="doc.url?.startsWith('https://') || doc.url?.startsWith('http://')" :href="doc.url || undefined" target="_blank" rel="noopener noreferrer">查看原始来源</a><p>{{ doc.snippet }}</p><p>发布日期：{{ doc.published_at || '未知' }}；统计期：{{ doc.data_period || '未知' }}；{{ doc.content_available ? '回放片段可用' : '内容不可用' }}</p></article>

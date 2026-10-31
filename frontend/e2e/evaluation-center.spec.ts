@@ -7,6 +7,33 @@ const golden = JSON.parse(readFileSync(fileURLToPath(new URL('private/golden.jso
 const collections = ['golden', 'regression', 'challenge']
 const cases = collections.flatMap(collection => JSON.parse(readFileSync(fileURLToPath(new URL(`private/${collection}.json`, root)), 'utf8')).cases)
 const labels = { protocol: '流程与故障', search: '网络搜索', report: '报告质量', robustness: '鲁棒性与恢复', end_to_end: '完整任务' }
+test('独立评分展示拒绝依据与校准未知，报告HTML不执行', async ({ page }) => {
+  const rid = 'er_' + 'd'.repeat(32)
+  const writes: unknown[] = []
+  const record = { run_id: rid, profile: 'report_grading', execution_status: 'completed', report_quality: 'rejected', metadata: { dataset_hash: 'a'.repeat(64) }, summary: { planned: 1, processed: 1, passed: 0, failed: 1, unknown: 0 }, results: [{ case_id: 'G002', check_status: 'fail', report: '<img src=x onerror=alert(1)> 待补充', report_sha256: 'b'.repeat(64), judgements: [{ rubric_id: 'Q_CITE', label: 'fail', reason: '含有占位符' }] }] }
+  await page.route('**/api/v*/**', async route => {
+    const path = new URL(route.request().url()).pathname
+    const env = (data: unknown) => ({ data, meta: { request_id: 'fixture' } })
+    if (path === '/api/v2/auth/session') return route.fulfill({ json: env({ role: 'admin' }) })
+    if (path === '/api/v2/evaluation-center/catalog') return route.fulfill({ json: env({ version: 'sb-eval-data-1', cutoff: '2026-10-31', total_cases: 108, cases: [], collections: {}, areas: [{ area: 'report', label: '报告质量', profile: 'report_grading', supported_case_ids: ['G002'], runnable: true, score: null }] }) })
+    if (path.endsWith('/calibrate')) return route.fulfill({ json: env({ total: 10, unknown: 10, false_accepts: 0, false_rejects: 0, accuracy: null, groups: {}, results: [] }) })
+    if (path.endsWith('/grade-report')) { writes.push(route.request().postDataJSON()); return route.fulfill({ status: 201, json: env(record) }) }
+    if (path.endsWith('/runs/' + rid)) return route.fulfill({ json: env(record) })
+    return route.fulfill({ status: 404, json: { error: { message: '未声明请求' } } })
+  })
+  await page.goto('/evaluation/run')
+  await page.getByLabel('访问令牌').fill('fixture-grade')
+  await page.getByRole('button', { name: '验证并进入' }).click()
+  await page.getByRole('button', { name: '运行评分器校准', exact: true }).click()
+  await expect(page.getByText('准确率 待真实校准', { exact: false })).toBeVisible()
+  await page.getByLabel('待评报告').fill('<img src=x onerror=alert(1)> 待补充')
+  await page.getByRole('button', { name: '独立评分并归档', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '独立报告评分详情' })).toBeVisible()
+  await expect(page.getByRole('cell', { name: '含有占位符', exact: true })).toBeVisible()
+  await expect(page.locator('img')).toHaveCount(0)
+  expect(writes).toEqual([{ profile: 'report_grading', case_id: 'G002', report: '<img src=x onerror=alert(1)> 待补充' }])
+  await page.screenshot({ path: '../docs/verification/EVAL-NEXT-05-report.png', fullPage: true })
+})
 test('搜索回放展示采集指标和资料，语义未知不显示零分', async ({ page }) => {
   const rid = 'er_' + 'c'.repeat(32)
   const writes: unknown[] = []
