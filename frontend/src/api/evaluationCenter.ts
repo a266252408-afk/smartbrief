@@ -32,6 +32,7 @@ export async function fetchCatalogCase(id: string): Promise<CatalogDetail> {
 export interface MechanismResult {
   case_id: string; check_status: 'pass' | 'fail' | 'unknown'; test_count: number
   passed: number; failed: number; skipped: number; report_quality: string; duration_seconds: number; error: string | null
+  trace?: Record<string, unknown>[]
 }
 export interface MechanismRun {
   run_id: string; execution_status: 'running' | 'completed' | 'failed'; report_quality: string

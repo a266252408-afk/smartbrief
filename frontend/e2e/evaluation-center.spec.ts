@@ -19,7 +19,7 @@ test('管理员启动机制回归并查看真实判定与质量未知', async ({
       writes.push(route.request().postDataJSON())
       return route.fulfill({ status: 202, json: env({ run_id: rid }) })
     }
-    if (path === '/api/v2/evaluation-center/runs/' + rid) return route.fulfill({ json: env({ run_id: rid, execution_status: 'completed', report_quality: 'unknown', summary: { planned: 2, processed: 2, passed: 1, failed: 0, unknown: 1 }, error: null, results: [{ case_id: 'R009', check_status: 'pass', test_count: 1, skipped: 0, duration_seconds: 1, error: null }, { case_id: 'G023', check_status: 'unknown', test_count: 0, skipped: 0, duration_seconds: 1, error: '子进程未运行' }] }) })
+    if (path === '/api/v2/evaluation-center/runs/' + rid) return route.fulfill({ json: env({ run_id: rid, execution_status: 'completed', report_quality: 'unknown', summary: { planned: 2, processed: 2, passed: 1, failed: 0, unknown: 1 }, error: null, results: [{ case_id: 'R009', check_status: 'pass', test_count: 1, skipped: 0, duration_seconds: 1, error: null, trace: [{ kind: 'model_call', model_role: 'primary', status: 'failed', error_code: 'MODEL_CONNECTION', duration_ms: 1 }, { kind: 'model_call', model_role: 'backup', status: 'success', error_code: null, duration_ms: 2 }] }, { case_id: 'G023', check_status: 'unknown', test_count: 0, skipped: 0, duration_seconds: 1, error: '子进程未运行' }] }) })
     return route.fulfill({ status: 404, json: { error: { message: '未声明请求' } } })
   })
   await page.goto('/evaluation/run')
@@ -30,7 +30,10 @@ test('管理员启动机制回归并查看真实判定与质量未知', async ({
   await expect(page.getByText('报告质量尚未评判', { exact: false })).toBeVisible()
   await expect(page.getByRole('cell', { name: '待确认', exact: true })).toBeVisible()
   expect(writes).toEqual([{ profile: 'mechanism_regression', case_ids: ['R009', 'G023'] }])
-  await page.screenshot({ path: '../docs/verification/EVAL-NEXT-02-01-run.png', fullPage: true })
+  await page.getByRole('row').filter({ hasText: 'R009' }).getByRole('button', { name: '查看过程' }).click()
+  await expect(page.getByText('主模型调用未成功', { exact: false })).toBeVisible()
+  await expect(page.getByText('备用模型调用成功', { exact: false })).toBeVisible()
+  await page.screenshot({ path: '../docs/verification/EVAL-NEXT-02-02-trace.png', fullPage: true })
 })
 test('题库分区、筛选、详情和只读运行边界', async ({ page }) => {
   const writes: string[] = []

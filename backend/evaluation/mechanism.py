@@ -1,8 +1,12 @@
 """固定白名单机制回归适配器；执行真实测试并解析JUnit，不执行题库中的代码。"""
 import asyncio
+import json
 import os
 from pathlib import Path
 import sys
+import signal
+import subprocess
+import sqlite3
 from time import perf_counter
 from typing import Literal
 import xml.etree.ElementTree as ET
@@ -27,6 +31,8 @@ TESTS = {
     'R021':('test_task_recovery.py','test_resume_missing_checkpoint_is_explicit_restart'),
     'R022':('test_task_recovery.py','test_resume_does_not_reset_usage_budget'),
     'R023':('test_cache_usage.py','test_cache_price_does_not_double_count_input_and_is_historical'),
+    'C026':('test_evaluation_process_recovery.py','test_real_process_checkpoint_resume[executing]'),
+    'C027':('test_evaluation_process_recovery.py','test_real_process_checkpoint_resume[before_commit]'),
 }
 
 
@@ -58,6 +64,7 @@ class MechanismResult(BaseModel):
     engine: Literal['pytest_mechanism_regression']='pytest_mechanism_regression'
     error: str | None
     scope: str
+    trace: list[dict] = []
 
 
 class MechanismSummary(BaseModel):
@@ -118,6 +125,47 @@ def child_environment(directory):
     return env
 
 
+async def stop_owned_process(process):
+    """仅结束本函数启动的评测进程树；中断演练可能包含嵌套子进程。"""
+    if process.returncode is not None:
+        return
+    if sys.platform=='win32':
+        try:
+            result=await asyncio.to_thread(subprocess.run,['taskkill','/PID',str(process.pid),'/T','/F'],
+                                    stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,
+                                    timeout=10,creationflags=subprocess.CREATE_NO_WINDOW)
+            if result.returncode and process.returncode is None:
+                process.kill()
+        except (OSError,subprocess.TimeoutExpired):
+            process.kill()
+    else:
+        try:
+            os.killpg(process.pid,signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    await process.wait()
+
+
+def read_trace(directory):
+    """只提取本次隔离目录的白名单字段；不公开原始日志或提示。"""
+    events=[]
+    for path in sorted((directory/'pytest').rglob('*.db')):
+        try:
+            with sqlite3.connect(path.as_uri()+'?mode=ro',uri=True) as conn:
+                for row in conn.execute('SELECT data FROM model_usage ORDER BY rowid LIMIT 100'):
+                    data=json.loads(row[0])
+                    events.append(dict(kind='model_call',**{key:data.get(key) for key in
+                        ('model_role','status','error_code','duration_ms','logical_call_id','created_at')}))
+        except (sqlite3.Error,ValueError,TypeError):
+            continue
+    for path in sorted((directory/'pytest').rglob('trace.jsonl')):
+        for line in path.read_text('utf-8').splitlines()[:50]:
+            data=json.loads(line)
+            events.append({key:data[key] for key in ('kind','label','recorded_at','committed','interrupted',
+                          'window','status','resume_mode','completed_steps') if key in data})
+    return sorted(events,key=lambda e:e.get('recorded_at') or e.get('created_at') or '')
+
+
 async def run_case(case_id,directory,timeout=120):
     if case_id not in TESTS:
         raise ValueError('案例未接通')
@@ -133,7 +181,10 @@ async def run_case(case_id,directory,timeout=120):
     reason=None
     try:
         with (directory/'output.txt').open('wb') as output:
+            options=({'creationflags':subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP}
+                     if sys.platform=='win32' else {'start_new_session':True})
             process=await asyncio.create_subprocess_exec(*command,cwd=REPO/'backend',env=child_environment(directory),
+                                                         **options,
                                                          stdout=output,stderr=asyncio.subprocess.STDOUT)
             exit_code=await asyncio.wait_for(process.wait(),timeout)
     except TimeoutError:
@@ -142,10 +193,10 @@ async def run_case(case_id,directory,timeout=120):
         reason='评测子进程启动失败，请检查本地测试环境'
     finally:
         if process and process.returncode is None:
-            process.kill()
-            await process.wait()
+            await stop_owned_process(process)
     result=parse_junit(junit,exit_code)
     return MechanismResult(case_id=case_id,**result,execution_status='completed' if exit_code in (0,1) else 'failed',
                 report_quality='unknown',exit_code=exit_code,duration_seconds=round(perf_counter()-start,3),
                 engine='pytest_mechanism_regression',error=reason,
-                scope='真实路由/恢复保护测试；外部供应商为替身，不证明在线可用性或报告质量').model_dump()
+                scope='真实路由/恢复保护测试；外部供应商为替身，不证明在线可用性或报告质量',
+                trace=read_trace(directory)).model_dump()

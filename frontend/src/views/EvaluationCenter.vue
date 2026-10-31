@@ -13,6 +13,7 @@ const history = ref<EvalReportSummary[]>([]), historyError = ref(''), starting =
 const flags = ref({ rag: true, memory: true, review: true })
 const mechanismCases = ref(['R009', 'G023']), mechanismRuns = ref<MechanismRun[]>([]), mechanismError = ref('')
 const activeRun = ref<MechanismRun | null>(null)
+const traceRows = ref<Record<string, unknown>[] | null>(null)
 let runPoll: ReturnType<typeof setTimeout> | undefined
 let disposed = false
 const tab = computed(() => String(route.meta.evaluationTab || 'overview'))
@@ -24,6 +25,13 @@ const splitLabels: Record<string, string> = { development: '开发组', holdout:
 const runLabels: Record<string, string> = { running: '执行中', completed: '已处理完', failed: '执行中断' }
 const checkLabels: Record<string, string> = { pass: '通过', fail: '未通过', unknown: '待确认' }
 function criterion(text: string) { return text.replace('oracle.required_fact_ids', '参考事实清单') }
+function traceLabel(event: Record<string, unknown>): string {
+  if (event.kind === 'model_call') return `${event.model_role === 'primary' ? '主模型' : event.model_role === 'backup' ? '备用模型' : '模型'}调用${event.status === 'success' ? '成功' : '未成功'}${event.error_code ? `（${event.error_code}）` : ''}，耗时 ${event.duration_ms ?? '未知'} 毫秒`
+  if (event.kind === 'checkpoint_before_interrupt') return `中断前已保存步骤：${JSON.stringify(event.committed)}；中断位置：${event.interrupted || '当前单元'}`
+  if (event.kind === 'recovery_result') return `恢复结果：${event.resume_mode === 'checkpoint' ? '检查点续跑' : String(event.resume_mode || '未知')}，已完成步骤：${JSON.stringify(event.completed_steps)}`
+  const agents: Record<string, string> = { planner: '任务规划', researcher: '资料研究', 'writer:A': '撰写章节A', 'writer:B': '撰写章节B', reviewer: '审核' }
+  return agents[String(event.label)] || '执行事件'
+}
 const rows = computed(() => (catalog.value?.cases || []).filter(c => (!area.value || c.area === area.value)
   && (!collection.value || c.collection === collection.value) && (!query.value || `${c.case_id} ${c.title}`.includes(query.value))))
 let detailVersion = 0
@@ -179,7 +187,8 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
         <h3>主备与恢复机制回归详情</h3><p>结果来自本地测试执行；报告质量尚未评判，真实供应商在线可用性尚未验证。</p>
         <template v-if="activeRun"><p>{{ activeRun.run_id }} · {{ runLabels[activeRun.execution_status] }} · 已处理 {{ activeRun.summary.processed }}/{{ activeRun.summary.planned }}</p>
           <p v-if="activeRun.error" role="alert">{{ activeRun.error }}</p>
-          <el-table :data="activeRun.results"><el-table-column prop="case_id" label="案例" /><el-table-column label="机制判定"><template #default="{ row }">{{ checkLabels[row.check_status] }}</template></el-table-column><el-table-column prop="test_count" label="实际测试数" /><el-table-column prop="skipped" label="跳过数" /><el-table-column prop="duration_seconds" label="耗时（秒）" /><el-table-column prop="error" label="异常" /></el-table>
+          <el-table :data="activeRun.results"><el-table-column prop="case_id" label="案例" /><el-table-column label="机制判定"><template #default="{ row }">{{ checkLabels[row.check_status] }}</template></el-table-column><el-table-column prop="test_count" label="实际测试数" /><el-table-column prop="skipped" label="跳过数" /><el-table-column prop="duration_seconds" label="耗时（秒）" /><el-table-column prop="error" label="异常" /><el-table-column label="过程"><template #default="{ row }"><el-button link @click="traceRows = row.trace || []">查看过程</el-button></template></el-table-column></el-table>
+          <section v-if="traceRows !== null"><h4>实际执行事件</h4><p v-if="!traceRows.length">该记录没有可用轨迹证据，不补造过程。</p><ol><li v-for="(event, index) in traceRows" :key="index">{{ traceLabel(event) }}</li></ol></section>
         </template>
       </template>
       <template v-else-if="tab === 'review'"><h3>人工复核</h3><p>题库核验与运行结果复核分开记录。当前尚未接通持久化复核，不能把待抽查案例自动标为人工通过。</p>

@@ -46,10 +46,11 @@ def test_real_mechanism_subprocess_is_isolated(tmp_path):
     assert result['report_quality']=='unknown'
     assert (tmp_path/'junit.xml').exists()
     assert list(tmp_path.rglob('*.db'))
+    assert [r['model_role'] for r in result['trace'] if r['kind']=='model_call']==['primary','backup','backup']
 
 
 def test_unmapped_case_not_executed(tmp_path):
     from evaluation.mechanism import run_case
     with pytest.raises(ValueError):
-        asyncio.run(run_case('C026',tmp_path))
+        asyncio.run(run_case('C028',tmp_path))
     assert not list(Path(tmp_path).iterdir())

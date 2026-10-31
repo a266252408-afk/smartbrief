@@ -2709,6 +2709,15 @@
         "scope": {
           "title": "Scope",
           "type": "string"
+        },
+        "trace": {
+          "default": [],
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Trace",
+          "type": "array"
         }
       },
       "required": [
@@ -2852,6 +2861,15 @@
             "scope": {
               "title": "Scope",
               "type": "string"
+            },
+            "trace": {
+              "default": [],
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "title": "Trace",
+              "type": "array"
             }
           },
           "required": [

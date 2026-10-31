@@ -65,7 +65,7 @@ def test_http_auth_body_and_unknown(monkeypatch):
     with TestClient(app,headers=ADMIN_HEADERS) as client:
         assert client.get('/api/v2/evaluation-center/capabilities').json()['data']['supported_case_ids']
         assert client.post('/api/v2/evaluation-center/runs',headers=READ_HEADERS,json={'case_ids':['R009']}).status_code==403
-        for body in ({'case_ids':['C026']},{'case_ids':['R009','R009']},{'case_ids':['R009'],'command':'secret'}):
+        for body in ({'case_ids':['C028']},{'case_ids':['R009','R009']},{'case_ids':['R009'],'command':'secret'}):
             assert client.post('/api/v2/evaluation-center/runs',json=body).status_code==422
         response=client.post('/api/v2/evaluation-center/runs',json={'case_ids':['R009']})
         assert response.status_code==202
@@ -96,10 +96,14 @@ def test_launch_failure_and_timeout_are_unknown(tmp_path,monkeypatch):
     assert result['check_status']=='unknown' and result['execution_status']=='failed' and 'SECRET' not in str(result)
     class Process:
         returncode=None
+        pid=999999999
         wait=AsyncMock(side_effect=[TimeoutError(),-9])
         def kill(self):
             self.returncode=-9
     process=Process()
+    def unavailable(*args,**kwargs):
+        raise OSError('fixture')
+    monkeypatch.setattr(mechanism.subprocess,'run',unavailable)
     monkeypatch.setattr(mechanism.asyncio,'create_subprocess_exec',AsyncMock(return_value=process))
     result=asyncio.run(mechanism.run_case('R009',tmp_path/'timeout',timeout=.01))
     assert result['check_status']=='unknown' and '超时' in result['error'] and process.returncode==-9
@@ -183,3 +187,55 @@ def test_real_http_to_child_and_persistent_result():
         assert record['summary']['passed']==1 and record['results'][0]['test_count']==1
         assert repo.get(rid)['results'][0]['check_status']=='pass'
         assert record['report_quality']=='unknown'
+
+
+@pytest.mark.parametrize('platform',['win32','win32_failed','linux','linux_missing','completed'])
+def test_owned_process_tree_cleanup_only_targets_spawned_pid(monkeypatch,platform):
+    from evaluation import mechanism
+    class Process:
+        pid=123456789
+        returncode=0 if platform=='completed' else None
+        wait=AsyncMock(return_value=0)
+        def kill(self):
+            self.returncode=-9
+    process=Process()
+    calls=[]
+    def taskkill(command,**kwargs):
+        calls.append(command)
+        from types import SimpleNamespace
+        return SimpleNamespace(returncode=1 if platform=='win32_failed' else 0)
+    def killpg(pid,sig):
+        calls.append(pid)
+        if platform=='linux_missing':
+            raise ProcessLookupError
+    monkeypatch.setattr(mechanism.subprocess,'run',taskkill)
+    monkeypatch.setattr(mechanism.os,'killpg',killpg,raising=False)
+    monkeypatch.setattr(mechanism.signal,'SIGKILL',9,raising=False)
+    monkeypatch.setattr(mechanism.subprocess,'CREATE_NO_WINDOW',0,raising=False)
+    async def scenario():
+        monkeypatch.setattr(mechanism.sys,'platform','win32' if platform.startswith('win32') else 'linux')
+        await mechanism.stop_owned_process(process)
+    asyncio.run(scenario())
+    if platform=='completed':
+        assert calls==[] and process.wait.await_count==0
+    elif platform.startswith('win32'):
+        assert calls==[['taskkill','/PID','123456789','/T','/F']]
+        if platform=='win32_failed':
+            assert process.returncode==-9
+    else:
+        assert calls==[123456789]
+
+
+def test_trace_reads_only_actual_whitelisted_artifacts(tmp_path):
+    import json
+    from evaluation.mechanism import read_trace
+    folder=tmp_path/'pytest'/'case'
+    folder.mkdir(parents=True)
+    (folder/'bad.db').write_text('not a database')
+    rows=[dict(kind='agent_call',label='writer:A',recorded_at='1'),dict(kind='agent_call',label='writer:B',recorded_at='2'),
+          dict(kind='checkpoint_before_interrupt',committed=[1,2],window='executing',private='SECRET',recorded_at='3'),
+          dict(kind='recovery_result',status='completed',resume_mode='checkpoint',completed_steps=[1,2,3],private='SECRET',recorded_at='4')]
+    (folder/'trace.jsonl').write_text('\n'.join(json.dumps(r) for r in rows),encoding='utf-8')
+    trace=read_trace(tmp_path)
+    assert [r['kind'] for r in trace]==['agent_call','agent_call','checkpoint_before_interrupt','recovery_result']
+    assert 'SECRET' not in str(trace) and trace[-1]['resume_mode']=='checkpoint'
