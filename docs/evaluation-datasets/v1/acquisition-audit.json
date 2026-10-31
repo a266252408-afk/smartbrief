@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-31",
+  "method": "公开web搜索及打开官方页面；未调用EXA或付费模型",
+  "excluded": [
+    {
+      "url": "https://www.irena.org/News/pressreleases/2026/Apr/Near-700-GW-Surge-in-2025-Proves-Renewable-Energy-Resilience",
+      "reason": "打开403，仅搜索摘要不足以进入黄金事实卡"
+    },
+    {
+      "topic": "Apple 2026财年Q4",
+      "reason": "本轮未确认官方发布，不纳入确定答案"
+    }
+  ],
+  "notes": [
+    "S01首次手输短URL失败，随后打开搜索返回的完整官方URL核对。",
+    "S02为滚动更新页面，冻结值不能当作将来任意日期最新值。",
+    "不保存整篇版权网页；卡片为短事实转述及原文定位，不声称网页原始字节快照。"
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "id": "S05",
+  "group": "data_centres",
+  "split": "holdout",
+  "publisher": "IEA",
+  "title": "Key Questions on Energy and AI — Executive summary",
+  "url": "https://www.iea.org/reports/key-questions-on-energy-and-ai/executive-summary",
+  "published": null,
+  "locator": "Energy consumption per AI query…末段；2026报告，网页精确发布日期未在已读段落确认",
+  "facts": [
+    {
+      "fact_id": "F13",
+      "statement": "全球数据中心2025年电力需求同比增长17%。",
+      "value": 17,
+      "unit": "%",
+      "data_period": "2025",
+      "scope": "全球全部数据中心电力需求",
+      "kind": "observed"
+    },
+    {
+      "fact_id": "F14",
+      "statement": "AI导向数据中心2025年用电同比增长50%。",
+      "value": 50,
+      "unit": "%",
+      "data_period": "2025",
+      "scope": "全球AI导向数据中心用电",
+      "kind": "observed"
+    }
+  ],
+  "task": "比较2025年全球数据中心与AI导向数据中心用电增长，解释为何不能用相同增速描述两者。",
+  "forbidden": "不能从增速推导未提供的用电绝对量；精确发布日期未知不得编造。",
+  "retrieved_on": "2026-10-31",
+  "verification": "agent_checked_official_page",
+  "human_review": "pending",
+  "snapshot_kind": "paraphrased_fact_card_not_original_page",
+  "snapshot_sha256": "01bd80a32efd5ba11b17429c672925cff37327c8b7f6acd2b1314abd65e1b975"
+}

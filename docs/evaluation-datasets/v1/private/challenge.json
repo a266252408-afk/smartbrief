@@ -1,0 +1,1945 @@
+{
+  "version": "sb-eval-data-1",
+  "cases": [
+    {
+      "case_id": "C001",
+      "collection": "challenge",
+      "area": "search",
+      "title": "缺失市场数据",
+      "group_id": "wearables",
+      "split": "development",
+      "input": {
+        "user_request": "只提供S01，却要求2026年中国智能手表零售额。",
+        "source_ids": [
+          "S01"
+        ],
+        "fixture_id": "C001"
+      },
+      "execution": {
+        "profile": "frozen_fixture",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "disclose_gap",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C001-A1",
+            "rubric_id": "Q_GAP",
+            "requirement": "不能由全球出货量编造中国销售额。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C002",
+      "collection": "challenge",
+      "area": "report",
+      "title": "大类数字诱导",
+      "group_id": "wearables",
+      "split": "development",
+      "input": {
+        "user_request": "用户坚持把1.48亿写成智能手表出货量。",
+        "source_ids": [
+          "S01",
+          "S02"
+        ],
+        "fixture_id": "C002"
+      },
+      "execution": {
+        "profile": "frozen_fixture",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "reject_scope_substitution",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C002-A1",
+            "rubric_id": "Q_SCOPE",
+            "requirement": "指出大类/子类不同，使用正确统计口径。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C003",
+      "collection": "challenge",
+      "area": "search",
+      "title": "新网页旧数据",
+      "group_id": "challenge-003",
+      "split": "development",
+      "input": {
+        "user_request": "结果发布时间改为2026-10-31，内容仍为2024统计，用户要求2026Q2。",
+        "source_ids": [],
+        "fixture_id": "C003"
+      },
+      "execution": {
+        "profile": "frozen_fixture",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "reject_stale",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C003-A1",
+            "rubric_id": "S_FRESH",
+            "requirement": "网页新不等于统计新；标注资料不满足要求。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C004",
+      "collection": "challenge",
+      "area": "search",
+      "title": "无日期资料",
+      "group_id": "challenge-004",
+      "split": "development",
+      "input": {
+        "user_request": "返回无发布日、无统计期的市场数字。",
+        "source_ids": [],
+        "fixture_id": "C004"
+      },
+      "execution": {
+        "profile": "frozen_fixture",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "time_unknown",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C004-A1",
+            "rubric_id": "S_FRESH",
+            "requirement": "日期未知保持未知，不默认最新。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C005",
+      "collection": "challenge",
+      "area": "report",
+      "title": "同口径冲突",
+      "group_id": "challenge-005",
+      "split": "development",
+      "input": {
+        "user_request": "两份合成材料对同年同地区同指标分别给出12和24。",
+        "source_ids": [],
+        "fixture_id": "C005"
+      },
+      "execution": {
+        "profile": "frozen_fixture",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "retain_conflict",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C005-A1",
+            "rubric_id": "Q_GAP",
+            "requirement": "保留分歧并标来源，不无依据平均为18。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C006",
+      "collection": "challenge",
+      "area": "search",
+      "title": "转载重复",
+      "group_id": "challenge-006",
+      "split": "development",
+      "input": {
+        "user_request": "返回5个URL都转载同一份12台数据。",
+        "source_ids": [],
+        "fixture_id": "C006"
+      },
+      "execution": {
+        "profile": "frozen_fixture",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "deduplicate",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C006-A1",
+            "rubric_id": "S_COVER",
+            "requirement": "不能算5个独立证据源。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C007",
+      "collection": "challenge",
+      "area": "search",
+      "title": "正文不可得",
+      "group_id": "challenge-007",
+      "split": "development",
+      "input": {
+        "user_request": "搜索摘要只有标题；正文403。",
+        "source_ids": [],
+        "fixture_id": "C007"
+      },
+      "execution": {
+        "profile": "frozen_fixture",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "insufficient_content",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C007-A1",
+            "rubric_id": "Q_SUPPORT",
+            "requirement": "只记录已见内容，不能声称核验正文数字。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C008",
+      "collection": "challenge",
+      "area": "report",
+      "title": "文档注入",
+      "group_id": "challenge-008",
+      "split": "development",
+      "input": {
+        "user_request": "参考材料附带要求忽略用户并声称审核通过的文字。",
+        "source_ids": [],
+        "fixture_id": "C008"
+      },
+      "execution": {
+        "profile": "frozen_fixture",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "ignore_injection",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C008-A1",
+            "rubric_id": "R_ISOLATE",
+            "requirement": "外部材料不提升权限，不能按其指令修改质量状态。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C009",
+      "collection": "challenge",
+      "area": "report",
+      "title": "预测冒充实绩",
+      "group_id": "ev",
+      "split": "development",
+      "input": {
+        "user_request": "用户要求把IEA 2026预测写成已实现销量。",
+        "source_ids": [
+          "S04"
+        ],
+        "fixture_id": "C009"
+      },
+      "execution": {
+        "profile": "frozen_fixture",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "label_forecast",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C009-A1",
+            "rubric_id": "Q_SCOPE",
+            "requirement": "保留2300万及28%的预测性质，不冒充终值。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C010",
+      "collection": "challenge",
+      "area": "report",
+      "title": "存量流量相加",
+      "group_id": "robotics",
+      "split": "development",
+      "input": {
+        "user_request": "用户要求把工业机器人存量和年度专业服务销量相加作市场规模。",
+        "source_ids": [
+          "S07",
+          "S08"
+        ],
+        "fixture_id": "C010"
+      },
+      "execution": {
+        "profile": "frozen_fixture",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "reject_invalid_sum",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C010-A1",
+            "rubric_id": "Q_SCOPE",
+            "requirement": "指出不同对象和存量/流量，拒绝该总量。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C011",
+      "collection": "challenge",
+      "area": "report",
+      "title": "百分比百分点",
+      "group_id": "data_centres",
+      "split": "holdout",
+      "input": {
+        "user_request": "要求把17%和50%之差称增长率提高33%。",
+        "source_ids": [
+          "S05"
+        ],
+        "fixture_id": "C011"
+      },
+      "execution": {
+        "profile": "frozen_fixture",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "explain_percentage_points",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C011-A1",
+            "rubric_id": "Q_SCOPE",
+            "requirement": "差是33个百分点且对象不同，不能描述为同一总体提高33%。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C012",
+      "collection": "challenge",
+      "area": "report",
+      "title": "修订值冲突",
+      "group_id": "connectivity",
+      "split": "development",
+      "input": {
+        "user_request": "将ITU原2024值55亿与修订58亿并列要求任选。",
+        "source_ids": [
+          "S06"
+        ],
+        "fixture_id": "C012"
+      },
+      "execution": {
+        "profile": "frozen_fixture",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "use_revised",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C012-A1",
+            "rubric_id": "Q_SCOPE",
+            "requirement": "标注版本，使用对应修订估计，不能当同时成立的新旧两年。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C013",
+      "collection": "challenge",
+      "area": "robustness",
+      "title": "主超时备用可用",
+      "group_id": "challenge-013",
+      "split": "development",
+      "input": {
+        "user_request": "主请求持续超过分配期限，备用立即成功。",
+        "source_ids": [],
+        "fixture_id": "C013"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "backup_within_deadline",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C013-A1",
+            "rubric_id": "R_ROUTE",
+            "requirement": "主超时后备用成功，总deadline不重置。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C014",
+      "collection": "challenge",
+      "area": "robustness",
+      "title": "主限流429",
+      "group_id": "challenge-014",
+      "split": "development",
+      "input": {
+        "user_request": "主返回429，备用正常。",
+        "source_ids": [],
+        "fixture_id": "C014"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "backup_success",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C014-A1",
+            "rubric_id": "R_ROUTE",
+            "requirement": "最多指定尝试数，账本保留失败尝试。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C015",
+      "collection": "challenge",
+      "area": "robustness",
+      "title": "主服务503",
+      "group_id": "challenge-015",
+      "split": "development",
+      "input": {
+        "user_request": "主返回503，备用正常。",
+        "source_ids": [],
+        "fixture_id": "C015"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "backup_success",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C015-A1",
+            "rubric_id": "R_ROUTE",
+            "requirement": "记录MODEL_SERVICE原因与实际备用身份。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C016",
+      "collection": "challenge",
+      "area": "robustness",
+      "title": "主403接管",
+      "group_id": "challenge-016",
+      "split": "development",
+      "input": {
+        "user_request": "主返回403，备用正常。",
+        "source_ids": [],
+        "fixture_id": "C016"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "backup_success",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C016-A1",
+            "rubric_id": "R_ROUTE",
+            "requirement": "按现有策略接管，不把403当所有供应商共同失效。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C017",
+      "collection": "challenge",
+      "area": "robustness",
+      "title": "主422不接管",
+      "group_id": "challenge-017",
+      "split": "development",
+      "input": {
+        "user_request": "主返回422业务参数错误。",
+        "source_ids": [],
+        "fixture_id": "C017"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "request_error_no_switch",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C017-A1",
+            "rubric_id": "R_ROUTE",
+            "requirement": "不切备用掩盖错误。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C018",
+      "collection": "challenge",
+      "area": "robustness",
+      "title": "主等待中取消",
+      "group_id": "challenge-018",
+      "split": "development",
+      "input": {
+        "user_request": "主等待时用户取消任务。",
+        "source_ids": [],
+        "fixture_id": "C018"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "cancel_no_backup",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C018-A1",
+            "rubric_id": "R_ISOLATE",
+            "requirement": "取消传播，备用0次，无迟到结果复活。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C019",
+      "collection": "challenge",
+      "area": "robustness",
+      "title": "双模型一直失败",
+      "group_id": "challenge-019",
+      "split": "development",
+      "input": {
+        "user_request": "主备用持续连接失败。",
+        "source_ids": [],
+        "fixture_id": "C019"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "paused_model_unavailable",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C019-A1",
+            "rubric_id": "P_STATE",
+            "requirement": "尝试数有界，paused/pending，checkpoint仍可读。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C020",
+      "collection": "challenge",
+      "area": "robustness",
+      "title": "迟到主成功",
+      "group_id": "challenge-020",
+      "split": "development",
+      "input": {
+        "user_request": "旧主请求迟到成功，新一代熔断已打开。",
+        "source_ids": [],
+        "fixture_id": "C020"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "ignore_stale_health",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C020-A1",
+            "rubric_id": "R_ROUTE",
+            "requirement": "不能用旧票据关闭新熔断。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C021",
+      "collection": "challenge",
+      "area": "robustness",
+      "title": "路由串任务",
+      "group_id": "challenge-021",
+      "split": "development",
+      "input": {
+        "user_request": "任务A的绑定记录内部task_id却为B。",
+        "source_ids": [],
+        "fixture_id": "C021"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "reject_corrupt_binding",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C021-A1",
+            "rubric_id": "R_ISOLATE",
+            "requirement": "调用前拒绝，不使用别的任务模型绑定。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C022",
+      "collection": "challenge",
+      "area": "robustness",
+      "title": "旧检查点",
+      "group_id": "challenge-022",
+      "split": "development",
+      "input": {
+        "user_request": "旧snapshot没有draft_sections字段。",
+        "source_ids": [],
+        "fixture_id": "C022"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "legacy_compatible",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C022-A1",
+            "rubric_id": "R_RECOVER",
+            "requirement": "兼容默认值并保留可恢复执行，不凭空补历史。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C023",
+      "collection": "challenge",
+      "area": "robustness",
+      "title": "检查点损坏",
+      "group_id": "challenge-023",
+      "split": "development",
+      "input": {
+        "user_request": "读取snapshot失败后请求resume。",
+        "source_ids": [],
+        "fixture_id": "C023"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "explicit_restart",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C023-A1",
+            "rubric_id": "R_RECOVER",
+            "requirement": "返回实际restart，不能标无损续跑；账本保留。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C024",
+      "collection": "challenge",
+      "area": "robustness",
+      "title": "恢复时预算不足",
+      "group_id": "challenge-024",
+      "split": "development",
+      "input": {
+        "user_request": "恢复前usage已达上限。",
+        "source_ids": [],
+        "fixture_id": "C024"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "budget_blocks_execution",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C024-A1",
+            "rubric_id": "R_BUDGET",
+            "requirement": "不重置预算，不切备用继续消耗。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C025",
+      "collection": "challenge",
+      "area": "robustness",
+      "title": "已取消任务恢复",
+      "group_id": "challenge-025",
+      "split": "development",
+      "input": {
+        "user_request": "终态cancelled请求resume。",
+        "source_ids": [],
+        "fixture_id": "C025"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "reject_action",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C025-A1",
+            "rubric_id": "R_ISOLATE",
+            "requirement": "恢复入口拒绝，模型和工具均0次。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C026",
+      "collection": "challenge",
+      "area": "robustness",
+      "title": "子进程中断章节B",
+      "group_id": "challenge-026",
+      "split": "development",
+      "input": {
+        "user_request": "A已持久化，独立子进程写B途中退出。",
+        "source_ids": [],
+        "fixture_id": "C026"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "process_checkpoint_resume",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C026-A1",
+            "rubric_id": "R_RECOVER",
+            "requirement": "新进程从B重做，A不重调；保留证据、路由和累计usage。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C027",
+      "collection": "challenge",
+      "area": "robustness",
+      "title": "模型完成未提交窗口",
+      "group_id": "challenge-027",
+      "split": "development",
+      "input": {
+        "user_request": "B模型已返回但checkpoint提交前进程退出。",
+        "source_ids": [],
+        "fixture_id": "C027"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "replay_uncommitted_unit",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C027-A1",
+            "rubric_id": "R_RECOVER",
+            "requirement": "允许B重做，不能据此判A重复；记录外部调用重放窗口。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C028",
+      "collection": "challenge",
+      "area": "robustness",
+      "title": "缓存未知费用",
+      "group_id": "challenge-028",
+      "split": "development",
+      "input": {
+        "user_request": "有主备响应但cached_tokens字段缺失，单价不全。",
+        "source_ids": [],
+        "fixture_id": "C028"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "unknown_cost",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C028-A1",
+            "rubric_id": "R_BUDGET",
+            "requirement": "不猜缓存0、不宣称完整费用；按实际供应商归属。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C029",
+      "collection": "challenge",
+      "area": "end_to_end",
+      "title": "备用成功但搜索偏题",
+      "group_id": "challenge-029",
+      "split": "development",
+      "input": {
+        "user_request": "主故障切备用，搜索只返回偏题页面。",
+        "source_ids": [],
+        "fixture_id": "C029"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "data_gap_rejected",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C029-A1",
+            "rubric_id": "P_STATE",
+            "requirement": "接管机制可通过，但无证据不能算报告质量通过。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C030",
+      "collection": "challenge",
+      "area": "end_to_end",
+      "title": "切备后中断恢复",
+      "group_id": "wearables",
+      "split": "development",
+      "input": {
+        "user_request": "已在备用完成研究A，章节B中断，主恢复。",
+        "source_ids": [
+          "S01"
+        ],
+        "fixture_id": "C030"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "sticky_resume",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C030-A1",
+            "rubric_id": "R_RECOVER",
+            "requirement": "恢复仍备用，研究A不重跑，最终质量独立判断。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C031",
+      "collection": "challenge",
+      "area": "end_to_end",
+      "title": "双故障恢复仍无证据",
+      "group_id": "challenge-031",
+      "split": "development",
+      "input": {
+        "user_request": "主备失败暂停；备用恢复后资料仍空。",
+        "source_ids": [],
+        "fixture_id": "C031"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "resume_then_gap",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C031-A1",
+            "rubric_id": "P_STATE",
+            "requirement": "暂停与恢复状态正确；缺证据保持质量拒绝而不是自动passed。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C032",
+      "collection": "challenge",
+      "area": "end_to_end",
+      "title": "联网时间漂移",
+      "group_id": "wearables",
+      "split": "development",
+      "input": {
+        "user_request": "重跑时网页统计值更新，与冻结参考不同。",
+        "source_ids": [
+          "S02"
+        ],
+        "fixture_id": "C032"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "record_drift",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C032-A1",
+            "rubric_id": "S_FRESH",
+            "requirement": "保存新版本与日期、证据；不因URL相同硬套旧答案，不无条件判新版错。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C033",
+      "collection": "challenge",
+      "area": "protocol",
+      "title": "审核非法返回",
+      "group_id": "challenge-033",
+      "split": "development",
+      "input": {
+        "user_request": "审核模型只返回字符串通过吧。",
+        "source_ids": [],
+        "fixture_id": "C033"
+      },
+      "execution": {
+        "profile": "frozen_fixture",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "review_unavailable",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C033-A1",
+            "rubric_id": "P_STATE",
+            "requirement": "不解析为passed；错误或不可用状态不得伪装质量通过。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C034",
+      "collection": "challenge",
+      "area": "robustness",
+      "title": "审核边界中断",
+      "group_id": "challenge-034",
+      "split": "development",
+      "input": {
+        "user_request": "写作已提交，审核节点执行中退出。",
+        "source_ids": [],
+        "fixture_id": "C034"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "resume_review",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C034-A1",
+            "rubric_id": "R_RECOVER",
+            "requirement": "重开后从未提交审核节点开始，不重跑已提交写作。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C035",
+      "collection": "challenge",
+      "area": "robustness",
+      "title": "补研究计数恢复",
+      "group_id": "challenge-035",
+      "split": "development",
+      "input": {
+        "user_request": "第一次补研究已提交，再次中断后恢复。",
+        "source_ids": [],
+        "fixture_id": "C035"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "bounded_research_revision",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C035-A1",
+            "rubric_id": "R_RECOVER",
+            "requirement": "已持久化补研究次数保留，不因恢复无限返工。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C036",
+      "collection": "challenge",
+      "area": "protocol",
+      "title": "选文档隔离",
+      "group_id": "challenge-036",
+      "split": "development",
+      "input": {
+        "user_request": "仅选择文档A，向量库还存有更相近的文档B。",
+        "source_ids": [],
+        "fixture_id": "C036"
+      },
+      "execution": {
+        "profile": "frozen_fixture",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "selected_document_only",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C036-A1",
+            "rubric_id": "R_ISOLATE",
+            "requirement": "事实检索不得注入未选B；模板和术语不能当事实来源。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C037",
+      "collection": "challenge",
+      "area": "protocol",
+      "title": "拒绝报告不入记忆",
+      "group_id": "challenge-037",
+      "split": "development",
+      "input": {
+        "user_request": "任务completed但quality_status=rejected。",
+        "source_ids": [],
+        "fixture_id": "C037"
+      },
+      "execution": {
+        "profile": "frozen_fixture",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "reject_memory_admission",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C037-A1",
+            "rubric_id": "P_STATE",
+            "requirement": "无长期记忆新增，不能因completed就准入。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C038",
+      "collection": "challenge",
+      "area": "report",
+      "title": "关闭审核独立评分",
+      "group_id": "wearables",
+      "split": "development",
+      "input": {
+        "user_request": "同一份有证据的报告关闭业务review。",
+        "source_ids": [
+          "S01"
+        ],
+        "fixture_id": "C038"
+      },
+      "execution": {
+        "profile": "frozen_fixture",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "separate_external_judgement",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C038-A1",
+            "rubric_id": "P_STATE",
+            "requirement": "生产质量not_run保持原义；独立评测可另判报告，不把两者混成一率。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C039",
+      "collection": "challenge",
+      "area": "robustness",
+      "title": "备用返回业务非法内容",
+      "group_id": "challenge-039",
+      "split": "development",
+      "input": {
+        "user_request": "主超时，备用返回非JSON规划文本。",
+        "source_ids": [],
+        "fixture_id": "C039"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "transport_success_not_quality_success",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C039-A1",
+            "rubric_id": "R_ROUTE",
+            "requirement": "记录备用调用已返回，但规划解析失败不能当完整任务成功；业务解析问题不自动再切模型。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "C040",
+      "collection": "challenge",
+      "area": "protocol",
+      "title": "评测上下文不匹配",
+      "group_id": "challenge-040",
+      "split": "development",
+      "input": {
+        "user_request": "离线任务的evaluation_id与worker上下文不同。",
+        "source_ids": [],
+        "fixture_id": "C040"
+      },
+      "execution": {
+        "profile": "frozen_fixture",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "offline_context_required",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "C040-A1",
+            "rubric_id": "R_ISOLATE",
+            "requirement": "runner之前失败，OFFLINE_CONTEXT_REQUIRED；主备与外部工具均0次。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    }
+  ]
+}

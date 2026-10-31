@@ -1,0 +1,46 @@
+{
+  "id": "S08",
+  "group": "robotics",
+  "split": "development",
+  "publisher": "IFR",
+  "title": "Global Sales of Professional Service Robots Surge 24%",
+  "url": "https://ifr.org/ifr-press-releases/news/global-sales-of-professional-service-robots-surge-24-percent",
+  "published": "2026-09-30",
+  "locator": "开头专业服务机器人；Top applications交通物流段",
+  "facts": [
+    {
+      "fact_id": "F21",
+      "statement": "2025年全球专业服务机器人出货接近25万台，同比增长24%。",
+      "value": 250000,
+      "unit": "台附近且低于",
+      "data_period": "2025",
+      "scope": "全球专业服务机器人",
+      "kind": "observed"
+    },
+    {
+      "fact_id": "F22",
+      "statement": "交通物流机器人2025年售出117500台，占专业服务机器人47%。",
+      "value": 117500,
+      "unit": "台",
+      "data_period": "2025",
+      "scope": "全球专业服务机器人中的交通物流应用",
+      "kind": "observed"
+    },
+    {
+      "fact_id": "F23",
+      "statement": "交通物流机器人销量同比增长21%。",
+      "value": 21,
+      "unit": "%",
+      "data_period": "2025",
+      "scope": "全球交通物流专业服务机器人销量同比",
+      "kind": "observed"
+    }
+  ],
+  "task": "说明2025年全球专业服务机器人出货与交通物流应用规模，区分专业服务和工业机器人。",
+  "forbidden": "不能将物流份额47%称所有机器人的份额；不能混入工业机器人存量。",
+  "retrieved_on": "2026-10-31",
+  "verification": "agent_checked_official_page",
+  "human_review": "pending",
+  "snapshot_kind": "paraphrased_fact_card_not_original_page",
+  "snapshot_sha256": "1dd70d23645b5d20b43c7716f7dc5cb0faea948bd31426cc6d1ff7d5613b77b5"
+}

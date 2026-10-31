@@ -1,0 +1,485 @@
+{
+  "version": "sb-eval-data-1",
+  "cases": [
+    {
+      "case_id": "R001",
+      "title": "偏题不入证据",
+      "area": "search",
+      "user_request": "返回两个日历页面，主题为智能手表。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "synthetic_protocol",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R002",
+      "title": "连续偏题停止",
+      "area": "search",
+      "user_request": "连续两次SEARCH_IRRELEVANT后继续请求第三次搜索。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "synthetic_protocol",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R003",
+      "title": "零证据跳过写作",
+      "area": "protocol",
+      "user_request": "research没有证据，进入writer。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "synthetic_protocol",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R004",
+      "title": "待补充不豁免数字",
+      "area": "report",
+      "user_request": "校验没有证据的段落：数据待补充，售价800美元。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "synthetic_protocol",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R005",
+      "title": "年份范围不误杀",
+      "area": "protocol",
+      "user_request": "主题和正文仅描述2026年研究范围。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "synthetic_protocol",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R006",
+      "title": "占位引用清理",
+      "area": "protocol",
+      "user_request": "草稿含字面占位符[S编号]。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "synthetic_protocol",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R007",
+      "title": "EXA异常回退",
+      "area": "search",
+      "user_request": "EXA返回SEARCH_UNAVAILABLE，MCP返回一个合成相关结果。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "synthetic_protocol",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R008",
+      "title": "普通入口隔离离线任务",
+      "area": "protocol",
+      "user_request": "对execution_mode=offline任务请求恢复和重新生成。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "synthetic_protocol",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R009",
+      "title": "连接失败固定备用",
+      "area": "robustness",
+      "user_request": "主连接失败后成功切备用，随后重开数据库并恢复。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R010",
+      "title": "鉴权失败接管",
+      "area": "robustness",
+      "user_request": "主SDK返回401。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R011",
+      "title": "参数错误不切换",
+      "area": "robustness",
+      "user_request": "主SDK返回400。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R012",
+      "title": "失败主请求耗尽预算",
+      "area": "robustness",
+      "user_request": "主连接失败已消耗可用预算。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R013",
+      "title": "账本失败不绕过",
+      "area": "robustness",
+      "user_request": "主失败后保存usage时存储异常。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R014",
+      "title": "绑定保存失败",
+      "area": "robustness",
+      "user_request": "主失败后任务备用绑定保存异常。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R015",
+      "title": "双模型耗尽暂停",
+      "area": "robustness",
+      "user_request": "主备用均连接失败。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R016",
+      "title": "恢复仍固定备用",
+      "area": "robustness",
+      "user_request": "双故障暂停后主恢复，备用可用，发起resume。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R017",
+      "title": "冷却后新任务试探",
+      "area": "robustness",
+      "user_request": "首任务切备用，过冷却时间后提交新任务。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R018",
+      "title": "并发只一个试探",
+      "area": "robustness",
+      "user_request": "熔断冷却后同时提交两个新任务，首个主请求阻塞。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R019",
+      "title": "研究单元保留",
+      "area": "robustness",
+      "user_request": "研究A已提交，研究B中断后恢复。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R020",
+      "title": "恢复幂等",
+      "area": "robustness",
+      "user_request": "同一暂停任务并发提交两次恢复。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R021",
+      "title": "检查点缺失显式restart",
+      "area": "robustness",
+      "user_request": "暂停任务不存在可用检查点。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R022",
+      "title": "恢复预算不清零",
+      "area": "robustness",
+      "user_request": "暂停前已使用大部分Token，恢复任务。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R023",
+      "title": "缓存输入不重复计量",
+      "area": "robustness",
+      "user_request": "输入100含缓存60、输出10。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "R024",
+      "title": "评测context不进主备",
+      "area": "protocol",
+      "user_request": "在合成evaluation_context内启用主备。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "synthetic_protocol",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    }
+  ]
+}

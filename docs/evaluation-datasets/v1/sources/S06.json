@@ -1,0 +1,46 @@
+{
+  "id": "S06",
+  "group": "connectivity",
+  "split": "development",
+  "publisher": "ITU",
+  "title": "Facts and Figures 2025 press release",
+  "url": "https://www.itu.int/en/mediacentre/Pages/PR-2025-11-17-Facts-and-Figures.aspx",
+  "published": "2025-11-17",
+  "locator": "首段估计；Notes for editors的2024修订说明",
+  "facts": [
+    {
+      "fact_id": "F15",
+      "statement": "2025年全球互联网使用人数估计约60亿。",
+      "value": 6,
+      "unit": "十亿人",
+      "data_period": "2025",
+      "scope": "全球互联网用户",
+      "kind": "estimate"
+    },
+    {
+      "fact_id": "F16",
+      "statement": "2025年约22亿人未联网。",
+      "value": 2.2,
+      "unit": "十亿人",
+      "data_period": "2025",
+      "scope": "全球未联网人口",
+      "kind": "estimate"
+    },
+    {
+      "fact_id": "F17",
+      "statement": "2024年联网人数由原55亿修订为58亿。",
+      "value": 5.8,
+      "unit": "十亿人",
+      "data_period": "2024 revised",
+      "scope": "全球互联网用户",
+      "kind": "revised_estimate"
+    }
+  ],
+  "task": "概述ITU对2025年全球联网与未联网人数的估计，并解释2024年估计修订。",
+  "forbidden": "不能当作2026统计；不能把估计当人口普查精确值；不能混用2024原值和修订值。",
+  "retrieved_on": "2026-10-31",
+  "verification": "agent_checked_official_page",
+  "human_review": "pending",
+  "snapshot_kind": "paraphrased_fact_card_not_original_page",
+  "snapshot_sha256": "ead3edda63750df00feaeff448954e94f257ddcec0144293216e40b867e1ce27"
+}

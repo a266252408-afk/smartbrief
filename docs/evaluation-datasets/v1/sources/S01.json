@@ -1,0 +1,46 @@
+{
+  "id": "S01",
+  "group": "wearables",
+  "split": "development",
+  "publisher": "IDC",
+  "title": "2026年二季度全球腕戴设备市场同比下滑4.3%，增长压力下的新机会在哪里？",
+  "url": "https://www.idc.com/resource-center/blog/2026年二季度全球腕戴设备市场同比下滑4-3，增长压力/",
+  "published": "2026-09-09",
+  "locator": "首个市场数据段；腕戴包含智能手表和手环",
+  "facts": [
+    {
+      "fact_id": "F01",
+      "statement": "全球腕戴设备季度出货量为4801万台，同比下降4.3%。",
+      "value": 4801,
+      "unit": "万台",
+      "data_period": "2026Q2",
+      "scope": "全球腕戴设备",
+      "kind": "observed"
+    },
+    {
+      "fact_id": "F02",
+      "statement": "其中智能手表出货量为3708万台，同比下降4.2%。",
+      "value": 3708,
+      "unit": "万台",
+      "data_period": "2026Q2",
+      "scope": "全球智能手表",
+      "kind": "observed"
+    },
+    {
+      "fact_id": "F03",
+      "statement": "手环出货量为1092万台，同比下降4.7%；分项因舍入不必机械相加。",
+      "value": 1092,
+      "unit": "万台",
+      "data_period": "2026Q2",
+      "scope": "全球手环",
+      "kind": "observed"
+    }
+  ],
+  "task": "总结2026年第二季度全球腕戴设备、智能手表和手环出货情况，解释三者口径及变化方向。",
+  "forbidden": "不能把腕戴总量或全球数量写成中国智能手表数量；不推断零售额或精确品牌份额。",
+  "retrieved_on": "2026-10-31",
+  "verification": "agent_checked_official_page",
+  "human_review": "pending",
+  "snapshot_kind": "paraphrased_fact_card_not_original_page",
+  "snapshot_sha256": "f1f47abfabaca52c9bb3750ded34db11ee22a60767845b19bee7387e62c5004e"
+}

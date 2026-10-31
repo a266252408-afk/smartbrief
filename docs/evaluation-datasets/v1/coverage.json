@@ -1,0 +1,21 @@
+{
+  "collections": {
+    "golden": 24,
+    "regression": 24,
+    "challenge": 40
+  },
+  "areas": {
+    "protocol": 11,
+    "search": 16,
+    "report": 17,
+    "robustness": 36,
+    "end_to_end": 8
+  },
+  "legacy_cases": 20,
+  "new_cases": 88,
+  "source_cards": 8,
+  "calibration_cases": 10,
+  "caveat": "案例数量含同资料的不同能力测试，不能当作独立主题数。",
+  "all_human_review": "pending",
+  "application_runner_support": "not_integrated"
+}

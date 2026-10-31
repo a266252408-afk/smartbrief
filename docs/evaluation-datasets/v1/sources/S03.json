@@ -1,0 +1,46 @@
+{
+  "id": "S03",
+  "group": "china_macro",
+  "split": "holdout",
+  "publisher": "国家统计局",
+  "title": "前三季度经济运行总体平稳 高质量发展取得新成效",
+  "url": "https://www.stats.gov.cn/sj/zxfb/202610/t20261019_1965618.html",
+  "published": "2026-10-19",
+  "locator": "初步核算段及附表GDP行；注意前三季度与第三季度不同",
+  "facts": [
+    {
+      "fact_id": "F07",
+      "statement": "中国前三季度GDP初步核算为1071071亿元。",
+      "value": 1071071,
+      "unit": "亿元",
+      "data_period": "2026Q1-Q3",
+      "scope": "中国GDP",
+      "kind": "observed"
+    },
+    {
+      "fact_id": "F08",
+      "statement": "前三季度GDP按不变价格同比增长4.6%。",
+      "value": 4.6,
+      "unit": "%",
+      "data_period": "2026Q1-Q3",
+      "scope": "中国GDP实际同比",
+      "kind": "observed"
+    },
+    {
+      "fact_id": "F09",
+      "statement": "第三季度单季GDP同比增长4.5%。",
+      "value": 4.5,
+      "unit": "%",
+      "data_period": "2026Q3",
+      "scope": "中国GDP实际同比",
+      "kind": "observed"
+    }
+  ],
+  "task": "说明2026年前三季度中国GDP规模和实际增速，并与第三季度单季增速区分。",
+  "forbidden": "不能当作2026全年终值；不能把同比当环比或名义增长。",
+  "retrieved_on": "2026-10-31",
+  "verification": "agent_checked_official_page",
+  "human_review": "pending",
+  "snapshot_kind": "paraphrased_fact_card_not_original_page",
+  "snapshot_sha256": "fbc946d5b29be77f8f3dfd00c22648a2991b4d42631f598228950a6b5919e147"
+}

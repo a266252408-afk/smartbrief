@@ -1,0 +1,74 @@
+{
+  "version": "fixture-protocol-1",
+  "note": "描述性数据协议；需要后续执行适配器，不是可执行脚本。",
+  "isolation": {
+    "db": "D盘本轮临时task.db",
+    "checkpoint": "D盘本轮临时checkpoint.db",
+    "vectors": "D盘本轮临时vectors",
+    "network": "deny_by_default",
+    "real_env": "never_read_or_write"
+  },
+  "defaults": {
+    "primary_enabled": true,
+    "backup_enabled": true,
+    "models": [
+      "fixture-primary",
+      "fixture-backup"
+    ],
+    "total_seconds": 2,
+    "cooldown_seconds": 60,
+    "max_attempts": 2,
+    "task_token_limit": 200000,
+    "model_response": {
+      "content": "fixture-ok",
+      "usage": {
+        "prompt_tokens": 10,
+        "completion_tokens": 4
+      }
+    },
+    "unmatched_event": "正常SDK返回；回放搜索未匹配查询必须报错，不能造相关结果",
+    "default_search": {
+      "results": []
+    }
+  },
+  "semantics": {
+    "nth": "针对at位置从1开始计数；all匹配每次；更具体的数字优先",
+    "response_valid": "仅表示满足当前调用语法的合成返回，不自动通过独立质量评分",
+    "checkpoint": "committed为成功落盘的单元；其余单元允许重做",
+    "barrier": "子进程必须先报告已提交集合及当前执行位置后，由测试父进程退出子进程",
+    "classification": "按现版本错误分类；取消/预算/持久化禁止接管"
+  },
+  "workflow_role_responses": {
+    "planner": [
+      {
+        "id": 1,
+        "agent": "researcher",
+        "task": "合成资料研究",
+        "depends_on": []
+      },
+      {
+        "id": 2,
+        "agent": "writer",
+        "task": "合成章节",
+        "depends_on": [
+          1
+        ]
+      }
+    ],
+    "researcher": [
+      {
+        "action": "web_search",
+        "query": "合成资料研究"
+      },
+      {
+        "action": "done"
+      }
+    ],
+    "writer": "合成实验数量12台。[S1]",
+    "reviewer": {
+      "passed": true,
+      "comments": []
+    }
+  },
+  "execution_safety": "未集成的配置必须拒绝运行；不得以期望轨迹填实测轨迹。"
+}

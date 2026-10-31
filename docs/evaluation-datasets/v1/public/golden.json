@@ -1,0 +1,485 @@
+{
+  "version": "sb-eval-data-1",
+  "cases": [
+    {
+      "case_id": "G001",
+      "title": "总结2026年第二季度全球腕戴设备、智能手表和手环出货情况，解释三者口径及变化方向。",
+      "area": "search",
+      "user_request": "总结2026年第二季度全球腕戴设备、智能手表和手环出货情况，解释三者口径及变化方向。；材料和统计截止2026-10-31。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "live_search",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G002",
+      "title": "总结2026年第二季度全球腕戴设备、智能手表和手环出货情况，解释三者口径及变化方向。",
+      "area": "report",
+      "user_request": "总结2026年第二季度全球腕戴设备、智能手表和手环出货情况，解释三者口径及变化方向。；材料和统计截止2026-10-31。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "frozen_evidence_real_model",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G003",
+      "title": "概述2026年第二季度全球可穿戴市场规模、耳戴设备地位和智能手表表现，区分大类和子类。",
+      "area": "search",
+      "user_request": "概述2026年第二季度全球可穿戴市场规模、耳戴设备地位和智能手表表现，区分大类和子类。；材料和统计截止2026-10-31。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "live_search",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G004",
+      "title": "概述2026年第二季度全球可穿戴市场规模、耳戴设备地位和智能手表表现，区分大类和子类。",
+      "area": "report",
+      "user_request": "概述2026年第二季度全球可穿戴市场规模、耳戴设备地位和智能手表表现，区分大类和子类。；材料和统计截止2026-10-31。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "frozen_evidence_real_model",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G005",
+      "title": "说明2026年前三季度中国GDP规模和实际增速，并与第三季度单季增速区分。",
+      "area": "search",
+      "user_request": "说明2026年前三季度中国GDP规模和实际增速，并与第三季度单季增速区分。；材料和统计截止2026-10-31。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "live_search",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G006",
+      "title": "说明2026年前三季度中国GDP规模和实际增速，并与第三季度单季增速区分。",
+      "area": "report",
+      "user_request": "说明2026年前三季度中国GDP规模和实际增速，并与第三季度单季增速区分。；材料和统计截止2026-10-31。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "frozen_evidence_real_model",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G007",
+      "title": "依据IEA 2026版展望比较全球2025年电动汽车销量与2026年预测，说明预测性质及口径限制。",
+      "area": "search",
+      "user_request": "依据IEA 2026版展望比较全球2025年电动汽车销量与2026年预测，说明预测性质及口径限制。；材料和统计截止2026-10-31。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "live_search",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G008",
+      "title": "依据IEA 2026版展望比较全球2025年电动汽车销量与2026年预测，说明预测性质及口径限制。",
+      "area": "report",
+      "user_request": "依据IEA 2026版展望比较全球2025年电动汽车销量与2026年预测，说明预测性质及口径限制。；材料和统计截止2026-10-31。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "frozen_evidence_real_model",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G009",
+      "title": "比较2025年全球数据中心与AI导向数据中心用电增长，解释为何不能用相同增速描述两者。",
+      "area": "search",
+      "user_request": "比较2025年全球数据中心与AI导向数据中心用电增长，解释为何不能用相同增速描述两者。；材料和统计截止2026-10-31。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "live_search",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G010",
+      "title": "比较2025年全球数据中心与AI导向数据中心用电增长，解释为何不能用相同增速描述两者。",
+      "area": "report",
+      "user_request": "比较2025年全球数据中心与AI导向数据中心用电增长，解释为何不能用相同增速描述两者。；材料和统计截止2026-10-31。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "frozen_evidence_real_model",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G011",
+      "title": "概述ITU对2025年全球联网与未联网人数的估计，并解释2024年估计修订。",
+      "area": "search",
+      "user_request": "概述ITU对2025年全球联网与未联网人数的估计，并解释2024年估计修订。；材料和统计截止2026-10-31。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "live_search",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G012",
+      "title": "概述ITU对2025年全球联网与未联网人数的估计，并解释2024年估计修订。",
+      "area": "report",
+      "user_request": "概述ITU对2025年全球联网与未联网人数的估计，并解释2024年估计修订。；材料和统计截止2026-10-31。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "frozen_evidence_real_model",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G013",
+      "title": "介绍2025年全球工业机器人存量、新增安装和中国安装规模，区分存量与年度流量。",
+      "area": "search",
+      "user_request": "介绍2025年全球工业机器人存量、新增安装和中国安装规模，区分存量与年度流量。；材料和统计截止2026-10-31。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "live_search",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G014",
+      "title": "介绍2025年全球工业机器人存量、新增安装和中国安装规模，区分存量与年度流量。",
+      "area": "report",
+      "user_request": "介绍2025年全球工业机器人存量、新增安装和中国安装规模，区分存量与年度流量。；材料和统计截止2026-10-31。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "frozen_evidence_real_model",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G015",
+      "title": "说明2025年全球专业服务机器人出货与交通物流应用规模，区分专业服务和工业机器人。",
+      "area": "search",
+      "user_request": "说明2025年全球专业服务机器人出货与交通物流应用规模，区分专业服务和工业机器人。；材料和统计截止2026-10-31。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "live_search",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G016",
+      "title": "说明2025年全球专业服务机器人出货与交通物流应用规模，区分专业服务和工业机器人。",
+      "area": "report",
+      "user_request": "说明2025年全球专业服务机器人出货与交通物流应用规模，区分专业服务和工业机器人。；材料和统计截止2026-10-31。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "frozen_evidence_real_model",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G017",
+      "title": "可穿戴大类与腕戴子类对照",
+      "area": "end_to_end",
+      "user_request": "输出带来源的简报：解释全部可穿戴增长与腕戴下滑可同时成立，不编造中国份额。 截止2026-10-31，不要求未提供的品牌份额。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "live_end_to_end",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G018",
+      "title": "工业与专业服务机器人概览",
+      "area": "end_to_end",
+      "user_request": "输出带来源的简报：分别说明工业存量/新增和专业服务销量；不得直接相加。 截止2026-10-31，不要求未提供的品牌份额。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "live_end_to_end",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G019",
+      "title": "电动车与互联网：实绩和估计",
+      "area": "end_to_end",
+      "user_request": "输出带来源的简报：分别介绍2025实绩/估计和2026预测；不暗示联网人口导致电动车销量变化。 截止2026-10-31，不要求未提供的品牌份额。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "live_end_to_end",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G020",
+      "title": "中国经济与全球数据中心",
+      "area": "end_to_end",
+      "user_request": "输出带来源的简报：分别说明地区、统计期及指标；不得凭两份资料宣称因果关系。 截止2026-10-31，不要求未提供的品牌份额。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "live_end_to_end",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G021",
+      "title": "正常质量准入",
+      "area": "protocol",
+      "user_request": "执行一个证据充分且审核通过的合成任务。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "synthetic_protocol",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G022",
+      "title": "主模型健康基线",
+      "area": "robustness",
+      "user_request": "在启用主备的隔离路由中执行两次调用。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G023",
+      "title": "章节检查点恢复基线",
+      "area": "robustness",
+      "user_request": "研究A与章节A已提交，章节B中断后恢复。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    },
+    {
+      "case_id": "G024",
+      "title": "未知计量保留",
+      "area": "protocol",
+      "user_request": "执行一次返回内容但不返回usage的调用。",
+      "cutoff": "2026-10-31",
+      "limits": {
+        "profile": "synthetic_protocol",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      }
+    }
+  ]
+}

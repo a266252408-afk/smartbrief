@@ -1,0 +1,77 @@
+{
+  "note": "固定资料模式只给被测Agent这些短资料；不提供oracle、题目设计、禁答清单。不是网页全文。联网模式不预给这些参考URL或事实。",
+  "documents": [
+    {
+      "id": "S01",
+      "title": "2026年二季度全球腕戴设备市场同比下滑4.3%，增长压力下的新机会在哪里？",
+      "url": "https://www.idc.com/resource-center/blog/2026年二季度全球腕戴设备市场同比下滑4-3，增长压力/",
+      "published_at": "2026-09-09",
+      "retrieved_on": "2026-10-31",
+      "content_kind": "curated_factual_paraphrase",
+      "text": "全球腕戴设备季度出货量为4801万台，同比下降4.3%。\n其中智能手表出货量为3708万台，同比下降4.2%。\n手环出货量为1092万台，同比下降4.7%；分项因舍入不必机械相加。"
+    },
+    {
+      "id": "S02",
+      "title": "Wearable Devices Market Insights，2026Q2，页面更新2026-10-29",
+      "url": "https://www.idc.com/promo/wearablevendor/",
+      "published_at": "2026-10-29",
+      "retrieved_on": "2026-10-31",
+      "content_kind": "curated_factual_paraphrase",
+      "text": "全球全部可穿戴设备约1.48亿台，同比增长2.7%。\n耳戴设备占出货量64.9%。\n智能手表出货同比下降4.2%；全部可穿戴增长不代表每个子类增长。"
+    },
+    {
+      "id": "S03",
+      "title": "前三季度经济运行总体平稳 高质量发展取得新成效",
+      "url": "https://www.stats.gov.cn/sj/zxfb/202610/t20261019_1965618.html",
+      "published_at": "2026-10-19",
+      "retrieved_on": "2026-10-31",
+      "content_kind": "curated_factual_paraphrase",
+      "text": "中国前三季度GDP初步核算为1071071亿元。\n前三季度GDP按不变价格同比增长4.6%。\n第三季度单季GDP同比增长4.5%。"
+    },
+    {
+      "id": "S04",
+      "title": "Global EV Outlook 2026 — Executive summary",
+      "url": "https://www.iea.org/reports/global-ev-outlook-2026/executive-summary",
+      "published_at": "2026-05-20",
+      "retrieved_on": "2026-10-31",
+      "content_kind": "curated_factual_paraphrase",
+      "text": "2025年全球电动汽车销量超过2000万辆，同比增长20%。\n报告预测2026年全球电动汽车销量2300万辆。\n同一预测中2026年电动汽车占全部汽车销量28%。"
+    },
+    {
+      "id": "S05",
+      "title": "Key Questions on Energy and AI — Executive summary",
+      "url": "https://www.iea.org/reports/key-questions-on-energy-and-ai/executive-summary",
+      "published_at": null,
+      "retrieved_on": "2026-10-31",
+      "content_kind": "curated_factual_paraphrase",
+      "text": "全球数据中心2025年电力需求同比增长17%。\nAI导向数据中心2025年用电同比增长50%。"
+    },
+    {
+      "id": "S06",
+      "title": "Facts and Figures 2025 press release",
+      "url": "https://www.itu.int/en/mediacentre/Pages/PR-2025-11-17-Facts-and-Figures.aspx",
+      "published_at": "2025-11-17",
+      "retrieved_on": "2026-10-31",
+      "content_kind": "curated_factual_paraphrase",
+      "text": "2025年全球互联网使用人数估计约60亿。\n2025年约22亿人未联网。\n2024年联网人数由原55亿修订为58亿。"
+    },
+    {
+      "id": "S07",
+      "title": "Five Million Robots now Operate in Factories Globally",
+      "url": "https://ifr.org/ifr-press-releases/news/five-million-robots-now-operate-in-factories-globally",
+      "published_at": "2026-09-24",
+      "retrieved_on": "2026-10-31",
+      "content_kind": "curated_factual_paraphrase",
+      "text": "2025年全球工业机器人运行存量约500万台，同比增长9%。\n2025年全球新增安装超过60万台，同比增长11%。\n2025年中国工业机器人新增安装35.4万台。"
+    },
+    {
+      "id": "S08",
+      "title": "Global Sales of Professional Service Robots Surge 24%",
+      "url": "https://ifr.org/ifr-press-releases/news/global-sales-of-professional-service-robots-surge-24-percent",
+      "published_at": "2026-09-30",
+      "retrieved_on": "2026-10-31",
+      "content_kind": "curated_factual_paraphrase",
+      "text": "2025年全球专业服务机器人出货接近25万台，同比增长24%。\n交通物流机器人2025年售出117500台，占专业服务机器人47%。\n交通物流机器人销量同比增长21%。"
+    }
+  ]
+}

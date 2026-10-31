@@ -1,0 +1,46 @@
+{
+  "id": "S02",
+  "group": "wearables",
+  "split": "development",
+  "publisher": "IDC",
+  "title": "Wearable Devices Market Insights，2026Q2，页面更新2026-10-29",
+  "url": "https://www.idc.com/promo/wearablevendor/",
+  "published": "2026-10-29",
+  "locator": "Worldwide Wearable Device Market, Q2 2026；首三段",
+  "facts": [
+    {
+      "fact_id": "F04",
+      "statement": "全球全部可穿戴设备约1.48亿台，同比增长2.7%。",
+      "value": 148,
+      "unit": "百万台",
+      "data_period": "2026Q2",
+      "scope": "全球全部可穿戴设备",
+      "kind": "observed"
+    },
+    {
+      "fact_id": "F05",
+      "statement": "耳戴设备占出货量64.9%。",
+      "value": 64.9,
+      "unit": "%",
+      "data_period": "2026Q2",
+      "scope": "全球全部可穿戴设备中的耳戴份额",
+      "kind": "observed"
+    },
+    {
+      "fact_id": "F06",
+      "statement": "智能手表出货同比下降4.2%；全部可穿戴增长不代表每个子类增长。",
+      "value": -4.2,
+      "unit": "%",
+      "data_period": "2026Q2",
+      "scope": "全球智能手表出货同比",
+      "kind": "observed"
+    }
+  ],
+  "task": "概述2026年第二季度全球可穿戴市场规模、耳戴设备地位和智能手表表现，区分大类和子类。",
+  "forbidden": "不能把1.48亿当智能手表出货；不能把页面更新日当统计期。",
+  "retrieved_on": "2026-10-31",
+  "verification": "agent_checked_official_page",
+  "human_review": "pending",
+  "snapshot_kind": "paraphrased_fact_card_not_original_page",
+  "snapshot_sha256": "08036ba5b39c265e3b99189c5357fb7e35efef7098bd69878a707eba94b971f6"
+}

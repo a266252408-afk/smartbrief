@@ -1,0 +1,95 @@
+{
+  "note": "评分器校准小集，非被测系统成绩；以当前资料卡为给定证据。",
+  "cases": [
+    {
+      "id": "J01",
+      "source_ids": [
+        "S01"
+      ],
+      "claim": "2026Q2全球智能手表出货3708万台。",
+      "label": "supported",
+      "split": "development"
+    },
+    {
+      "id": "J02",
+      "source_ids": [
+        "S01"
+      ],
+      "claim": "2026Q2中国智能手表出货4801万台。",
+      "label": "contradicted_scope",
+      "split": "development"
+    },
+    {
+      "id": "J03",
+      "source_ids": [
+        "S04"
+      ],
+      "claim": "IEA预测2026年全球电动汽车销量2300万辆。",
+      "label": "supported",
+      "split": "development"
+    },
+    {
+      "id": "J04",
+      "source_ids": [
+        "S04"
+      ],
+      "claim": "2026全年全球电动汽车实际卖出2300万辆。",
+      "label": "unsupported_actual",
+      "split": "development"
+    },
+    {
+      "id": "J05",
+      "source_ids": [
+        "S07"
+      ],
+      "claim": "2025全球新增安装工业机器人500万台。",
+      "label": "contradicted_metric",
+      "split": "development"
+    },
+    {
+      "id": "J06",
+      "source_ids": [
+        "S05"
+      ],
+      "claim": "2025年数据中心用电增长17%，AI导向子类增长50%。",
+      "label": "supported",
+      "split": "evaluation_only"
+    },
+    {
+      "id": "J07",
+      "source_ids": [
+        "S06"
+      ],
+      "claim": "ITU对2024年联网人数修订估计为58亿。",
+      "label": "supported",
+      "split": "development"
+    },
+    {
+      "id": "J08",
+      "source_ids": [
+        "S01"
+      ],
+      "claim": "中国智能手表零售额为100亿元。",
+      "label": "insufficient",
+      "split": "development"
+    },
+    {
+      "id": "J09",
+      "source_ids": [
+        "S03"
+      ],
+      "claim": "2026前三季度GDP实际同比增长4.6%。",
+      "label": "supported",
+      "split": "evaluation_only"
+    },
+    {
+      "id": "J10",
+      "source_ids": [
+        "S03"
+      ],
+      "claim": "2026第三季度GDP实际同比增长4.6%。",
+      "label": "contradicted_period",
+      "split": "evaluation_only"
+    }
+  ]
+}

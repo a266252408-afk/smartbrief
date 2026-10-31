@@ -1,0 +1,46 @@
+{
+  "id": "S07",
+  "group": "robotics",
+  "split": "development",
+  "publisher": "IFR",
+  "title": "Five Million Robots now Operate in Factories Globally",
+  "url": "https://ifr.org/ifr-press-releases/news/five-million-robots-now-operate-in-factories-globally",
+  "published": "2026-09-24",
+  "locator": "开头2025存量/新增；Asia overview中国安装量",
+  "facts": [
+    {
+      "fact_id": "F18",
+      "statement": "2025年全球工业机器人运行存量约500万台，同比增长9%。",
+      "value": 5,
+      "unit": "百万台",
+      "data_period": "2025年末",
+      "scope": "全球工业机器人运行存量",
+      "kind": "observed"
+    },
+    {
+      "fact_id": "F19",
+      "statement": "2025年全球新增安装超过60万台，同比增长11%。",
+      "value": 600000,
+      "unit": "台以上",
+      "data_period": "2025",
+      "scope": "全球工业机器人新增安装",
+      "kind": "observed"
+    },
+    {
+      "fact_id": "F20",
+      "statement": "2025年中国工业机器人新增安装35.4万台。",
+      "value": 354000,
+      "unit": "台",
+      "data_period": "2025",
+      "scope": "中国工业机器人新增安装",
+      "kind": "observed"
+    }
+  ],
+  "task": "介绍2025年全球工业机器人存量、新增安装和中国安装规模，区分存量与年度流量。",
+  "forbidden": "不能把500万当年新增；不能把中国安装量称全球量；不能改为服务机器人。",
+  "retrieved_on": "2026-10-31",
+  "verification": "agent_checked_official_page",
+  "human_review": "pending",
+  "snapshot_kind": "paraphrased_fact_card_not_original_page",
+  "snapshot_sha256": "8b837750300b4e8587a59bfd9fc7ab5d5f8320cde945bf0900a3ec79c41cb4d6"
+}

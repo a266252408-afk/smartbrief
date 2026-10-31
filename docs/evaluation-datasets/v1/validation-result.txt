@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "new_cases": 88,
+  "legacy_cases": 20,
+  "total_cases": 108,
+  "source_cards": 8,
+  "verified_facts": 23,
+  "rubrics": 14,
+  "fixtures": 68,
+  "collections": {
+    "golden": 24,
+    "regression": 24,
+    "challenge": 40
+  },
+  "areas": {
+    "protocol": 11,
+    "search": 16,
+    "report": 17,
+    "robustness": 36,
+    "end_to_end": 8
+  },
+  "note": "仅数据结构/引用/指纹校验；不代表业务运行通过或人工验收。"
+}

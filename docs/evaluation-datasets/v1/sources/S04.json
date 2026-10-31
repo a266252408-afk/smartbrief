@@ -1,0 +1,46 @@
+{
+  "id": "S04",
+  "group": "ev",
+  "split": "development",
+  "publisher": "IEA",
+  "title": "Global EV Outlook 2026 — Executive summary",
+  "url": "https://www.iea.org/reports/global-ev-outlook-2026/executive-summary",
+  "published": "2026-05-20",
+  "locator": "首节2025销售、Electric cars are poised…及2026预测段；发布日期见报告主页",
+  "facts": [
+    {
+      "fact_id": "F10",
+      "statement": "2025年全球电动汽车销量超过2000万辆，同比增长20%。",
+      "value": 20,
+      "unit": "百万辆以上",
+      "data_period": "2025",
+      "scope": "全球electric cars（不得自行收窄为纯电）",
+      "kind": "observed"
+    },
+    {
+      "fact_id": "F11",
+      "statement": "报告预测2026年全球电动汽车销量2300万辆。",
+      "value": 23,
+      "unit": "百万辆",
+      "data_period": "2026",
+      "scope": "全球electric cars",
+      "kind": "forecast"
+    },
+    {
+      "fact_id": "F12",
+      "statement": "同一预测中2026年电动汽车占全部汽车销量28%。",
+      "value": 28,
+      "unit": "%",
+      "data_period": "2026",
+      "scope": "全球汽车销量中electric cars份额",
+      "kind": "forecast"
+    }
+  ],
+  "task": "依据IEA 2026版展望比较全球2025年电动汽车销量与2026年预测，说明预测性质及口径限制。",
+  "forbidden": "不能把预测写成2026全年已实现结果；不能当纯电或中国市场统计。",
+  "retrieved_on": "2026-10-31",
+  "verification": "agent_checked_official_page",
+  "human_review": "pending",
+  "snapshot_kind": "paraphrased_fact_card_not_original_page",
+  "snapshot_sha256": "8c2cfa1abe660eba6cca06cf67f15f1f1f723ac2ddc06bf4eb899c1f53027b87"
+}

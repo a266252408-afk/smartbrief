@@ -1,0 +1,1638 @@
+{
+  "version": "sb-eval-data-1",
+  "cases": [
+    {
+      "case_id": "G001",
+      "collection": "golden",
+      "area": "search",
+      "title": "总结2026年第二季度全球腕戴设备、智能手表和手环出货情况，解释三者口径及变化方向。",
+      "group_id": "wearables",
+      "split": "development",
+      "input": {
+        "user_request": "总结2026年第二季度全球腕戴设备、智能手表和手环出货情况，解释三者口径及变化方向。；材料和统计截止2026-10-31。",
+        "source_ids": [
+          "S01"
+        ],
+        "fixture_id": null
+      },
+      "execution": {
+        "profile": "live_search",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "deliver_supported_answer",
+        "required_fact_ids": [
+          "F01",
+          "F02",
+          "F03"
+        ],
+        "assertions": [
+          {
+            "check_id": "G001-A1",
+            "rubric_id": "S_COVER",
+            "requirement": "找到足以支持隐藏参考必需点的可信材料；允许等价来源。",
+            "critical": true
+          },
+          {
+            "check_id": "G001-A2",
+            "rubric_id": "S_FRESH",
+            "requirement": "不能把腕戴总量或全球数量写成中国智能手表数量；不推断零售额或精确品牌份额。",
+            "critical": true
+          },
+          {
+            "check_id": "G001-A3",
+            "rubric_id": "S_RELEVANCE",
+            "requirement": "逐条评判前5条及保留原因；不要求网址字面相同。",
+            "critical": false
+          },
+          {
+            "check_id": "G001-A4",
+            "rubric_id": "S_EFFICIENCY",
+            "requirement": "最多6次搜索，超限或无新增证据时记录停止原因。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G002",
+      "collection": "golden",
+      "area": "report",
+      "title": "总结2026年第二季度全球腕戴设备、智能手表和手环出货情况，解释三者口径及变化方向。",
+      "group_id": "wearables",
+      "split": "development",
+      "input": {
+        "user_request": "总结2026年第二季度全球腕戴设备、智能手表和手环出货情况，解释三者口径及变化方向。；材料和统计截止2026-10-31。",
+        "source_ids": [
+          "S01"
+        ],
+        "fixture_id": null
+      },
+      "execution": {
+        "profile": "frozen_evidence_real_model",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "deliver_supported_answer",
+        "required_fact_ids": [
+          "F01",
+          "F02",
+          "F03"
+        ],
+        "assertions": [
+          {
+            "check_id": "G002-A1",
+            "rubric_id": "Q_SUPPORT",
+            "requirement": "逐条核对oracle.required_fact_ids的数字、单位、范围和限定词。",
+            "critical": true
+          },
+          {
+            "check_id": "G002-A2",
+            "rubric_id": "Q_SCOPE",
+            "requirement": "不能把腕戴总量或全球数量写成中国智能手表数量；不推断零售额或精确品牌份额。",
+            "critical": true
+          },
+          {
+            "check_id": "G002-A3",
+            "rubric_id": "Q_COVER",
+            "requirement": "回答全部必需点，事实和分析分开。",
+            "critical": true
+          },
+          {
+            "check_id": "G002-A4",
+            "rubric_id": "Q_CITE",
+            "requirement": "重要事实引用到当前提供的来源，允许表达不同。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G003",
+      "collection": "golden",
+      "area": "search",
+      "title": "概述2026年第二季度全球可穿戴市场规模、耳戴设备地位和智能手表表现，区分大类和子类。",
+      "group_id": "wearables",
+      "split": "development",
+      "input": {
+        "user_request": "概述2026年第二季度全球可穿戴市场规模、耳戴设备地位和智能手表表现，区分大类和子类。；材料和统计截止2026-10-31。",
+        "source_ids": [
+          "S02"
+        ],
+        "fixture_id": null
+      },
+      "execution": {
+        "profile": "live_search",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "deliver_supported_answer",
+        "required_fact_ids": [
+          "F04",
+          "F05",
+          "F06"
+        ],
+        "assertions": [
+          {
+            "check_id": "G003-A1",
+            "rubric_id": "S_COVER",
+            "requirement": "找到足以支持隐藏参考必需点的可信材料；允许等价来源。",
+            "critical": true
+          },
+          {
+            "check_id": "G003-A2",
+            "rubric_id": "S_FRESH",
+            "requirement": "不能把1.48亿当智能手表出货；不能把页面更新日当统计期。",
+            "critical": true
+          },
+          {
+            "check_id": "G003-A3",
+            "rubric_id": "S_RELEVANCE",
+            "requirement": "逐条评判前5条及保留原因；不要求网址字面相同。",
+            "critical": false
+          },
+          {
+            "check_id": "G003-A4",
+            "rubric_id": "S_EFFICIENCY",
+            "requirement": "最多6次搜索，超限或无新增证据时记录停止原因。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G004",
+      "collection": "golden",
+      "area": "report",
+      "title": "概述2026年第二季度全球可穿戴市场规模、耳戴设备地位和智能手表表现，区分大类和子类。",
+      "group_id": "wearables",
+      "split": "development",
+      "input": {
+        "user_request": "概述2026年第二季度全球可穿戴市场规模、耳戴设备地位和智能手表表现，区分大类和子类。；材料和统计截止2026-10-31。",
+        "source_ids": [
+          "S02"
+        ],
+        "fixture_id": null
+      },
+      "execution": {
+        "profile": "frozen_evidence_real_model",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "deliver_supported_answer",
+        "required_fact_ids": [
+          "F04",
+          "F05",
+          "F06"
+        ],
+        "assertions": [
+          {
+            "check_id": "G004-A1",
+            "rubric_id": "Q_SUPPORT",
+            "requirement": "逐条核对oracle.required_fact_ids的数字、单位、范围和限定词。",
+            "critical": true
+          },
+          {
+            "check_id": "G004-A2",
+            "rubric_id": "Q_SCOPE",
+            "requirement": "不能把1.48亿当智能手表出货；不能把页面更新日当统计期。",
+            "critical": true
+          },
+          {
+            "check_id": "G004-A3",
+            "rubric_id": "Q_COVER",
+            "requirement": "回答全部必需点，事实和分析分开。",
+            "critical": true
+          },
+          {
+            "check_id": "G004-A4",
+            "rubric_id": "Q_CITE",
+            "requirement": "重要事实引用到当前提供的来源，允许表达不同。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G005",
+      "collection": "golden",
+      "area": "search",
+      "title": "说明2026年前三季度中国GDP规模和实际增速，并与第三季度单季增速区分。",
+      "group_id": "china_macro",
+      "split": "holdout",
+      "input": {
+        "user_request": "说明2026年前三季度中国GDP规模和实际增速，并与第三季度单季增速区分。；材料和统计截止2026-10-31。",
+        "source_ids": [
+          "S03"
+        ],
+        "fixture_id": null
+      },
+      "execution": {
+        "profile": "live_search",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "deliver_supported_answer",
+        "required_fact_ids": [
+          "F07",
+          "F08",
+          "F09"
+        ],
+        "assertions": [
+          {
+            "check_id": "G005-A1",
+            "rubric_id": "S_COVER",
+            "requirement": "找到足以支持隐藏参考必需点的可信材料；允许等价来源。",
+            "critical": true
+          },
+          {
+            "check_id": "G005-A2",
+            "rubric_id": "S_FRESH",
+            "requirement": "不能当作2026全年终值；不能把同比当环比或名义增长。",
+            "critical": true
+          },
+          {
+            "check_id": "G005-A3",
+            "rubric_id": "S_RELEVANCE",
+            "requirement": "逐条评判前5条及保留原因；不要求网址字面相同。",
+            "critical": false
+          },
+          {
+            "check_id": "G005-A4",
+            "rubric_id": "S_EFFICIENCY",
+            "requirement": "最多6次搜索，超限或无新增证据时记录停止原因。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G006",
+      "collection": "golden",
+      "area": "report",
+      "title": "说明2026年前三季度中国GDP规模和实际增速，并与第三季度单季增速区分。",
+      "group_id": "china_macro",
+      "split": "holdout",
+      "input": {
+        "user_request": "说明2026年前三季度中国GDP规模和实际增速，并与第三季度单季增速区分。；材料和统计截止2026-10-31。",
+        "source_ids": [
+          "S03"
+        ],
+        "fixture_id": null
+      },
+      "execution": {
+        "profile": "frozen_evidence_real_model",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "deliver_supported_answer",
+        "required_fact_ids": [
+          "F07",
+          "F08",
+          "F09"
+        ],
+        "assertions": [
+          {
+            "check_id": "G006-A1",
+            "rubric_id": "Q_SUPPORT",
+            "requirement": "逐条核对oracle.required_fact_ids的数字、单位、范围和限定词。",
+            "critical": true
+          },
+          {
+            "check_id": "G006-A2",
+            "rubric_id": "Q_SCOPE",
+            "requirement": "不能当作2026全年终值；不能把同比当环比或名义增长。",
+            "critical": true
+          },
+          {
+            "check_id": "G006-A3",
+            "rubric_id": "Q_COVER",
+            "requirement": "回答全部必需点，事实和分析分开。",
+            "critical": true
+          },
+          {
+            "check_id": "G006-A4",
+            "rubric_id": "Q_CITE",
+            "requirement": "重要事实引用到当前提供的来源，允许表达不同。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G007",
+      "collection": "golden",
+      "area": "search",
+      "title": "依据IEA 2026版展望比较全球2025年电动汽车销量与2026年预测，说明预测性质及口径限制。",
+      "group_id": "ev",
+      "split": "development",
+      "input": {
+        "user_request": "依据IEA 2026版展望比较全球2025年电动汽车销量与2026年预测，说明预测性质及口径限制。；材料和统计截止2026-10-31。",
+        "source_ids": [
+          "S04"
+        ],
+        "fixture_id": null
+      },
+      "execution": {
+        "profile": "live_search",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "deliver_supported_answer",
+        "required_fact_ids": [
+          "F10",
+          "F11",
+          "F12"
+        ],
+        "assertions": [
+          {
+            "check_id": "G007-A1",
+            "rubric_id": "S_COVER",
+            "requirement": "找到足以支持隐藏参考必需点的可信材料；允许等价来源。",
+            "critical": true
+          },
+          {
+            "check_id": "G007-A2",
+            "rubric_id": "S_FRESH",
+            "requirement": "不能把预测写成2026全年已实现结果；不能当纯电或中国市场统计。",
+            "critical": true
+          },
+          {
+            "check_id": "G007-A3",
+            "rubric_id": "S_RELEVANCE",
+            "requirement": "逐条评判前5条及保留原因；不要求网址字面相同。",
+            "critical": false
+          },
+          {
+            "check_id": "G007-A4",
+            "rubric_id": "S_EFFICIENCY",
+            "requirement": "最多6次搜索，超限或无新增证据时记录停止原因。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G008",
+      "collection": "golden",
+      "area": "report",
+      "title": "依据IEA 2026版展望比较全球2025年电动汽车销量与2026年预测，说明预测性质及口径限制。",
+      "group_id": "ev",
+      "split": "development",
+      "input": {
+        "user_request": "依据IEA 2026版展望比较全球2025年电动汽车销量与2026年预测，说明预测性质及口径限制。；材料和统计截止2026-10-31。",
+        "source_ids": [
+          "S04"
+        ],
+        "fixture_id": null
+      },
+      "execution": {
+        "profile": "frozen_evidence_real_model",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "deliver_supported_answer",
+        "required_fact_ids": [
+          "F10",
+          "F11",
+          "F12"
+        ],
+        "assertions": [
+          {
+            "check_id": "G008-A1",
+            "rubric_id": "Q_SUPPORT",
+            "requirement": "逐条核对oracle.required_fact_ids的数字、单位、范围和限定词。",
+            "critical": true
+          },
+          {
+            "check_id": "G008-A2",
+            "rubric_id": "Q_SCOPE",
+            "requirement": "不能把预测写成2026全年已实现结果；不能当纯电或中国市场统计。",
+            "critical": true
+          },
+          {
+            "check_id": "G008-A3",
+            "rubric_id": "Q_COVER",
+            "requirement": "回答全部必需点，事实和分析分开。",
+            "critical": true
+          },
+          {
+            "check_id": "G008-A4",
+            "rubric_id": "Q_CITE",
+            "requirement": "重要事实引用到当前提供的来源，允许表达不同。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G009",
+      "collection": "golden",
+      "area": "search",
+      "title": "比较2025年全球数据中心与AI导向数据中心用电增长，解释为何不能用相同增速描述两者。",
+      "group_id": "data_centres",
+      "split": "holdout",
+      "input": {
+        "user_request": "比较2025年全球数据中心与AI导向数据中心用电增长，解释为何不能用相同增速描述两者。；材料和统计截止2026-10-31。",
+        "source_ids": [
+          "S05"
+        ],
+        "fixture_id": null
+      },
+      "execution": {
+        "profile": "live_search",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "deliver_supported_answer",
+        "required_fact_ids": [
+          "F13",
+          "F14"
+        ],
+        "assertions": [
+          {
+            "check_id": "G009-A1",
+            "rubric_id": "S_COVER",
+            "requirement": "找到足以支持隐藏参考必需点的可信材料；允许等价来源。",
+            "critical": true
+          },
+          {
+            "check_id": "G009-A2",
+            "rubric_id": "S_FRESH",
+            "requirement": "不能从增速推导未提供的用电绝对量；精确发布日期未知不得编造。",
+            "critical": true
+          },
+          {
+            "check_id": "G009-A3",
+            "rubric_id": "S_RELEVANCE",
+            "requirement": "逐条评判前5条及保留原因；不要求网址字面相同。",
+            "critical": false
+          },
+          {
+            "check_id": "G009-A4",
+            "rubric_id": "S_EFFICIENCY",
+            "requirement": "最多6次搜索，超限或无新增证据时记录停止原因。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G010",
+      "collection": "golden",
+      "area": "report",
+      "title": "比较2025年全球数据中心与AI导向数据中心用电增长，解释为何不能用相同增速描述两者。",
+      "group_id": "data_centres",
+      "split": "holdout",
+      "input": {
+        "user_request": "比较2025年全球数据中心与AI导向数据中心用电增长，解释为何不能用相同增速描述两者。；材料和统计截止2026-10-31。",
+        "source_ids": [
+          "S05"
+        ],
+        "fixture_id": null
+      },
+      "execution": {
+        "profile": "frozen_evidence_real_model",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "deliver_supported_answer",
+        "required_fact_ids": [
+          "F13",
+          "F14"
+        ],
+        "assertions": [
+          {
+            "check_id": "G010-A1",
+            "rubric_id": "Q_SUPPORT",
+            "requirement": "逐条核对oracle.required_fact_ids的数字、单位、范围和限定词。",
+            "critical": true
+          },
+          {
+            "check_id": "G010-A2",
+            "rubric_id": "Q_SCOPE",
+            "requirement": "不能从增速推导未提供的用电绝对量；精确发布日期未知不得编造。",
+            "critical": true
+          },
+          {
+            "check_id": "G010-A3",
+            "rubric_id": "Q_COVER",
+            "requirement": "回答全部必需点，事实和分析分开。",
+            "critical": true
+          },
+          {
+            "check_id": "G010-A4",
+            "rubric_id": "Q_CITE",
+            "requirement": "重要事实引用到当前提供的来源，允许表达不同。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G011",
+      "collection": "golden",
+      "area": "search",
+      "title": "概述ITU对2025年全球联网与未联网人数的估计，并解释2024年估计修订。",
+      "group_id": "connectivity",
+      "split": "development",
+      "input": {
+        "user_request": "概述ITU对2025年全球联网与未联网人数的估计，并解释2024年估计修订。；材料和统计截止2026-10-31。",
+        "source_ids": [
+          "S06"
+        ],
+        "fixture_id": null
+      },
+      "execution": {
+        "profile": "live_search",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "deliver_supported_answer",
+        "required_fact_ids": [
+          "F15",
+          "F16",
+          "F17"
+        ],
+        "assertions": [
+          {
+            "check_id": "G011-A1",
+            "rubric_id": "S_COVER",
+            "requirement": "找到足以支持隐藏参考必需点的可信材料；允许等价来源。",
+            "critical": true
+          },
+          {
+            "check_id": "G011-A2",
+            "rubric_id": "S_FRESH",
+            "requirement": "不能当作2026统计；不能把估计当人口普查精确值；不能混用2024原值和修订值。",
+            "critical": true
+          },
+          {
+            "check_id": "G011-A3",
+            "rubric_id": "S_RELEVANCE",
+            "requirement": "逐条评判前5条及保留原因；不要求网址字面相同。",
+            "critical": false
+          },
+          {
+            "check_id": "G011-A4",
+            "rubric_id": "S_EFFICIENCY",
+            "requirement": "最多6次搜索，超限或无新增证据时记录停止原因。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G012",
+      "collection": "golden",
+      "area": "report",
+      "title": "概述ITU对2025年全球联网与未联网人数的估计，并解释2024年估计修订。",
+      "group_id": "connectivity",
+      "split": "development",
+      "input": {
+        "user_request": "概述ITU对2025年全球联网与未联网人数的估计，并解释2024年估计修订。；材料和统计截止2026-10-31。",
+        "source_ids": [
+          "S06"
+        ],
+        "fixture_id": null
+      },
+      "execution": {
+        "profile": "frozen_evidence_real_model",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "deliver_supported_answer",
+        "required_fact_ids": [
+          "F15",
+          "F16",
+          "F17"
+        ],
+        "assertions": [
+          {
+            "check_id": "G012-A1",
+            "rubric_id": "Q_SUPPORT",
+            "requirement": "逐条核对oracle.required_fact_ids的数字、单位、范围和限定词。",
+            "critical": true
+          },
+          {
+            "check_id": "G012-A2",
+            "rubric_id": "Q_SCOPE",
+            "requirement": "不能当作2026统计；不能把估计当人口普查精确值；不能混用2024原值和修订值。",
+            "critical": true
+          },
+          {
+            "check_id": "G012-A3",
+            "rubric_id": "Q_COVER",
+            "requirement": "回答全部必需点，事实和分析分开。",
+            "critical": true
+          },
+          {
+            "check_id": "G012-A4",
+            "rubric_id": "Q_CITE",
+            "requirement": "重要事实引用到当前提供的来源，允许表达不同。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G013",
+      "collection": "golden",
+      "area": "search",
+      "title": "介绍2025年全球工业机器人存量、新增安装和中国安装规模，区分存量与年度流量。",
+      "group_id": "robotics",
+      "split": "development",
+      "input": {
+        "user_request": "介绍2025年全球工业机器人存量、新增安装和中国安装规模，区分存量与年度流量。；材料和统计截止2026-10-31。",
+        "source_ids": [
+          "S07"
+        ],
+        "fixture_id": null
+      },
+      "execution": {
+        "profile": "live_search",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "deliver_supported_answer",
+        "required_fact_ids": [
+          "F18",
+          "F19",
+          "F20"
+        ],
+        "assertions": [
+          {
+            "check_id": "G013-A1",
+            "rubric_id": "S_COVER",
+            "requirement": "找到足以支持隐藏参考必需点的可信材料；允许等价来源。",
+            "critical": true
+          },
+          {
+            "check_id": "G013-A2",
+            "rubric_id": "S_FRESH",
+            "requirement": "不能把500万当年新增；不能把中国安装量称全球量；不能改为服务机器人。",
+            "critical": true
+          },
+          {
+            "check_id": "G013-A3",
+            "rubric_id": "S_RELEVANCE",
+            "requirement": "逐条评判前5条及保留原因；不要求网址字面相同。",
+            "critical": false
+          },
+          {
+            "check_id": "G013-A4",
+            "rubric_id": "S_EFFICIENCY",
+            "requirement": "最多6次搜索，超限或无新增证据时记录停止原因。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G014",
+      "collection": "golden",
+      "area": "report",
+      "title": "介绍2025年全球工业机器人存量、新增安装和中国安装规模，区分存量与年度流量。",
+      "group_id": "robotics",
+      "split": "development",
+      "input": {
+        "user_request": "介绍2025年全球工业机器人存量、新增安装和中国安装规模，区分存量与年度流量。；材料和统计截止2026-10-31。",
+        "source_ids": [
+          "S07"
+        ],
+        "fixture_id": null
+      },
+      "execution": {
+        "profile": "frozen_evidence_real_model",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "deliver_supported_answer",
+        "required_fact_ids": [
+          "F18",
+          "F19",
+          "F20"
+        ],
+        "assertions": [
+          {
+            "check_id": "G014-A1",
+            "rubric_id": "Q_SUPPORT",
+            "requirement": "逐条核对oracle.required_fact_ids的数字、单位、范围和限定词。",
+            "critical": true
+          },
+          {
+            "check_id": "G014-A2",
+            "rubric_id": "Q_SCOPE",
+            "requirement": "不能把500万当年新增；不能把中国安装量称全球量；不能改为服务机器人。",
+            "critical": true
+          },
+          {
+            "check_id": "G014-A3",
+            "rubric_id": "Q_COVER",
+            "requirement": "回答全部必需点，事实和分析分开。",
+            "critical": true
+          },
+          {
+            "check_id": "G014-A4",
+            "rubric_id": "Q_CITE",
+            "requirement": "重要事实引用到当前提供的来源，允许表达不同。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G015",
+      "collection": "golden",
+      "area": "search",
+      "title": "说明2025年全球专业服务机器人出货与交通物流应用规模，区分专业服务和工业机器人。",
+      "group_id": "robotics",
+      "split": "development",
+      "input": {
+        "user_request": "说明2025年全球专业服务机器人出货与交通物流应用规模，区分专业服务和工业机器人。；材料和统计截止2026-10-31。",
+        "source_ids": [
+          "S08"
+        ],
+        "fixture_id": null
+      },
+      "execution": {
+        "profile": "live_search",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "deliver_supported_answer",
+        "required_fact_ids": [
+          "F21",
+          "F22",
+          "F23"
+        ],
+        "assertions": [
+          {
+            "check_id": "G015-A1",
+            "rubric_id": "S_COVER",
+            "requirement": "找到足以支持隐藏参考必需点的可信材料；允许等价来源。",
+            "critical": true
+          },
+          {
+            "check_id": "G015-A2",
+            "rubric_id": "S_FRESH",
+            "requirement": "不能将物流份额47%称所有机器人的份额；不能混入工业机器人存量。",
+            "critical": true
+          },
+          {
+            "check_id": "G015-A3",
+            "rubric_id": "S_RELEVANCE",
+            "requirement": "逐条评判前5条及保留原因；不要求网址字面相同。",
+            "critical": false
+          },
+          {
+            "check_id": "G015-A4",
+            "rubric_id": "S_EFFICIENCY",
+            "requirement": "最多6次搜索，超限或无新增证据时记录停止原因。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G016",
+      "collection": "golden",
+      "area": "report",
+      "title": "说明2025年全球专业服务机器人出货与交通物流应用规模，区分专业服务和工业机器人。",
+      "group_id": "robotics",
+      "split": "development",
+      "input": {
+        "user_request": "说明2025年全球专业服务机器人出货与交通物流应用规模，区分专业服务和工业机器人。；材料和统计截止2026-10-31。",
+        "source_ids": [
+          "S08"
+        ],
+        "fixture_id": null
+      },
+      "execution": {
+        "profile": "frozen_evidence_real_model",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "deliver_supported_answer",
+        "required_fact_ids": [
+          "F21",
+          "F22",
+          "F23"
+        ],
+        "assertions": [
+          {
+            "check_id": "G016-A1",
+            "rubric_id": "Q_SUPPORT",
+            "requirement": "逐条核对oracle.required_fact_ids的数字、单位、范围和限定词。",
+            "critical": true
+          },
+          {
+            "check_id": "G016-A2",
+            "rubric_id": "Q_SCOPE",
+            "requirement": "不能将物流份额47%称所有机器人的份额；不能混入工业机器人存量。",
+            "critical": true
+          },
+          {
+            "check_id": "G016-A3",
+            "rubric_id": "Q_COVER",
+            "requirement": "回答全部必需点，事实和分析分开。",
+            "critical": true
+          },
+          {
+            "check_id": "G016-A4",
+            "rubric_id": "Q_CITE",
+            "requirement": "重要事实引用到当前提供的来源，允许表达不同。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G017",
+      "collection": "golden",
+      "area": "end_to_end",
+      "title": "可穿戴大类与腕戴子类对照",
+      "group_id": "cross_domain_evaluation_only",
+      "split": "evaluation_only",
+      "input": {
+        "user_request": "输出带来源的简报：解释全部可穿戴增长与腕戴下滑可同时成立，不编造中国份额。 截止2026-10-31，不要求未提供的品牌份额。",
+        "source_ids": [
+          "S01",
+          "S02"
+        ],
+        "fixture_id": null
+      },
+      "execution": {
+        "profile": "live_end_to_end",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "deliver_supported_answer",
+        "required_fact_ids": [
+          "F01",
+          "F02",
+          "F03",
+          "F04",
+          "F05",
+          "F06"
+        ],
+        "assertions": [
+          {
+            "check_id": "G017-A1",
+            "rubric_id": "Q_SCOPE",
+            "requirement": "解释全部可穿戴增长与腕戴下滑可同时成立，不编造中国份额。",
+            "critical": true
+          },
+          {
+            "check_id": "G017-A2",
+            "rubric_id": "Q_SUPPORT",
+            "requirement": "全部数值须有可追溯材料。",
+            "critical": true
+          },
+          {
+            "check_id": "G017-A3",
+            "rubric_id": "S_COVER",
+            "requirement": "在预算内找到各资料组的关键证据。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G018",
+      "collection": "golden",
+      "area": "end_to_end",
+      "title": "工业与专业服务机器人概览",
+      "group_id": "cross_domain_evaluation_only",
+      "split": "evaluation_only",
+      "input": {
+        "user_request": "输出带来源的简报：分别说明工业存量/新增和专业服务销量；不得直接相加。 截止2026-10-31，不要求未提供的品牌份额。",
+        "source_ids": [
+          "S07",
+          "S08"
+        ],
+        "fixture_id": null
+      },
+      "execution": {
+        "profile": "live_end_to_end",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "deliver_supported_answer",
+        "required_fact_ids": [
+          "F18",
+          "F19",
+          "F20",
+          "F21",
+          "F22",
+          "F23"
+        ],
+        "assertions": [
+          {
+            "check_id": "G018-A1",
+            "rubric_id": "Q_SCOPE",
+            "requirement": "分别说明工业存量/新增和专业服务销量；不得直接相加。",
+            "critical": true
+          },
+          {
+            "check_id": "G018-A2",
+            "rubric_id": "Q_SUPPORT",
+            "requirement": "全部数值须有可追溯材料。",
+            "critical": true
+          },
+          {
+            "check_id": "G018-A3",
+            "rubric_id": "S_COVER",
+            "requirement": "在预算内找到各资料组的关键证据。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G019",
+      "collection": "golden",
+      "area": "end_to_end",
+      "title": "电动车与互联网：实绩和估计",
+      "group_id": "cross_domain_evaluation_only",
+      "split": "evaluation_only",
+      "input": {
+        "user_request": "输出带来源的简报：分别介绍2025实绩/估计和2026预测；不暗示联网人口导致电动车销量变化。 截止2026-10-31，不要求未提供的品牌份额。",
+        "source_ids": [
+          "S04",
+          "S06"
+        ],
+        "fixture_id": null
+      },
+      "execution": {
+        "profile": "live_end_to_end",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "deliver_supported_answer",
+        "required_fact_ids": [
+          "F10",
+          "F11",
+          "F12",
+          "F15",
+          "F16",
+          "F17"
+        ],
+        "assertions": [
+          {
+            "check_id": "G019-A1",
+            "rubric_id": "Q_SCOPE",
+            "requirement": "分别介绍2025实绩/估计和2026预测；不暗示联网人口导致电动车销量变化。",
+            "critical": true
+          },
+          {
+            "check_id": "G019-A2",
+            "rubric_id": "Q_SUPPORT",
+            "requirement": "全部数值须有可追溯材料。",
+            "critical": true
+          },
+          {
+            "check_id": "G019-A3",
+            "rubric_id": "S_COVER",
+            "requirement": "在预算内找到各资料组的关键证据。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G020",
+      "collection": "golden",
+      "area": "end_to_end",
+      "title": "中国经济与全球数据中心",
+      "group_id": "cross_domain_evaluation_only",
+      "split": "evaluation_only",
+      "input": {
+        "user_request": "输出带来源的简报：分别说明地区、统计期及指标；不得凭两份资料宣称因果关系。 截止2026-10-31，不要求未提供的品牌份额。",
+        "source_ids": [
+          "S03",
+          "S05"
+        ],
+        "fixture_id": null
+      },
+      "execution": {
+        "profile": "live_end_to_end",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "deliver_supported_answer",
+        "required_fact_ids": [
+          "F07",
+          "F08",
+          "F09",
+          "F13",
+          "F14"
+        ],
+        "assertions": [
+          {
+            "check_id": "G020-A1",
+            "rubric_id": "Q_SCOPE",
+            "requirement": "分别说明地区、统计期及指标；不得凭两份资料宣称因果关系。",
+            "critical": true
+          },
+          {
+            "check_id": "G020-A2",
+            "rubric_id": "Q_SUPPORT",
+            "requirement": "全部数值须有可追溯材料。",
+            "critical": true
+          },
+          {
+            "check_id": "G020-A3",
+            "rubric_id": "S_COVER",
+            "requirement": "在预算内找到各资料组的关键证据。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "official_source_grounded",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "agent_verified"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G021",
+      "collection": "golden",
+      "area": "protocol",
+      "title": "正常质量准入",
+      "group_id": "G021",
+      "split": "development",
+      "input": {
+        "user_request": "执行一个证据充分且审核通过的合成任务。",
+        "source_ids": [],
+        "fixture_id": "G021"
+      },
+      "execution": {
+        "profile": "synthetic_protocol",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "completed_passed",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "G021-A1",
+            "rubric_id": "P_STATE",
+            "requirement": "completed/passed、非forced_output；仅此条件允许写入隔离长期记忆。",
+            "critical": true
+          },
+          {
+            "check_id": "G021-A2",
+            "rubric_id": "Q_CITE",
+            "requirement": "使用当前任务S1映射，不接受其他任务来源。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G022",
+      "collection": "golden",
+      "area": "robustness",
+      "title": "主模型健康基线",
+      "group_id": "G022",
+      "split": "development",
+      "input": {
+        "user_request": "在启用主备的隔离路由中执行两次调用。",
+        "source_ids": [],
+        "fixture_id": "G022"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "primary_only",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "G022-A1",
+            "rubric_id": "R_ROUTE",
+            "requirement": "主SDK调用2次，备用0次，无备用绑定。",
+            "critical": true
+          },
+          {
+            "check_id": "G022-A2",
+            "rubric_id": "R_BUDGET",
+            "requirement": "两个逻辑调用的usage分别保存。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": null,
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G023",
+      "collection": "golden",
+      "area": "robustness",
+      "title": "章节检查点恢复基线",
+      "group_id": "G023",
+      "split": "development",
+      "input": {
+        "user_request": "研究A与章节A已提交，章节B中断后恢复。",
+        "source_ids": [],
+        "fixture_id": "G023"
+      },
+      "execution": {
+        "profile": "routing_fault_injection",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "checkpoint_resume",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "G023-A1",
+            "rubric_id": "R_RECOVER",
+            "requirement": "已提交A不再调用；B可执行2次；章节A仅出现1次。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": "backend/tests/test_agent_checkpoints.py::test_resume_preserves_completed_units",
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    },
+    {
+      "case_id": "G024",
+      "collection": "golden",
+      "area": "protocol",
+      "title": "未知计量保留",
+      "group_id": "G024",
+      "split": "development",
+      "input": {
+        "user_request": "执行一次返回内容但不返回usage的调用。",
+        "source_ids": [],
+        "fixture_id": "G024"
+      },
+      "execution": {
+        "profile": "synthetic_protocol",
+        "cutoff": "2026-10-31",
+        "network_authorized": false,
+        "paid_calls_authorized": false,
+        "max_model_attempts": 2,
+        "max_search_calls": 6,
+        "max_returned_per_query": 5,
+        "task_deadline_seconds": 180,
+        "recovery_deadline_seconds": 60,
+        "memory": "isolated_cold_start",
+        "repetitions": 1
+      },
+      "oracle": {
+        "expected_handling": "completed_usage_unknown",
+        "required_fact_ids": [],
+        "assertions": [
+          {
+            "check_id": "G024-A1",
+            "rubric_id": "R_BUDGET",
+            "requirement": "Token/完整成本保持null，不是0；不伪造缓存命中。",
+            "critical": true
+          }
+        ],
+        "acceptance": "所有适用关键检查通过；unknown保留待复核，不计通过；报告质量与处理正确分开"
+      },
+      "provenance": {
+        "origin": "repository_or_synthetic_contract",
+        "regression_test": "backend/tests/test_cache_usage.py::test_missing_cache_price_and_unknown_usage_cannot_claim_total",
+        "created_by": "Codex",
+        "human_review": "pending",
+        "source_check": "repository_oracle_checked"
+      },
+      "run_status": "not_run",
+      "application_runner_support": "not_integrated"
+    }
+  ]
+}
