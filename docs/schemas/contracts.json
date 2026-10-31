@@ -2386,6 +2386,14 @@
           ],
           "default": null,
           "title": "Score"
+        },
+        "supported_case_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Supported Case Ids",
+          "type": "array"
         }
       },
       "required": [
@@ -2446,6 +2454,14 @@
               ],
               "default": null,
               "title": "Score"
+            },
+            "supported_case_ids": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Supported Case Ids",
+              "type": "array"
             }
           },
           "required": [
@@ -2578,6 +2594,399 @@
         "cases"
       ],
       "title": "EvaluationCatalog",
+      "type": "object"
+    },
+    "MechanismRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "const": "mechanism_regression",
+          "default": "mechanism_regression",
+          "title": "Profile",
+          "type": "string"
+        },
+        "case_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "title": "Case Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "case_ids"
+      ],
+      "title": "MechanismRequest",
+      "type": "object"
+    },
+    "MechanismResult": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "check_status": {
+          "enum": [
+            "pass",
+            "fail",
+            "unknown"
+          ],
+          "title": "Check Status",
+          "type": "string"
+        },
+        "test_count": {
+          "title": "Test Count",
+          "type": "integer"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "integer"
+        },
+        "failed": {
+          "title": "Failed",
+          "type": "integer"
+        },
+        "skipped": {
+          "title": "Skipped",
+          "type": "integer"
+        },
+        "test_names": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Test Names",
+          "type": "array"
+        },
+        "execution_status": {
+          "enum": [
+            "completed",
+            "failed"
+          ],
+          "title": "Execution Status",
+          "type": "string"
+        },
+        "report_quality": {
+          "const": "unknown",
+          "default": "unknown",
+          "title": "Report Quality",
+          "type": "string"
+        },
+        "exit_code": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Exit Code"
+        },
+        "duration_seconds": {
+          "title": "Duration Seconds",
+          "type": "number"
+        },
+        "engine": {
+          "const": "pytest_mechanism_regression",
+          "default": "pytest_mechanism_regression",
+          "title": "Engine",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
+        },
+        "scope": {
+          "title": "Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "check_status",
+        "test_count",
+        "passed",
+        "failed",
+        "skipped",
+        "test_names",
+        "execution_status",
+        "exit_code",
+        "duration_seconds",
+        "error",
+        "scope"
+      ],
+      "title": "MechanismResult",
+      "type": "object"
+    },
+    "MechanismSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "planned": {
+          "title": "Planned",
+          "type": "integer"
+        },
+        "processed": {
+          "title": "Processed",
+          "type": "integer"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "integer"
+        },
+        "failed": {
+          "title": "Failed",
+          "type": "integer"
+        },
+        "unknown": {
+          "title": "Unknown",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "planned",
+        "processed",
+        "passed",
+        "failed",
+        "unknown"
+      ],
+      "title": "MechanismSummary",
+      "type": "object"
+    },
+    "MechanismRun": {
+      "$defs": {
+        "MechanismResult": {
+          "additionalProperties": false,
+          "properties": {
+            "case_id": {
+              "title": "Case Id",
+              "type": "string"
+            },
+            "check_status": {
+              "enum": [
+                "pass",
+                "fail",
+                "unknown"
+              ],
+              "title": "Check Status",
+              "type": "string"
+            },
+            "test_count": {
+              "title": "Test Count",
+              "type": "integer"
+            },
+            "passed": {
+              "title": "Passed",
+              "type": "integer"
+            },
+            "failed": {
+              "title": "Failed",
+              "type": "integer"
+            },
+            "skipped": {
+              "title": "Skipped",
+              "type": "integer"
+            },
+            "test_names": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Test Names",
+              "type": "array"
+            },
+            "execution_status": {
+              "enum": [
+                "completed",
+                "failed"
+              ],
+              "title": "Execution Status",
+              "type": "string"
+            },
+            "report_quality": {
+              "const": "unknown",
+              "default": "unknown",
+              "title": "Report Quality",
+              "type": "string"
+            },
+            "exit_code": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Exit Code"
+            },
+            "duration_seconds": {
+              "title": "Duration Seconds",
+              "type": "number"
+            },
+            "engine": {
+              "const": "pytest_mechanism_regression",
+              "default": "pytest_mechanism_regression",
+              "title": "Engine",
+              "type": "string"
+            },
+            "error": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error"
+            },
+            "scope": {
+              "title": "Scope",
+              "type": "string"
+            }
+          },
+          "required": [
+            "case_id",
+            "check_status",
+            "test_count",
+            "passed",
+            "failed",
+            "skipped",
+            "test_names",
+            "execution_status",
+            "exit_code",
+            "duration_seconds",
+            "error",
+            "scope"
+          ],
+          "title": "MechanismResult",
+          "type": "object"
+        },
+        "MechanismSummary": {
+          "additionalProperties": false,
+          "properties": {
+            "planned": {
+              "title": "Planned",
+              "type": "integer"
+            },
+            "processed": {
+              "title": "Processed",
+              "type": "integer"
+            },
+            "passed": {
+              "title": "Passed",
+              "type": "integer"
+            },
+            "failed": {
+              "title": "Failed",
+              "type": "integer"
+            },
+            "unknown": {
+              "title": "Unknown",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "planned",
+            "processed",
+            "passed",
+            "failed",
+            "unknown"
+          ],
+          "title": "MechanismSummary",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "profile": {
+          "const": "mechanism_regression",
+          "title": "Profile",
+          "type": "string"
+        },
+        "execution_status": {
+          "enum": [
+            "running",
+            "completed",
+            "failed"
+          ],
+          "title": "Execution Status",
+          "type": "string"
+        },
+        "case_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Case Ids",
+          "type": "array"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/$defs/MechanismResult"
+          },
+          "title": "Results",
+          "type": "array"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
+        },
+        "report_quality": {
+          "const": "unknown",
+          "title": "Report Quality",
+          "type": "string"
+        },
+        "summary": {
+          "$ref": "#/$defs/MechanismSummary"
+        }
+      },
+      "required": [
+        "run_id",
+        "profile",
+        "execution_status",
+        "case_ids",
+        "results",
+        "metadata",
+        "created_at",
+        "updated_at",
+        "error",
+        "report_quality",
+        "summary"
+      ],
+      "title": "MechanismRun",
       "type": "object"
     }
   }

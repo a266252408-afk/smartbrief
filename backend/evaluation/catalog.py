@@ -40,6 +40,7 @@ class CatalogArea(BaseModel):
     profile: str | None
     availability: str
     score: float | None = None
+    supported_case_ids: list[str] = []
 
 
 class EvaluationCatalog(BaseModel):
@@ -115,6 +116,13 @@ def summary(version=VERSION):
                          runnable=key=='protocol',profile='protocol-1' if key=='protocol' else None,
                          availability='原20例合成协议可运行' if key=='protocol' else '题目已准备，执行器待接通')
              for key,label in AREA_LABELS.items()]
+    from services.evaluation_run_service import capabilities
+    mechanism=capabilities()
+    robust=next(a for a in areas if a.area=='robustness')
+    robust.runnable=mechanism['available']
+    robust.profile='mechanism_regression'
+    robust.supported_case_ids=mechanism['supported_case_ids']
+    robust.availability=f'本地机制回归已接通{len(robust.supported_case_ids)}个映射案例；其他场景待接通' if robust.runnable else '本地pytest环境不可用'
     return EvaluationCatalog(version=VERSION,
         dataset_hash=hashlib.sha256(json.dumps(manifest,sort_keys=True,ensure_ascii=False).encode()).hexdigest(),
         cutoff=manifest['cutoff'],total_cases=len(rows),

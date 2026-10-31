@@ -49,6 +49,7 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: '评测中心', evaluationTab: tab }
   })),
   { path: '/evaluation/protocol', name: 'evaluation-protocol', component: () => import('../views/Evaluation.vue'), meta: { title: '原协议评测' } },
+  { path: '/evaluation/runs/:runId', name: 'evaluation-run-detail', component: () => import('../views/EvaluationCenter.vue'), meta: { title: '专项评测详情', evaluationTab: 'run-detail' } },
   {
     path: '/reports',
     name: 'reports',

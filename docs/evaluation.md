@@ -6,6 +6,10 @@
 
 本阶段仅原protocol-1执行器可运行，其他板块显示待接通，人工持久化复核尚未实现；旧完整页面在/evaluation/protocol，支持eval查询定位指定历史。线上供应商验证仍未执行。题库随仓库本地源码读取；现有Docker构建尚未打包docs资料，Docker相关仍按既有延后范围，不宣称容器可用。
 
+后续EVAL-NEXT-02-01增加本地机制回归：固定16个案例映射到已有真实路由/恢复测试，隔离子进程执行pytest，读取实际JUnit归档。启动/列表/详情在/api/v2/evaluation-center/runs，结果与旧协议分开。跳过、无测试、启动失败和超时均不算通过；report_quality为unknown，不证明真实备用接口或报告质量。服务关闭/重启保留已完成部分并将旧运行标为中断。需要本地pytest与测试源码，缺失时明确不可用。
+
+专项JSON归档和临时工作目录位于DATA_DIR/evaluation-center（缺省backend/evaluation-center），默认D盘当前项目；不进Git。需要保存评测历史时，停写后连同该目录备份；临时work内只含替身数据和测试输出，可以单独清理，不能删除runs下需要保留的结果。本阶段不提供任意脚本或selector执行入口。
+
 ## 默认运行范围
 
 评测中心默认通过v2执行protocol-1固定20例离线合成协议评测。数据集及真实执行报告见下文T09；不调用在线供应商，不代表在线效果。旧`backend/evaluation/runner.py`与v1接口保留单例冒烟兼容行为，使用既有模型配置，不能当成本轮离线默认。

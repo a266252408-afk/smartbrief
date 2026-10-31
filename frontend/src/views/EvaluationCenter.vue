@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { fetchCatalog, fetchCatalogCase, type EvaluationCatalog, type CatalogDetail, type CatalogCase } from '../api/evaluationCenter'
+import { fetchCatalog, fetchCatalogCase, startMechanism, fetchMechanismRuns, fetchMechanismRun, type MechanismRun, type EvaluationCatalog, type CatalogDetail, type CatalogCase } from '../api/evaluationCenter'
 import { fetchEvalReports, runEvaluation, type EvalReportSummary } from '../api/evaluation'
 import { authRole } from '../api/session'
 
@@ -11,12 +11,18 @@ const selected = ref<CatalogDetail | null>(null), detailError = ref(''), detailL
 const area = ref(''), collection = ref(''), query = ref('')
 const history = ref<EvalReportSummary[]>([]), historyError = ref(''), starting = ref(false)
 const flags = ref({ rag: true, memory: true, review: true })
+const mechanismCases = ref(['R009', 'G023']), mechanismRuns = ref<MechanismRun[]>([]), mechanismError = ref('')
+const activeRun = ref<MechanismRun | null>(null)
+let runPoll: ReturnType<typeof setTimeout> | undefined
+let disposed = false
 const tab = computed(() => String(route.meta.evaluationTab || 'overview'))
 const tabs = [ ['overview', '总览', '/evaluation'], ['datasets', '测试集与标准', '/evaluation/datasets'],
   ['run', '运行评测', '/evaluation/run'], ['records', '评测记录', '/evaluation/records'],
   ['review', '人工复核', '/evaluation/review'], ['compare', '对照实验', '/evaluation/compare'] ]
 const collectionLabels: Record<string, string> = { golden: '黄金集', regression: '回归集', challenge: '挑战集', legacy: '原协议集' }
 const splitLabels: Record<string, string> = { development: '开发组', holdout: '留出组', evaluation_only: '仅验收', legacy: '原协议' }
+const runLabels: Record<string, string> = { running: '执行中', completed: '已处理完', failed: '执行中断' }
+const checkLabels: Record<string, string> = { pass: '通过', fail: '未通过', unknown: '待确认' }
 function criterion(text: string) { return text.replace('oracle.required_fact_ids', '参考事实清单') }
 const rows = computed(() => (catalog.value?.cases || []).filter(c => (!area.value || c.area === area.value)
   && (!collection.value || c.collection === collection.value) && (!query.value || `${c.case_id} ${c.title}`.includes(query.value))))
@@ -33,6 +39,29 @@ async function loadHistory() {
   try { history.value = (await fetchEvalReports()).items }
   catch { history.value = []; historyError.value = '评测记录读取失败，请重试' }
 }
+async function loadMechanisms() {
+  mechanismError.value = ''
+  try { mechanismRuns.value = await fetchMechanismRuns() }
+  catch { mechanismError.value = '专项运行记录不可读，请重试' }
+}
+async function loadRun() {
+  const id = String(route.params.runId || '')
+  if (!id || disposed) return
+  mechanismError.value = ''
+  try {
+    const data = await fetchMechanismRun(id)
+    if (disposed || id !== String(route.params.runId || '')) return
+    activeRun.value = data
+    if (data.execution_status === 'running') runPoll = setTimeout(loadRun, 2000)
+  } catch { if (!disposed) mechanismError.value = '专项详情不可读，请重试' }
+}
+async function startRobustness() {
+  if (starting.value || authRole.value !== 'admin') return
+  starting.value = true; mechanismError.value = ''
+  try { const data = await startMechanism(mechanismCases.value); await router.push(`/evaluation/runs/${encodeURIComponent(data.run_id)}`) }
+  catch { mechanismError.value = '专项未启动，可能有运行中的评测或案例尚未接通' }
+  finally { starting.value = false }
+}
 async function inspect(id: string) {
   const version = ++detailVersion
   selected.value = null; detailError.value = ''; detailLoading.value = true
@@ -47,8 +76,15 @@ async function startProtocol() {
   catch { error.value = '评测未启动，请检查权限或是否已有运行中的评测' }
   finally { starting.value = false }
 }
-watch(tab, () => { if (['overview', 'records', 'compare'].includes(tab.value)) void loadHistory() })
-onMounted(() => { void load(); if (['overview', 'records', 'compare'].includes(tab.value)) void loadHistory() })
+function loadTab() {
+  clearTimeout(runPoll)
+  if (['overview', 'records', 'compare'].includes(tab.value)) void loadHistory()
+  if (tab.value === 'records') void loadMechanisms()
+  if (tab.value === 'run-detail') void loadRun()
+}
+watch(() => route.fullPath, loadTab)
+onMounted(() => { void load(); loadTab() })
+onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
 </script>
 
 <template>
@@ -59,6 +95,7 @@ onMounted(() => { void load(); if (['overview', 'records', 'compare'].includes(t
     </nav>
     <p v-if="error" role="alert">{{ error }} <el-button @click="load">重新读取题库</el-button></p>
     <p v-if="loading">正在读取版本化题库…</p>
+    <p v-if="mechanismError" role="alert">{{ mechanismError }}</p>
     <template v-if="catalog">
       <div class="version">{{ catalog.version }} · 截止 {{ catalog.cutoff }} · {{ catalog.total_cases }} 例 · 题目准备状态不代表系统成绩</div>
       <template v-if="tab === 'overview'">
@@ -112,7 +149,15 @@ onMounted(() => { void load(); if (['overview', 'records', 'compare'].includes(t
               <el-checkbox v-model="flags.memory" :disabled="authRole !== 'admin'">长期记忆</el-checkbox>
               <el-checkbox v-model="flags.review" :disabled="authRole !== 'admin'">审核</el-checkbox>
               <p><el-button type="primary" :disabled="!a.runnable || authRole !== 'admin'" :loading="starting" @click="startProtocol">运行离线协议评测</el-button></p>
-            </template><el-button v-else disabled>执行器待接通</el-button>
+            </template>
+            <template v-else-if="a.profile === 'mechanism_regression'">
+              <p>真实工程测试 · 替身供应商 · 不证明线上备用可用或报告质量</p>
+              <el-select v-model="mechanismCases" multiple aria-label="机制回归案例" :disabled="authRole !== 'admin'">
+                <el-option v-for="id in a.supported_case_ids || []" :key="id" :value="id" :label="`${id} ${catalog.cases.find(c => c.case_id === id)?.title || ''}`" />
+              </el-select>
+              <p><el-button :disabled="!a.runnable || authRole !== 'admin' || !mechanismCases.length" :loading="starting" @click="startRobustness">运行主备与恢复回归</el-button></p>
+            </template>
+            <el-button v-else disabled>执行器待接通</el-button>
           </article></div>
       </template>
       <template v-else-if="tab === 'records' || tab === 'compare'">
@@ -123,6 +168,19 @@ onMounted(() => { void load(); if (['overview', 'records', 'compare'].includes(t
           <el-table-column label="已归档/计划"><template #default="{ row }">{{ row.completed_cases }}/{{ row.total_cases }}</template></el-table-column>
           <el-table-column label="详情"><template #default="{ row }"><router-link :to="`/evaluation/protocol?eval=${encodeURIComponent(row.eval_id)}`">查看原协议结果与对照</router-link></template></el-table-column>
         </el-table><p v-if="!historyError && !history.length">尚无运行记录</p>
+        <template v-if="tab === 'records'"><h4>主备与恢复机制回归</h4>
+          <el-table :data="mechanismRuns"><el-table-column prop="run_id" label="运行编号" /><el-table-column label="执行状态"><template #default="{ row }">{{ runLabels[row.execution_status] }}</template></el-table-column>
+            <el-table-column label="通过/计划"><template #default="{ row }">{{ row.summary.passed }}/{{ row.summary.planned }}</template></el-table-column>
+            <el-table-column label="详情"><template #default="{ row }"><router-link :to="`/evaluation/runs/${row.run_id}`">查看实际回归结果</router-link></template></el-table-column>
+          </el-table>
+        </template>
+      </template>
+      <template v-else-if="tab === 'run-detail'">
+        <h3>主备与恢复机制回归详情</h3><p>结果来自本地测试执行；报告质量尚未评判，真实供应商在线可用性尚未验证。</p>
+        <template v-if="activeRun"><p>{{ activeRun.run_id }} · {{ runLabels[activeRun.execution_status] }} · 已处理 {{ activeRun.summary.processed }}/{{ activeRun.summary.planned }}</p>
+          <p v-if="activeRun.error" role="alert">{{ activeRun.error }}</p>
+          <el-table :data="activeRun.results"><el-table-column prop="case_id" label="案例" /><el-table-column label="机制判定"><template #default="{ row }">{{ checkLabels[row.check_status] }}</template></el-table-column><el-table-column prop="test_count" label="实际测试数" /><el-table-column prop="skipped" label="跳过数" /><el-table-column prop="duration_seconds" label="耗时（秒）" /><el-table-column prop="error" label="异常" /></el-table>
+        </template>
       </template>
       <template v-else-if="tab === 'review'"><h3>人工复核</h3><p>题库核验与运行结果复核分开记录。当前尚未接通持久化复核，不能把待抽查案例自动标为人工通过。</p>
         <router-link to="/evaluation/datasets">先查看案例及来源依据</router-link></template>

@@ -48,6 +48,8 @@ async def lifespan(app: FastAPI):
     try:
         # 持有实例锁后才迁移，避免与停写备份或另一实例启动交错。
         database.init_db()
+        from services import evaluation_run_service
+        evaluation_run_service.interrupt_orphans()
         # 意外中断兜底（paused 状态）：上次进程退出遗留的 running 任务统一置为 paused，
         # 恢复时核对SqliteSaver待执行节点；不可续跑时明确从头重试
         try:
@@ -84,6 +86,7 @@ async def lifespan(app: FastAPI):
             from services.evaluation_service import close as close_evaluation
             try:
                 await close_evaluation()
+                await evaluation_run_service.close()
             finally:
                 await service.close()
         finally:

@@ -16,7 +16,7 @@ def test_catalog_http_counts_and_detail():
         assert data['total_cases']==108 and len(data['cases'])==108
         assert data['collections']=={'golden':24,'regression':24,'challenge':40,'legacy':20}
         assert len(data['areas'])==5
-        assert [a['area'] for a in data['areas'] if a['runnable']]==['protocol']
+        assert [a['area'] for a in data['areas'] if a['runnable']]==['protocol','robustness']
         assert all(a['score'] is None for a in data['areas'])
         row=client.get('/api/v2/evaluation-center/cases/G002').json()['data']
         assert row['case']['oracle']['required_fact_ids']==['F01','F02','F03']

@@ -48,3 +48,4 @@ probe_out.txt
 .browser-cache/
 test-results/
 playwright-report/
+backend/evaluation-center/

@@ -7,6 +7,7 @@ export interface CatalogCase {
 export interface CatalogArea {
   area: string; label: string; case_count: number; runnable: boolean
   profile: string | null; availability: string; score: number | null
+  supported_case_ids?: string[]
 }
 export interface EvaluationCatalog {
   version: string; dataset_hash: string; cutoff: string; total_cases: number
@@ -26,4 +27,23 @@ export async function fetchCatalog(): Promise<EvaluationCatalog> {
 }
 export async function fetchCatalogCase(id: string): Promise<CatalogDetail> {
   return (await http.get(`/cases/${encodeURIComponent(id)}`)).data.data
+}
+
+export interface MechanismResult {
+  case_id: string; check_status: 'pass' | 'fail' | 'unknown'; test_count: number
+  passed: number; failed: number; skipped: number; report_quality: string; duration_seconds: number; error: string | null
+}
+export interface MechanismRun {
+  run_id: string; execution_status: 'running' | 'completed' | 'failed'; report_quality: string
+  created_at: string; error: string | null; results: MechanismResult[]
+  summary: { planned: number; processed: number; passed: number; failed: number; unknown: number }
+}
+export async function startMechanism(caseIds: string[]): Promise<MechanismRun> {
+  return (await http.post('/runs', { profile: 'mechanism_regression', case_ids: caseIds })).data.data
+}
+export async function fetchMechanismRuns(): Promise<MechanismRun[]> {
+  return (await http.get('/runs')).data.data.items
+}
+export async function fetchMechanismRun(id: string): Promise<MechanismRun> {
+  return (await http.get(`/runs/${encodeURIComponent(id)}`)).data.data
 }

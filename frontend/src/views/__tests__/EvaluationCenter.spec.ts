@@ -3,24 +3,26 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 import { afterEach, expect, it, vi } from 'vitest'
 import ElementPlus from 'element-plus'
 import EvaluationCenter from '../EvaluationCenter.vue'
-import { fetchCatalog, fetchCatalogCase } from '../../api/evaluationCenter'
+import { fetchCatalog, fetchCatalogCase, startMechanism, fetchMechanismRuns } from '../../api/evaluationCenter'
 import { fetchEvalReports, runEvaluation } from '../../api/evaluation'
 import { authRole } from '../../api/session'
 
-vi.mock('../../api/evaluationCenter', () => ({ fetchCatalog: vi.fn(), fetchCatalogCase: vi.fn() }))
+vi.mock('../../api/evaluationCenter', () => ({ fetchCatalog: vi.fn(), fetchCatalogCase: vi.fn(), startMechanism: vi.fn(), fetchMechanismRuns: vi.fn(), fetchMechanismRun: vi.fn() }))
 vi.mock('../../api/evaluation', () => ({ fetchEvalReports: vi.fn(), runEvaluation: vi.fn() }))
 const pack = { version: 'sb-eval-data-1', cutoff: '2026-10-31', total_cases: 108, dataset_hash: 'a'.repeat(64), collections: { golden: 24 },
   areas: [{ area: 'protocol', label: '流程与故障', case_count: 31, runnable: true, profile: 'protocol-1', availability: '原20例合成协议可运行', score: null },
-    { area: 'robustness', label: '鲁棒性与恢复', case_count: 36, runnable: false, profile: null, availability: '题目已准备，执行器待接通', score: null }],
+    { area: 'robustness', label: '鲁棒性与恢复', case_count: 36, runnable: true, profile: 'mechanism_regression', availability: '本地机制回归已接通', score: null, supported_case_ids: ['R009', 'G023'] }],
   cases: [{ case_id: 'G002', collection: 'golden', area: 'report', title: '腕戴研究', split: 'development', human_review: 'pending', run_status: 'not_run', source_count: 1, has_fixture: false }] }
 let wrapper: ReturnType<typeof mount> | undefined
 afterEach(() => { wrapper?.unmount(); vi.resetAllMocks() })
 async function open(tab: string) {
   vi.mocked(fetchCatalog).mockResolvedValue(pack)
   vi.mocked(fetchEvalReports).mockResolvedValue({ items: [], total: 0, page: 1, page_size: 20 })
+  vi.mocked(fetchMechanismRuns).mockResolvedValue([])
   const router = createRouter({ history: createMemoryHistory(), routes: [
     { path: '/', component: EvaluationCenter, meta: { evaluationTab: tab } },
-    { path: '/evaluation/protocol', component: { template: '<p>协议结果</p>' } }
+    { path: '/evaluation/protocol', component: { template: '<p>协议结果</p>' } },
+    { path: '/evaluation/runs/:runId', component: { template: '<p>专项结果</p>' } }
   ] })
   await router.push('/'); await router.isReady()
   wrapper = mount(EvaluationCenter, { global: { plugins: [ElementPlus, router] } })
@@ -32,7 +34,7 @@ it('总览区分未测与可用能力，显示六个工作入口', async () => {
   expect(wrapper!.findAll('nav a')).toHaveLength(6)
   expect(wrapper!.text()).toContain('108 例')
   expect(wrapper!.text()).toContain('尚无本板块实测成绩')
-  expect(wrapper!.text()).toContain('执行器待接通')
+  expect(wrapper!.text()).toContain('本地机制回归已接通')
 })
 it('案例详情以文本展示来源与检查项，不执行HTML', async () => {
   vi.mocked(fetchCatalogCase).mockResolvedValue({ case: { case_id: 'G002', title: '腕戴研究', input: { user_request: '<img src=x onerror=alert(1)>' }, oracle: { expected_handling: 'deliver_supported_answer', assertions: [{ check_id: 'A', rubric_id: 'Q_SCOPE', critical: true, requirement: '不得混淆地区' }] } }, sources: [], rubrics: [], fixture: null })
@@ -66,4 +68,17 @@ it('读取失败显示错误，不能显示空题库成功', async () => {
   wrapper = mount(EvaluationCenter, { global: { plugins: [ElementPlus, router] } }); await flushPromises()
   expect(wrapper.get('[role="alert"]').text()).toContain('题库读取失败')
   expect(wrapper.findAll('.areas')).toHaveLength(0)
+})
+it('机制回归只读禁写，管理员提交案例且保持质量边界', async () => {
+  authRole.value = 'readonly'
+  const router = await open('run')
+  const button = wrapper!.findAll('button').find(b => b.text() === '运行主备与恢复回归')!
+  expect(button.attributes('disabled')).toBeDefined()
+  expect(startMechanism).not.toHaveBeenCalled()
+  expect(wrapper!.text()).toContain('不证明线上备用可用或报告质量')
+  authRole.value = 'admin'; await flushPromises()
+  vi.mocked(startMechanism).mockResolvedValue({ run_id: 'er_' + 'a'.repeat(32), execution_status: 'running', report_quality: 'unknown', created_at: 'fixture', error: null, results: [], summary: { planned: 2, processed: 0, passed: 0, failed: 0, unknown: 0 } })
+  await button.trigger('click'); await flushPromises()
+  expect(startMechanism).toHaveBeenCalledWith(['R009', 'G023'])
+  expect(router.currentRoute.value.path).toContain('/evaluation/runs/er_')
 })
