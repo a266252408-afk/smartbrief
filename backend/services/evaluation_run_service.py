@@ -6,7 +6,8 @@ from uuid import uuid4
 
 from db import evaluation_run_repository as repository
 from evaluation import catalog
-from evaluation.mechanism import MechanismRequest, MechanismResult, MechanismRun, TESTS, run_case
+from evaluation.mechanism import MechanismRequest, MechanismResult, TESTS, run_case
+from evaluation.search_replay import SearchRequest, SearchResult, EvaluationRun, run_case as replay_case
 from services.evaluation_service import EvaluationError
 
 _handle=None
@@ -24,18 +25,25 @@ def capabilities():
                 scope='本地白名单工程回归；真实路由与存储、替身供应商，非在线效果')
 
 
-def start(body: MechanismRequest):
+def start(body: MechanismRequest | SearchRequest):
     global _handle,_run_id
     if _handle is not None and not _handle.done():
         raise EvaluationError('EVALUATION_RUNNING','已有专项评测正在运行',409)
-    if not capabilities()['available']:
+    if body.profile=='search_live':
+        raise EvaluationError('LIVE_SEARCH_NOT_AUTHORIZED','真实联网需另行批准数据去向、调用量和费用上限；本次未创建成绩',403)
+    if body.profile=='mechanism_regression' and not capabilities()['available']:
         raise EvaluationError('MECHANISM_ENGINE_UNAVAILABLE','本地pytest环境不可用，不能运行机制回归')
     pack=catalog.summary()
     from evaluation.archive import provenance
     metadata=provenance(pack['dataset_hash'],dict(rag=True,memory=True,review=True))
     metadata.update(profile=body.profile,engine='pytest_mechanism_regression',online_validated=False)
+    metadata.update(model='per-test-fixture',feature_flags=None,
+                    randomness='固定工程测试条件，具体主备以实际调用轨迹为准')
+    if body.profile=='search_replay':
+        metadata.update(model='none',engine='frozen_search_replay',
+                        evidence_scope='冻结资料卡或合成响应，不是当次联网结果',randomness='固定响应，仅耗时受本机负载影响')
     run_id='er_'+uuid4().hex
-    record=MechanismRun(run_id=run_id,profile=body.profile,execution_status='running',case_ids=body.case_ids,
+    record=EvaluationRun(run_id=run_id,profile=body.profile,execution_status='running',case_ids=body.case_ids,
                 results=[],metadata=metadata,created_at=_now(),updated_at=_now(),
                 error=None,report_quality='unknown',summary=dict(planned=len(body.case_ids),processed=0,passed=0,failed=0,unknown=0)).model_dump()
     try:
@@ -50,7 +58,10 @@ def start(body: MechanismRequest):
 async def _execute(record):
     try:
         for cid in record['case_ids']:
-            result=MechanismResult.model_validate(await run_case(cid,repository.root()/'work'/record['run_id']/cid)).model_dump()
+            if record['profile']=='search_replay':
+                result=SearchResult.model_validate(await replay_case(cid)).model_dump()
+            else:
+                result=MechanismResult.model_validate(await run_case(cid,repository.root()/'work'/record['run_id']/cid)).model_dump()
             record['results'].append(result)
             record['updated_at']=_now()
             record['summary']=dict(planned=len(record['case_ids']),processed=len(record['results']),

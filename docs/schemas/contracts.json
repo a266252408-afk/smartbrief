@@ -3212,6 +3212,746 @@
       ],
       "title": "EvaluationReview",
       "type": "object"
+    },
+    "SearchRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "default": "search_replay",
+          "enum": [
+            "search_replay",
+            "search_live"
+          ],
+          "title": "Profile",
+          "type": "string"
+        },
+        "case_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Case Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "case_ids"
+      ],
+      "title": "SearchRequest",
+      "type": "object"
+    },
+    "SearchMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "returned_count": {
+          "title": "Returned Count",
+          "type": "integer"
+        },
+        "valid_url_count": {
+          "title": "Valid Url Count",
+          "type": "integer"
+        },
+        "unique_sources": {
+          "title": "Unique Sources",
+          "type": "integer"
+        },
+        "exact_duplicate_count": {
+          "title": "Exact Duplicate Count",
+          "type": "integer"
+        },
+        "dated_documents": {
+          "title": "Dated Documents",
+          "type": "integer"
+        },
+        "unknown_period_documents": {
+          "title": "Unknown Period Documents",
+          "type": "integer"
+        },
+        "stale_documents": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Stale Documents"
+        },
+        "freshness_target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Freshness Target"
+        },
+        "unavailable_content_count": {
+          "title": "Unavailable Content Count",
+          "type": "integer"
+        },
+        "network_calls": {
+          "const": 0,
+          "default": 0,
+          "title": "Network Calls",
+          "type": "integer"
+        },
+        "replay_queries": {
+          "const": 1,
+          "default": 1,
+          "title": "Replay Queries",
+          "type": "integer"
+        },
+        "relevance_at_5": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Relevance At 5"
+        },
+        "key_evidence_coverage": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key Evidence Coverage"
+        }
+      },
+      "required": [
+        "returned_count",
+        "valid_url_count",
+        "unique_sources",
+        "exact_duplicate_count",
+        "dated_documents",
+        "unknown_period_documents",
+        "stale_documents",
+        "unavailable_content_count"
+      ],
+      "title": "SearchMetrics",
+      "type": "object"
+    },
+    "SearchResult": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "check_status": {
+          "enum": [
+            "pass",
+            "fail",
+            "unknown"
+          ],
+          "title": "Check Status",
+          "type": "string"
+        },
+        "test_count": {
+          "title": "Test Count",
+          "type": "integer"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "integer"
+        },
+        "failed": {
+          "title": "Failed",
+          "type": "integer"
+        },
+        "skipped": {
+          "title": "Skipped",
+          "type": "integer"
+        },
+        "test_names": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Test Names",
+          "type": "array"
+        },
+        "execution_status": {
+          "enum": [
+            "completed",
+            "failed"
+          ],
+          "title": "Execution Status",
+          "type": "string"
+        },
+        "report_quality": {
+          "const": "unknown",
+          "default": "unknown",
+          "title": "Report Quality",
+          "type": "string"
+        },
+        "exit_code": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Exit Code"
+        },
+        "duration_seconds": {
+          "title": "Duration Seconds",
+          "type": "number"
+        },
+        "engine": {
+          "const": "frozen_search_replay",
+          "default": "frozen_search_replay",
+          "title": "Engine",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
+        },
+        "scope": {
+          "title": "Scope",
+          "type": "string"
+        },
+        "trace": {
+          "default": [],
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Trace",
+          "type": "array"
+        },
+        "metrics": {
+          "$ref": "#/$defs/SearchMetrics"
+        },
+        "evidence": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "case_id",
+        "check_status",
+        "test_count",
+        "passed",
+        "failed",
+        "skipped",
+        "test_names",
+        "execution_status",
+        "exit_code",
+        "duration_seconds",
+        "error",
+        "scope",
+        "metrics",
+        "evidence"
+      ],
+      "title": "SearchResult",
+      "type": "object"
+    },
+    "EvaluationRun": {
+      "$defs": {
+        "MechanismResult": {
+          "additionalProperties": false,
+          "properties": {
+            "case_id": {
+              "title": "Case Id",
+              "type": "string"
+            },
+            "check_status": {
+              "enum": [
+                "pass",
+                "fail",
+                "unknown"
+              ],
+              "title": "Check Status",
+              "type": "string"
+            },
+            "test_count": {
+              "title": "Test Count",
+              "type": "integer"
+            },
+            "passed": {
+              "title": "Passed",
+              "type": "integer"
+            },
+            "failed": {
+              "title": "Failed",
+              "type": "integer"
+            },
+            "skipped": {
+              "title": "Skipped",
+              "type": "integer"
+            },
+            "test_names": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Test Names",
+              "type": "array"
+            },
+            "execution_status": {
+              "enum": [
+                "completed",
+                "failed"
+              ],
+              "title": "Execution Status",
+              "type": "string"
+            },
+            "report_quality": {
+              "const": "unknown",
+              "default": "unknown",
+              "title": "Report Quality",
+              "type": "string"
+            },
+            "exit_code": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Exit Code"
+            },
+            "duration_seconds": {
+              "title": "Duration Seconds",
+              "type": "number"
+            },
+            "engine": {
+              "const": "pytest_mechanism_regression",
+              "default": "pytest_mechanism_regression",
+              "title": "Engine",
+              "type": "string"
+            },
+            "error": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error"
+            },
+            "scope": {
+              "title": "Scope",
+              "type": "string"
+            },
+            "trace": {
+              "default": [],
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "title": "Trace",
+              "type": "array"
+            }
+          },
+          "required": [
+            "case_id",
+            "check_status",
+            "test_count",
+            "passed",
+            "failed",
+            "skipped",
+            "test_names",
+            "execution_status",
+            "exit_code",
+            "duration_seconds",
+            "error",
+            "scope"
+          ],
+          "title": "MechanismResult",
+          "type": "object"
+        },
+        "MechanismSummary": {
+          "additionalProperties": false,
+          "properties": {
+            "planned": {
+              "title": "Planned",
+              "type": "integer"
+            },
+            "processed": {
+              "title": "Processed",
+              "type": "integer"
+            },
+            "passed": {
+              "title": "Passed",
+              "type": "integer"
+            },
+            "failed": {
+              "title": "Failed",
+              "type": "integer"
+            },
+            "unknown": {
+              "title": "Unknown",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "planned",
+            "processed",
+            "passed",
+            "failed",
+            "unknown"
+          ],
+          "title": "MechanismSummary",
+          "type": "object"
+        },
+        "SearchMetrics": {
+          "additionalProperties": false,
+          "properties": {
+            "returned_count": {
+              "title": "Returned Count",
+              "type": "integer"
+            },
+            "valid_url_count": {
+              "title": "Valid Url Count",
+              "type": "integer"
+            },
+            "unique_sources": {
+              "title": "Unique Sources",
+              "type": "integer"
+            },
+            "exact_duplicate_count": {
+              "title": "Exact Duplicate Count",
+              "type": "integer"
+            },
+            "dated_documents": {
+              "title": "Dated Documents",
+              "type": "integer"
+            },
+            "unknown_period_documents": {
+              "title": "Unknown Period Documents",
+              "type": "integer"
+            },
+            "stale_documents": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stale Documents"
+            },
+            "freshness_target": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Freshness Target"
+            },
+            "unavailable_content_count": {
+              "title": "Unavailable Content Count",
+              "type": "integer"
+            },
+            "network_calls": {
+              "const": 0,
+              "default": 0,
+              "title": "Network Calls",
+              "type": "integer"
+            },
+            "replay_queries": {
+              "const": 1,
+              "default": 1,
+              "title": "Replay Queries",
+              "type": "integer"
+            },
+            "relevance_at_5": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Relevance At 5"
+            },
+            "key_evidence_coverage": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Key Evidence Coverage"
+            }
+          },
+          "required": [
+            "returned_count",
+            "valid_url_count",
+            "unique_sources",
+            "exact_duplicate_count",
+            "dated_documents",
+            "unknown_period_documents",
+            "stale_documents",
+            "unavailable_content_count"
+          ],
+          "title": "SearchMetrics",
+          "type": "object"
+        },
+        "SearchResult": {
+          "additionalProperties": false,
+          "properties": {
+            "case_id": {
+              "title": "Case Id",
+              "type": "string"
+            },
+            "check_status": {
+              "enum": [
+                "pass",
+                "fail",
+                "unknown"
+              ],
+              "title": "Check Status",
+              "type": "string"
+            },
+            "test_count": {
+              "title": "Test Count",
+              "type": "integer"
+            },
+            "passed": {
+              "title": "Passed",
+              "type": "integer"
+            },
+            "failed": {
+              "title": "Failed",
+              "type": "integer"
+            },
+            "skipped": {
+              "title": "Skipped",
+              "type": "integer"
+            },
+            "test_names": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Test Names",
+              "type": "array"
+            },
+            "execution_status": {
+              "enum": [
+                "completed",
+                "failed"
+              ],
+              "title": "Execution Status",
+              "type": "string"
+            },
+            "report_quality": {
+              "const": "unknown",
+              "default": "unknown",
+              "title": "Report Quality",
+              "type": "string"
+            },
+            "exit_code": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Exit Code"
+            },
+            "duration_seconds": {
+              "title": "Duration Seconds",
+              "type": "number"
+            },
+            "engine": {
+              "const": "frozen_search_replay",
+              "default": "frozen_search_replay",
+              "title": "Engine",
+              "type": "string"
+            },
+            "error": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error"
+            },
+            "scope": {
+              "title": "Scope",
+              "type": "string"
+            },
+            "trace": {
+              "default": [],
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "title": "Trace",
+              "type": "array"
+            },
+            "metrics": {
+              "$ref": "#/$defs/SearchMetrics"
+            },
+            "evidence": {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "title": "Evidence",
+              "type": "array"
+            }
+          },
+          "required": [
+            "case_id",
+            "check_status",
+            "test_count",
+            "passed",
+            "failed",
+            "skipped",
+            "test_names",
+            "execution_status",
+            "exit_code",
+            "duration_seconds",
+            "error",
+            "scope",
+            "metrics",
+            "evidence"
+          ],
+          "title": "SearchResult",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "profile": {
+          "enum": [
+            "mechanism_regression",
+            "search_replay"
+          ],
+          "title": "Profile",
+          "type": "string"
+        },
+        "execution_status": {
+          "enum": [
+            "running",
+            "completed",
+            "failed"
+          ],
+          "title": "Execution Status",
+          "type": "string"
+        },
+        "case_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Case Ids",
+          "type": "array"
+        },
+        "results": {
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/MechanismResult"
+              },
+              {
+                "$ref": "#/$defs/SearchResult"
+              }
+            ]
+          },
+          "title": "Results",
+          "type": "array"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
+        },
+        "report_quality": {
+          "const": "unknown",
+          "title": "Report Quality",
+          "type": "string"
+        },
+        "summary": {
+          "$ref": "#/$defs/MechanismSummary"
+        }
+      },
+      "required": [
+        "run_id",
+        "profile",
+        "execution_status",
+        "case_ids",
+        "results",
+        "metadata",
+        "created_at",
+        "updated_at",
+        "error",
+        "report_quality",
+        "summary"
+      ],
+      "title": "EvaluationRun",
+      "type": "object"
     }
   }
 }

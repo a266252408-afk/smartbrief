@@ -33,8 +33,11 @@ export interface MechanismResult {
   case_id: string; check_status: 'pass' | 'fail' | 'unknown'; test_count: number
   passed: number; failed: number; skipped: number; report_quality: string; duration_seconds: number; error: string | null
   trace?: Record<string, unknown>[]
+  metrics?: { returned_count: number; valid_url_count: number; unique_sources: number; exact_duplicate_count: number; dated_documents: number; unknown_period_documents: number; stale_documents: number | null; freshness_target: string | null; unavailable_content_count: number; network_calls: number; relevance_at_5: number | null; key_evidence_coverage: number | null }
+  evidence?: { title: string; url: string | null; snippet: string; published_at: string | null; data_period: string | null; origin: string; content_scope: string; content_available: boolean }[]
 }
 export interface MechanismRun {
+  profile?: 'mechanism_regression' | 'search_replay'
   run_id: string; execution_status: 'running' | 'completed' | 'failed'; report_quality: string
   created_at: string; error: string | null; results: MechanismResult[]
   summary: { planned: number; processed: number; passed: number; failed: number; unknown: number }
@@ -42,6 +45,9 @@ export interface MechanismRun {
 }
 export async function startMechanism(caseIds: string[]): Promise<MechanismRun> {
   return (await http.post('/runs', { profile: 'mechanism_regression', case_ids: caseIds })).data.data
+}
+export async function startSearchReplay(caseIds: string[]): Promise<MechanismRun> {
+  return (await http.post('/runs', { profile: 'search_replay', case_ids: caseIds })).data.data
 }
 export async function fetchMechanismRuns(): Promise<MechanismRun[]> {
   return (await http.get('/runs')).data.data.items

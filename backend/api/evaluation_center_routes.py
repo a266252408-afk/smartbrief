@@ -6,6 +6,7 @@ from api.memory_routes import failure
 from services import evaluation_catalog_service as catalog
 from services import evaluation_run_service as runs
 from evaluation.mechanism import MechanismRequest
+from evaluation.search_replay import SearchRequest
 from services.evaluation_service import EvaluationError
 from services import evaluation_review_service as reviews
 
@@ -40,7 +41,9 @@ async def capabilities(request: Request):
 @router.post('/runs')
 async def start_run(request: Request):
     try:
-        body=MechanismRequest.model_validate(await request.json())
+        raw=await request.json()
+        model=SearchRequest if isinstance(raw,dict) and raw.get('profile') in ('search_replay','search_live') else MechanismRequest
+        body=model.model_validate(raw)
     except ValueError:
         return failure(request,422,'INVALID_MECHANISM_REQUEST','案例重复、未接通或请求格式无效')
     try:

@@ -7,6 +7,33 @@ const golden = JSON.parse(readFileSync(fileURLToPath(new URL('private/golden.jso
 const collections = ['golden', 'regression', 'challenge']
 const cases = collections.flatMap(collection => JSON.parse(readFileSync(fileURLToPath(new URL(`private/${collection}.json`, root)), 'utf8')).cases)
 const labels = { protocol: '流程与故障', search: '网络搜索', report: '报告质量', robustness: '鲁棒性与恢复', end_to_end: '完整任务' }
+test('搜索回放展示采集指标和资料，语义未知不显示零分', async ({ page }) => {
+  const rid = 'er_' + 'c'.repeat(32)
+  const writes: unknown[] = []
+  await page.route('**/api/v*/**', async route => {
+    const path = new URL(route.request().url()).pathname
+    const env = (data: unknown) => ({ data, meta: { request_id: 'fixture' } })
+    if (path === '/api/v2/auth/session') return route.fulfill({ json: env({ role: 'admin' }) })
+    if (path === '/api/v2/evaluation-center/catalog') return route.fulfill({ json: env({ version: 'sb-eval-data-1', cutoff: '2026-10-31', total_cases: 108, cases: [], collections: {}, areas: [{ area: 'search', label: '网络搜索', case_count: 16, runnable: true, profile: 'search_replay', supported_case_ids: ['G001'], availability: '冻结回放已接通', score: null }] }) })
+    if (path === '/api/v2/evaluation-center/runs' && route.request().method() === 'POST') {
+      writes.push(route.request().postDataJSON()); return route.fulfill({ status: 202, json: env({ run_id: rid, profile: 'search_replay' }) })
+    }
+    if (path === '/api/v2/evaluation-center/runs/' + rid) return route.fulfill({ json: env({ run_id: rid, profile: 'search_replay', execution_status: 'completed', report_quality: 'unknown', metadata: { dataset_hash: 'a'.repeat(64) }, summary: { planned: 1, processed: 1, passed: 0, failed: 0, unknown: 1 }, error: null, results: [{ case_id: 'G001', check_status: 'unknown', metrics: { returned_count: 1, unique_sources: 1, unknown_period_documents: 0, stale_documents: null, relevance_at_5: null }, trace: [{ kind: 'search_request', query: '全球腕戴设备', provider: 'frozen_replay' }], evidence: [{ title: '冻结资料卡', url: 'https://example.invalid/frozen', snippet: '冻结参考片段，并非当次联网结果。', published_at: '2026-09-09', data_period: '2026Q2', content_available: true }] }] }) })
+    return route.fulfill({ status: 404, json: { error: { message: '未声明请求' } } })
+  })
+  await page.goto('/evaluation/run')
+  await page.getByLabel('访问令牌').fill('fixture-search-replay')
+  await page.getByRole('button', { name: '验证并进入' }).click()
+  await page.getByRole('button', { name: '运行搜索回放', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '冻结搜索回放详情' })).toBeVisible()
+  await expect(page.getByRole('cell', { name: '待独立评判', exact: true })).toBeVisible()
+  await expect(page.getByRole('cell', { name: '未指定窗口', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '查看回放资料', exact: true }).click()
+  await expect(page.getByText('回放查询：全球腕戴设备（未联网）', { exact: true })).toBeVisible()
+  await expect(page.getByText('冻结参考片段，并非当次联网结果。', { exact: true })).toBeVisible()
+  expect(writes).toEqual([{ profile: 'search_replay', case_ids: ['G001'] }])
+  await page.screenshot({ path: '../docs/verification/EVAL-NEXT-04-search.png', fullPage: true })
+})
 test('人工只核验所选题目，结论和备注可追溯且HTML不执行', async ({ page }) => {
   const reviews: any[] = []
   await page.route('**/api/v*/**', async route => {

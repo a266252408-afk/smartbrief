@@ -3,15 +3,16 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 import { afterEach, expect, it, vi } from 'vitest'
 import ElementPlus from 'element-plus'
 import EvaluationCenter from '../EvaluationCenter.vue'
-import { fetchCatalog, fetchCatalogCase, startMechanism, fetchMechanismRuns, saveEvaluationReview, fetchEvaluationReviews } from '../../api/evaluationCenter'
+import { fetchCatalog, fetchCatalogCase, startMechanism, startSearchReplay, fetchMechanismRuns, saveEvaluationReview, fetchEvaluationReviews } from '../../api/evaluationCenter'
 import { fetchEvalReports, runEvaluation } from '../../api/evaluation'
 import { authRole } from '../../api/session'
 
-vi.mock('../../api/evaluationCenter', () => ({ fetchCatalog: vi.fn(), fetchCatalogCase: vi.fn(), startMechanism: vi.fn(), fetchMechanismRuns: vi.fn(), fetchMechanismRun: vi.fn(), saveEvaluationReview: vi.fn(), fetchEvaluationReviews: vi.fn() }))
+vi.mock('../../api/evaluationCenter', () => ({ fetchCatalog: vi.fn(), fetchCatalogCase: vi.fn(), startMechanism: vi.fn(), startSearchReplay: vi.fn(), fetchMechanismRuns: vi.fn(), fetchMechanismRun: vi.fn(), saveEvaluationReview: vi.fn(), fetchEvaluationReviews: vi.fn() }))
 vi.mock('../../api/evaluation', () => ({ fetchEvalReports: vi.fn(), runEvaluation: vi.fn() }))
 const pack = { version: 'sb-eval-data-1', cutoff: '2026-10-31', total_cases: 108, dataset_hash: 'a'.repeat(64), collections: { golden: 24 },
   areas: [{ area: 'protocol', label: '流程与故障', case_count: 31, runnable: true, profile: 'protocol-1', availability: '原20例合成协议可运行', score: null },
-    { area: 'robustness', label: '鲁棒性与恢复', case_count: 36, runnable: true, profile: 'mechanism_regression', availability: '本地机制回归已接通', score: null, supported_case_ids: ['R009', 'G023'] }],
+    { area: 'robustness', label: '鲁棒性与恢复', case_count: 36, runnable: true, profile: 'mechanism_regression', availability: '本地机制回归已接通', score: null, supported_case_ids: ['R009', 'G023'] },
+    { area: 'search', label: '网络搜索', case_count: 16, runnable: true, profile: 'search_replay', availability: '冻结响应回放', score: null, supported_case_ids: ['G001'] }],
   cases: [{ case_id: 'G002', collection: 'golden', area: 'report', title: '腕戴研究', split: 'development', human_review: 'pending', run_status: 'not_run', source_count: 1, has_fixture: false }] }
 let wrapper: ReturnType<typeof mount> | undefined
 afterEach(() => { wrapper?.unmount(); vi.resetAllMocks() })
@@ -95,4 +96,17 @@ it('人工核验默认无法确认，显式提交且不批量更改其他题', a
   await save.trigger('click'); await flushPromises()
   expect(saveEvaluationReview).toHaveBeenCalledWith({ target: 'case_definition', case_id: 'G002', run_id: null, dataset_hash: 'a'.repeat(64), decision: 'unknown', notes: '发现需要进一步核对的口径' })
   expect(wrapper!.get('[role="status"]').text()).toContain('原始机器成绩和题库内容未改写')
+})
+it('搜索回放明确未联网，只有管理员可以提交', async () => {
+  authRole.value = 'readonly'
+  const router = await open('run')
+  const button = wrapper!.findAll('button').find(b => b.text() === '运行搜索回放')!
+  expect(button.attributes('disabled')).toBeDefined()
+  expect(startSearchReplay).not.toHaveBeenCalled()
+  expect(wrapper!.text()).toContain('不调用真实搜索或模型')
+  authRole.value = 'admin'; await flushPromises()
+  vi.mocked(startSearchReplay).mockResolvedValue({ run_id: 'er_' + 'b'.repeat(32), profile: 'search_replay', execution_status: 'running', report_quality: 'unknown', created_at: 'fixture', error: null, results: [], summary: { planned: 1, processed: 0, passed: 0, failed: 0, unknown: 0 } })
+  await button.trigger('click'); await flushPromises()
+  expect(startSearchReplay).toHaveBeenCalledWith(['G001'])
+  expect(router.currentRoute.value.path).toContain('/evaluation/runs/er_')
 })
