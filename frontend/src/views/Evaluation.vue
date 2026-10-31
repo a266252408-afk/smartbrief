@@ -6,6 +6,7 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import type { ECharts } from 'echarts'
 import EvaluationProtocol from '../components/EvaluationProtocol.vue'
+import { useRoute } from 'vue-router'
 import { authRole } from '../api/session'
 import {
   buildMetricCards,
@@ -27,6 +28,7 @@ import {
 // ---------------- 状态 ----------------
 
 const running = ref(false)          // 当前是否有评测在执行（含后台）
+const route = useRoute()
 const starting = ref(false)         // 正在触发评测
 const reports = ref<Awaited<ReturnType<typeof fetchEvalReports>>['items']>([])
 const selectedId = ref('')          // 当前选中的评测 id
@@ -44,13 +46,18 @@ async function loadList() {
     if (disposed) return
     listError.value = false
     reports.value = result.items
+    const requested = typeof route.query.eval === 'string' ? route.query.eval : ''
+    if (requested && !report.value) {
+      select(requested)
+      return
+    }
     // 列表里有执行中的评测 → 自动选中并轮询
     const active = result.items.find((r) => r.status === 'running')
     if (active) {
       running.value = true
       select(active.eval_id)
     } else if (result.items.length && !report.value) {
-      // 默认展示最近一次评测
+      // URL明确选择历史记录，否则展示最近一次。
       select(result.items[0].eval_id)
     }
   } catch {

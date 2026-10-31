@@ -32,7 +32,7 @@ for (const role of ['admin', 'readonly'] as const) {
       unexpected.push(path)
       return route.fulfill({ status: 500, json: { detail: '未声明请求' } })
     })
-    await page.goto('/evaluation')
+    await page.goto('/evaluation/protocol')
     await page.getByLabel('访问令牌').fill('fixture-evaluation-role')
     await page.getByRole('button', { name: '验证并进入' }).click()
     const panel = page.getByTestId('evaluation-protocol')
@@ -58,7 +58,7 @@ for (const role of ['admin', 'readonly'] as const) {
     }
     if (role === 'readonly') expect(writes).toEqual([])
     await expect(page.locator('.radar-chart canvas')).toBeVisible()
-    await page.screenshot({ path: `../docs/verification/T09-03-${role}.png`, fullPage: true })
+    await page.screenshot({ path: `../docs/verification/EVAL-NEXT-01-protocol-${role}.png`, fullPage: true })
     expect(unexpected).toEqual([])
   })
 }
@@ -75,7 +75,7 @@ test('评测历史错误不显示空库，旧记录保持版本未知', async ({
     if (path === '/api/v2/evaluations/legacy') return route.fulfill({ json: { data: { ...source, eval_id: 'legacy', metadata: null }, meta: { request_id: 'fixture' } } })
     return route.fulfill({ status: 500, json: {} })
   })
-  await page.goto('/evaluation')
+  await page.goto('/evaluation/protocol')
   await page.getByLabel('访问令牌').fill('fixture-evaluation-error')
   await page.getByRole('button', { name: '验证并进入' }).click()
   await expect(page.getByText('评测历史读取失败，请刷新重试', { exact: true })).toBeVisible()
@@ -83,5 +83,6 @@ test('评测历史错误不显示空库，旧记录保持版本未知', async ({
   failed = false
   await page.getByRole('link', { name: '任务提交', exact: true }).click()
   await page.getByRole('link', { name: '评测中心', exact: true }).click()
+  await page.getByRole('link', { name: '原20例协议完整视图（兼容入口）', exact: true }).click()
   await expect(page.getByTestId('evaluation-protocol')).toContainText('版本信息未知')
 })

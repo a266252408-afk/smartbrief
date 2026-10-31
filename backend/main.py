@@ -12,6 +12,7 @@ from api.memory_routes import router as memory_router
 from api.usage_routes import router as usage_router
 from api.task_control_routes import router as task_control_router
 from api.evaluation_routes import router as evaluation_router
+from api.evaluation_center_routes import router as evaluation_center_router
 from api.task_outcomes import router as task_outcome_router, knowledge_router
 from api.demo_routes import router as demo_router
 from api.security import authenticate, AuthSession
@@ -131,6 +132,7 @@ app.include_router(memory_router)
 app.include_router(usage_router)
 app.include_router(task_control_router)
 app.include_router(evaluation_router)
+app.include_router(evaluation_center_router)
 app.include_router(demo_router)
 
 

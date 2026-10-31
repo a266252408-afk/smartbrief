@@ -2272,6 +2272,313 @@
       ],
       "title": "ModelPrice",
       "type": "object"
+    },
+    "CatalogCase": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "collection": {
+          "enum": [
+            "golden",
+            "regression",
+            "challenge",
+            "legacy"
+          ],
+          "title": "Collection",
+          "type": "string"
+        },
+        "area": {
+          "enum": [
+            "protocol",
+            "search",
+            "report",
+            "robustness",
+            "end_to_end"
+          ],
+          "title": "Area",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "split": {
+          "title": "Split",
+          "type": "string"
+        },
+        "human_review": {
+          "title": "Human Review",
+          "type": "string"
+        },
+        "run_status": {
+          "const": "not_run",
+          "default": "not_run",
+          "title": "Run Status",
+          "type": "string"
+        },
+        "source_count": {
+          "title": "Source Count",
+          "type": "integer"
+        },
+        "has_fixture": {
+          "title": "Has Fixture",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "case_id",
+        "collection",
+        "area",
+        "title",
+        "split",
+        "human_review",
+        "source_count",
+        "has_fixture"
+      ],
+      "title": "CatalogCase",
+      "type": "object"
+    },
+    "CatalogArea": {
+      "additionalProperties": false,
+      "properties": {
+        "area": {
+          "title": "Area",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "case_count": {
+          "title": "Case Count",
+          "type": "integer"
+        },
+        "runnable": {
+          "title": "Runnable",
+          "type": "boolean"
+        },
+        "profile": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Profile"
+        },
+        "availability": {
+          "title": "Availability",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        }
+      },
+      "required": [
+        "area",
+        "label",
+        "case_count",
+        "runnable",
+        "profile",
+        "availability"
+      ],
+      "title": "CatalogArea",
+      "type": "object"
+    },
+    "EvaluationCatalog": {
+      "$defs": {
+        "CatalogArea": {
+          "additionalProperties": false,
+          "properties": {
+            "area": {
+              "title": "Area",
+              "type": "string"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "case_count": {
+              "title": "Case Count",
+              "type": "integer"
+            },
+            "runnable": {
+              "title": "Runnable",
+              "type": "boolean"
+            },
+            "profile": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            },
+            "availability": {
+              "title": "Availability",
+              "type": "string"
+            },
+            "score": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Score"
+            }
+          },
+          "required": [
+            "area",
+            "label",
+            "case_count",
+            "runnable",
+            "profile",
+            "availability"
+          ],
+          "title": "CatalogArea",
+          "type": "object"
+        },
+        "CatalogCase": {
+          "additionalProperties": false,
+          "properties": {
+            "case_id": {
+              "title": "Case Id",
+              "type": "string"
+            },
+            "collection": {
+              "enum": [
+                "golden",
+                "regression",
+                "challenge",
+                "legacy"
+              ],
+              "title": "Collection",
+              "type": "string"
+            },
+            "area": {
+              "enum": [
+                "protocol",
+                "search",
+                "report",
+                "robustness",
+                "end_to_end"
+              ],
+              "title": "Area",
+              "type": "string"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            },
+            "split": {
+              "title": "Split",
+              "type": "string"
+            },
+            "human_review": {
+              "title": "Human Review",
+              "type": "string"
+            },
+            "run_status": {
+              "const": "not_run",
+              "default": "not_run",
+              "title": "Run Status",
+              "type": "string"
+            },
+            "source_count": {
+              "title": "Source Count",
+              "type": "integer"
+            },
+            "has_fixture": {
+              "title": "Has Fixture",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "case_id",
+            "collection",
+            "area",
+            "title",
+            "split",
+            "human_review",
+            "source_count",
+            "has_fixture"
+          ],
+          "title": "CatalogCase",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "dataset_hash": {
+          "title": "Dataset Hash",
+          "type": "string"
+        },
+        "cutoff": {
+          "title": "Cutoff",
+          "type": "string"
+        },
+        "total_cases": {
+          "title": "Total Cases",
+          "type": "integer"
+        },
+        "collections": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Collections",
+          "type": "object"
+        },
+        "areas": {
+          "items": {
+            "$ref": "#/$defs/CatalogArea"
+          },
+          "title": "Areas",
+          "type": "array"
+        },
+        "cases": {
+          "items": {
+            "$ref": "#/$defs/CatalogCase"
+          },
+          "title": "Cases",
+          "type": "array"
+        }
+      },
+      "required": [
+        "version",
+        "dataset_hash",
+        "cutoff",
+        "total_cases",
+        "collections",
+        "areas",
+        "cases"
+      ],
+      "title": "EvaluationCatalog",
+      "type": "object"
     }
   }
 }

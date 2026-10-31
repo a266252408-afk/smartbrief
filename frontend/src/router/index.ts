@@ -40,9 +40,15 @@ export const routes: RouteRecordRaw[] = [
   {
     path: '/evaluation',
     name: 'evaluation',
-    component: () => import('../views/Evaluation.vue'),
-    meta: { title: '评测中心' }
+    component: () => import('../views/EvaluationCenter.vue'),
+    meta: { title: '评测中心', evaluationTab: 'overview' }
   },
+  ...(['datasets', 'run', 'records', 'review', 'compare'] as const).map(tab => ({
+    path: `/evaluation/${tab}`, name: `evaluation-${tab}`,
+    component: () => import('../views/EvaluationCenter.vue'),
+    meta: { title: '评测中心', evaluationTab: tab }
+  })),
+  { path: '/evaluation/protocol', name: 'evaluation-protocol', component: () => import('../views/Evaluation.vue'), meta: { title: '原协议评测' } },
   {
     path: '/reports',
     name: 'reports',
