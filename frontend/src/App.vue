@@ -120,4 +120,15 @@ body {
   border: 1px solid #fecdca;
   border-radius: 4px;
 }
+/* 窄屏导航换行，避免把页面撑宽或把中文菜单挤成竖排。 */
+@media(max-width:1100px){
+  .app-header{flex-wrap:wrap;padding:16px 24px}
+  .app-nav{order:1;width:100%;margin-left:0;flex-wrap:wrap;gap:8px 16px}
+  .nav-item{white-space:nowrap}
+}
+@media(max-width:600px){
+  .app-header{padding:16px}
+  .app-subtitle{flex-basis:100%}
+  .app-main{padding:0 16px}
+}
 </style>

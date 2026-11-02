@@ -55,7 +55,7 @@ onMounted(load)
           <label>每次输出Token上限 <el-input-number v-model="outputTokens" :min="1" :max="8000" :step="100" aria-label="每次输出Token上限" /></label>
           <label>每百万输入Token单价 <el-input-number v-model="inputPrice" :min="0" :precision="6" aria-label="每百万输入Token单价" /></label>
           <label>每百万输出Token单价 <el-input-number v-model="outputPrice" :min="0" :precision="6" aria-label="每百万输出Token单价" /></label>
-          <el-select v-model="currency" aria-label="费用币种"><el-option label="人民币 CNY" value="CNY" /><el-option label="美元 USD" value="USD" /></el-select>
+          <label>费用币种 <el-select v-model="currency" aria-label="费用币种"><el-option label="人民币 CNY" value="CNY" /><el-option label="美元 USD" value="USD" /></el-select></label>
         </template>
         <label v-else>每请求估计费用上限（USD） <el-input-number v-model="searchPrice" :min="0" :precision="6" aria-label="每请求估计费用上限" /></label>
         <label>本次估计费用上限 <el-input-number v-model="ceiling" :min="0" :precision="6" aria-label="本次估计费用上限" /></label>
@@ -69,5 +69,18 @@ onMounted(load)
   </section>
 </template>
 <style scoped>
-.live-launch{border-top:1px solid #dbe2ea;margin-top:16px;padding-top:16px}.live-launch p{overflow-wrap:anywhere}fieldset{border:0;padding:0;display:grid;gap:12px}label{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}fieldset .el-select{max-width:220px}
+.live-launch{border-top:1px solid #dbe2ea;margin-top:24px;padding-top:20px;min-width:0}
+.live-launch h4{font-size:16px;margin:0 0 12px}
+.live-launch p{overflow-wrap:anywhere;line-height:1.7;margin:12px 0}
+fieldset{border:0;margin:20px 0 0;padding:0;min-width:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 24px}
+fieldset > label:not(.el-checkbox){display:grid;align-content:start;gap:8px;min-width:0;line-height:1.5}
+label :deep(.el-input-number),label :deep(.el-select){width:100%;min-width:0;max-width:100%}
+fieldset > p,fieldset > :deep(.el-checkbox){grid-column:1/-1;min-width:0}
+.live-launch :deep(.el-checkbox){height:auto;align-items:flex-start;white-space:normal;max-width:100%;margin-right:0;line-height:1.6}
+.live-launch :deep(.el-checkbox__input){flex:0 0 auto;margin-top:4px}
+.live-launch :deep(.el-checkbox__label){min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.6}
+.live-launch :deep(.el-button){height:auto;min-height:32px;max-width:100%;white-space:normal;line-height:1.5}
+.live-launch :deep(.el-button > span){min-width:0;white-space:normal;overflow-wrap:anywhere}
+@media(max-width:1000px){fieldset{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){fieldset{grid-template-columns:minmax(0,1fr);gap:16px}.live-launch{padding-top:16px}}
 </style>

@@ -290,7 +290,7 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
         </el-dialog>
       </template>
       <template v-else-if="tab === 'run'">
-        <h3>选择评测类型</h3><div class="areas">
+        <h3>选择评测类型</h3><div class="areas run-areas">
           <article v-for="a in catalog.areas" :key="a.area"><h4>{{ a.label }}</h4><p>{{ a.availability }}</p>
             <template v-if="a.profile === 'protocol-1'">
               <p>固定20例 · 合成模型/搜索/嵌入 · 不调用真实供应商</p>
@@ -444,8 +444,19 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
 <style scoped>
 .evaluation-center header p,.version{color:#667085}.evaluation-center nav{display:flex;gap:20px;flex-wrap:wrap;border-bottom:1px solid #dbe2ea;padding:12px 0;margin-bottom:20px}
 nav a{color:#475467;text-decoration:none;padding-bottom:8px}nav a.current{color:#1769aa;border-bottom:2px solid #1769aa}
+.evaluation-center{min-width:0}
 .areas{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin:20px 0}
-article{background:white;border:1px solid #dbe2ea;border-radius:8px;padding:18px}article h3,article h4{margin-top:0}.filters{display:flex;gap:12px}.filters>*{max-width:280px}
+article{min-width:0;box-sizing:border-box;overflow-wrap:anywhere;background:white;border:1px solid #dbe2ea;border-radius:8px;padding:18px}article h3,article h4{margin-top:0}.filters{display:flex;gap:12px}.filters>*{max-width:280px}
+/* 运行表单使用整行面板，避免复用总览窄卡片的列宽。 */
+.run-areas{grid-template-columns:minmax(0,1fr);gap:24px}
+.run-areas > article{padding:24px}
+.run-areas > article > h4{font-size:18px;margin-bottom:10px}
+.run-areas > article > p{line-height:1.7}
+.run-areas :deep(.el-select),.run-areas :deep(.el-input){max-width:100%;min-width:0}
+.run-areas > article > :deep(.el-select),.run-areas > article > :deep(.el-input){width:min(100%,480px);margin-bottom:12px}
+.run-areas :deep(.el-button){max-width:100%;height:auto;min-height:32px;white-space:normal;line-height:1.5}
+.run-areas :deep(.el-button > span){min-width:0;white-space:normal;overflow-wrap:anywhere}
+@media(max-width:600px){.run-areas > article{padding:16px}}
 .detail-body{max-height:65vh;overflow-y:auto;overflow-wrap:anywhere}.case-detail{margin-top:0}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{overflow-wrap:anywhere}[role=alert]{color:#b42318}
 .review-form{border-top:1px solid #dbe2ea;padding-top:16px;margin-top:20px;display:grid;gap:12px}.review-form .el-select{max-width:300px}.review-form .el-button{justify-self:start}
 </style>
