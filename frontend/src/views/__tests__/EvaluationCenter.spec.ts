@@ -169,3 +169,20 @@ it('真实搜索默认无授权不能运行，编号只用于服务端核验', a
   expect(startLiveSearch).toHaveBeenCalledWith(['G001'], 'approved-server-id')
   expect(router.currentRoute.value.path).toContain('/evaluation/runs/er_')
 })
+
+it('详情立即显示加载，失败可重试，关闭后迟到响应不重新打开', async () => {
+  let resolve!: (value: any) => void
+  vi.mocked(fetchCatalogCase).mockRejectedValueOnce(new Error('网络异常'))
+  await open('datasets')
+  const button = wrapper!.findAll('button').find(b => b.text() === '查看详情')!
+  await button.trigger('click'); await flushPromises()
+  expect(wrapper!.get('[role="dialog"]').attributes('aria-label')).toBe('案例详情')
+  expect(wrapper!.text()).toContain('案例详情读取失败')
+  vi.mocked(fetchCatalogCase).mockImplementationOnce(() => new Promise(r => { resolve = r }))
+  await wrapper!.findAll('button').find(b => b.text() === '重试详情')!.trigger('click')
+  expect(wrapper!.text()).toContain('正在读取案例')
+  await wrapper!.findAll('button').find(b => b.text() === '关闭详情')!.trigger('click')
+  resolve({ case: { case_id: 'G002', title: '迟到详情', input: { user_request: '迟到响应' } }, sources: [], rubrics: [], fixture: null })
+  await flushPromises()
+  expect(wrapper!.find('[data-testid="catalog-detail"]').exists()).toBe(false)
+})

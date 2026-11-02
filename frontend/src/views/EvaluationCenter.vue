@@ -7,6 +7,7 @@ import { authRole } from '../api/session'
 
 const route = useRoute(), router = useRouter()
 const catalog = ref<EvaluationCatalog | null>(null), error = ref(''), loading = ref(false)
+const detailOpen = ref(false), detailCaseId = ref('')
 const selected = ref<CatalogDetail | null>(null), detailError = ref(''), detailLoading = ref(false)
 const area = ref(''), collection = ref(''), query = ref('')
 const history = ref<EvalReportSummary[]>([]), historyError = ref(''), starting = ref(false)
@@ -53,6 +54,9 @@ function showProcess(row: MechanismResult) { traceRows.value = row.trace || []; 
 const rows = computed(() => (catalog.value?.cases || []).filter(c => (!area.value || c.area === area.value)
   && (!collection.value || c.collection === collection.value) && (!query.value || `${c.case_id} ${c.title}`.includes(query.value))))
 let detailVersion = 0
+watch(detailOpen, open => {
+  if (!open) { detailVersion++; selected.value = null; detailLoading.value = false }
+}, { flush: 'sync' })
 function onRow(row: CatalogCase) { void inspect(row.case_id) }
 async function load() {
   loading.value = true; error.value = ''
@@ -165,6 +169,7 @@ async function runLiveSearch() {
   finally { starting.value = false }
 }
 async function inspect(id: string) {
+  detailOpen.value = true; detailCaseId.value = id
   const version = ++detailVersion
   selected.value = null; detailError.value = ''; detailLoading.value = true
   try { const detail = await fetchCatalogCase(id); if (version === detailVersion) selected.value = detail }
@@ -231,7 +236,9 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
           <el-table-column label="人工核验" width="130"><template #default="{ row }">{{ reviewLabels[row.human_review] || '待抽查' }}</template></el-table-column>
           <el-table-column label="操作" width="95"><template #default="{ row }"><el-button link @click.stop="inspect(row.case_id)">查看详情</el-button></template></el-table-column>
         </el-table>
-        <p v-if="detailLoading">正在读取案例…</p><p v-if="detailError" role="alert">{{ detailError }}</p>
+        <el-dialog v-model="detailOpen" title="案例详情" width="min(900px, 94vw)" top="5vh">
+        <div class="detail-body" :aria-busy="detailLoading">
+        <p v-if="detailLoading" role="status">正在读取案例…</p><p v-if="detailError" role="alert">{{ detailError }} <el-button @click="inspect(detailCaseId)">重试详情</el-button></p>
         <article v-if="selected" class="case-detail" data-testid="catalog-detail">
           <h3>{{ selected.case.case_id }} · {{ selected.case.title }}</h3>
           <p>{{ selected.case.input.user_request }}</p>
@@ -249,6 +256,9 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
             <el-button :disabled="authRole !== 'admin' || !reviewNotes.trim()" :loading="reviewing" @click="submitReview('case_definition')">保存题目核验</el-button>
           </section>
         </article>
+        </div>
+        <template #footer><el-button @click="detailOpen = false">关闭详情</el-button></template>
+        </el-dialog>
       </template>
       <template v-else-if="tab === 'run'">
         <h3>选择评测类型</h3><div class="areas">
@@ -385,6 +395,6 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
 nav a{color:#475467;text-decoration:none;padding-bottom:8px}nav a.current{color:#1769aa;border-bottom:2px solid #1769aa}
 .areas{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin:20px 0}
 article{background:white;border:1px solid #dbe2ea;border-radius:8px;padding:18px}article h3,article h4{margin-top:0}.filters{display:flex;gap:12px}.filters>*{max-width:280px}
-.case-detail{margin-top:20px}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{overflow-wrap:anywhere}[role=alert]{color:#b42318}
+.detail-body{max-height:65vh;overflow-y:auto;overflow-wrap:anywhere}.case-detail{margin-top:0}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{overflow-wrap:anywhere}[role=alert]{color:#b42318}
 .review-form{border-top:1px solid #dbe2ea;padding-top:16px;margin-top:20px;display:grid;gap:12px}.review-form .el-select{max-width:300px}.review-form .el-button{justify-self:start}
 </style>
