@@ -3,11 +3,12 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 import { afterEach, expect, it, vi } from 'vitest'
 import ElementPlus from 'element-plus'
 import EvaluationCenter from '../EvaluationCenter.vue'
-import { startLiveSearch, startExperiment, createComparison, fetchComparisons, startFullTask, gradeReport, calibrateGrader, fetchCatalog, fetchCatalogCase, startMechanism, startSearchReplay, fetchMechanismRuns, saveEvaluationReview, fetchEvaluationReviews } from '../../api/evaluationCenter'
+import LiveEvaluationLaunch from '../../components/LiveEvaluationLaunch.vue'
+import { startRealJudgement, startLiveSearch, startExperiment, createComparison, fetchComparisons, startFullTask, gradeReport, calibrateGrader, fetchCatalog, fetchCatalogCase, startMechanism, startSearchReplay, fetchMechanismRuns, saveEvaluationReview, fetchEvaluationReviews } from '../../api/evaluationCenter'
 import { fetchEvalReports, runEvaluation } from '../../api/evaluation'
 import { authRole } from '../../api/session'
 
-vi.mock('../../api/evaluationCenter', () => ({ startLiveSearch: vi.fn(), startExperiment: vi.fn(), createComparison: vi.fn(), fetchComparisons: vi.fn(), startFullTask: vi.fn(), gradeReport: vi.fn(), calibrateGrader: vi.fn(), fetchCatalog: vi.fn(), fetchCatalogCase: vi.fn(), startMechanism: vi.fn(), startSearchReplay: vi.fn(), fetchMechanismRuns: vi.fn(), fetchMechanismRun: vi.fn(), saveEvaluationReview: vi.fn(), fetchEvaluationReviews: vi.fn() }))
+vi.mock('../../api/evaluationCenter', () => ({ startRealJudgement: vi.fn(), startLiveSearch: vi.fn(), startExperiment: vi.fn(), createComparison: vi.fn(), fetchComparisons: vi.fn(), startFullTask: vi.fn(), gradeReport: vi.fn(), calibrateGrader: vi.fn(), fetchCatalog: vi.fn(), fetchCatalogCase: vi.fn(), startMechanism: vi.fn(), startSearchReplay: vi.fn(), fetchMechanismRuns: vi.fn(), fetchMechanismRun: vi.fn(), saveEvaluationReview: vi.fn(), fetchEvaluationReviews: vi.fn() }))
 vi.mock('../../api/evaluation', () => ({ fetchEvalReports: vi.fn(), runEvaluation: vi.fn() }))
 const pack = { version: 'sb-eval-data-1', cutoff: '2026-10-31', total_cases: 108, dataset_hash: 'a'.repeat(64), collections: { golden: 24 },
   areas: [{ area: 'end_to_end', label: '完整任务', case_count: 4, runnable: true, profile: 'full_task_local', availability: '完整图', score: null, supported_case_ids: ['G017'], experiment_case_ids: ['G002'] }, { area: 'report', label: '报告质量', case_count: 8, runnable: true, profile: 'report_grading', availability: '独立评分', score: null, supported_case_ids: ['G002'] }, { area: 'protocol', label: '流程与故障', case_count: 31, runnable: true, profile: 'protocol-1', availability: '原20例合成协议可运行', score: null },
@@ -185,4 +186,18 @@ it('详情立即显示加载，失败可重试，关闭后迟到响应不重新�
   resolve({ case: { case_id: 'G002', title: '迟到详情', input: { user_request: '迟到响应' } }, sources: [], rubrics: [], fixture: null })
   await flushPromises()
   expect(wrapper!.find('[data-testid="catalog-detail"]').exists()).toBe(false)
+})
+
+it('管理员提交稿件和校准的真实评分目标，明确分开旧程序检查', async () => {
+  authRole.value = 'admin'; await open('run')
+  vi.mocked(startRealJudgement).mockRejectedValue(new Error('本地只验证请求'))
+  await wrapper!.get('textarea[aria-label="待评报告"]').setValue('给定稿件 [S01]')
+  const form = wrapper!.findAllComponents(LiveEvaluationLaunch).find(c => c.props('kind') === 'judge')!
+  const consent = { confirmed: true, authorization_id: 'fixture-judge' } as any
+  form.vm.$emit('launch', consent); await flushPromises()
+  expect(startRealJudgement).toHaveBeenCalledWith({ target: 'report', case_id: 'G002', report: '给定稿件 [S01]', live_consent: consent })
+  const select = wrapper!.findAllComponents({ name: 'ElSelect' }).find(c => c.find('input[aria-label="真实评分对象"]').exists())!
+  select.vm.$emit('update:modelValue', 'calibration'); await flushPromises()
+  form.vm.$emit('launch', consent); await flushPromises()
+  expect(startRealJudgement).toHaveBeenLastCalledWith({ target: 'calibration', live_consent: consent })
 })

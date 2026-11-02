@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import LiveEvaluationLaunch from '../components/LiveEvaluationLaunch.vue'
-import { startLiveFullTask, startConsentedSearch, type ModelConsent, type SearchConsent } from '../api/evaluationCenter'
+import { startRealJudgement, startLiveFullTask, startConsentedSearch, type ModelConsent, type SearchConsent } from '../api/evaluationCenter'
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { startLiveSearch, startExperiment, createComparison, fetchComparisons, type ComparisonResult, startFullTask, gradeReport, calibrateGrader, type CalibrationSummary, fetchCatalog, fetchCatalogCase, startMechanism, startSearchReplay, fetchMechanismRuns, fetchMechanismRun, saveEvaluationReview, fetchEvaluationReviews, type MechanismResult, type EvaluationReview, type MechanismRun, type EvaluationCatalog, type CatalogDetail, type CatalogCase } from '../api/evaluationCenter'
@@ -25,6 +25,7 @@ const compareRuns = computed(() => mechanismRuns.value.filter(r => r.profile ===
 const fullCases = ref(['G017']), modelGroup = ref<'primary' | 'backup' | 'mixed'>('primary')
 const reportCase = ref('G002'), reportText = ref(''), calibration = ref<CalibrationSummary | null>(null)
 const gradingError = ref('')
+const judgeTarget = ref<'report' | 'calibration'>('report'), judgeCase = ref('')
 const activeRun = ref<MechanismRun | null>(null)
 const traceRows = ref<Record<string, unknown>[] | null>(null)
 const evidenceRows = ref<NonNullable<MechanismResult['evidence']>>([])
@@ -156,6 +157,18 @@ async function startRealSearch(consent: ModelConsent | SearchConsent) {
   starting.value = true; mechanismError.value = ''
   try { const data = await startConsentedSearch(searchCases.value, consent as SearchConsent); await router.push(`/evaluation/runs/${data.run_id}`) }
   catch (e: any) { mechanismError.value = e?.response?.data?.error?.message || '真实搜索未启动，请核对配置、案例及预算' }
+  finally { starting.value = false }
+}
+async function startJudge(consent: ModelConsent | SearchConsent, fromRun = false) {
+  if (starting.value || authRole.value !== 'admin') return
+  starting.value = true; gradingError.value = ''; mechanismError.value = ''
+  try {
+    const body = fromRun ? { target: 'run_result' as const, run_id: activeRun.value!.run_id, case_id: judgeCase.value }
+      : judgeTarget.value === 'calibration' ? { target: 'calibration' as const }
+      : { target: 'report' as const, case_id: reportCase.value, report: reportText.value }
+    const data = await startRealJudgement({ ...body, live_consent: consent as ModelConsent })
+    await router.push(`/evaluation/runs/${data.run_id}`)
+  } catch (e: any) { mechanismError.value = e?.response?.data?.error?.message || '真实独立评分未启动，请检查输入与预算' }
   finally { starting.value = false }
 }
 async function loadComparisons() {
@@ -308,6 +321,9 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
               <el-input v-model="reportText" type="textarea" aria-label="待评报告" :maxlength="100000" :disabled="authRole !== 'admin'" />
               <p><el-button :disabled="authRole !== 'admin'" :loading="starting" @click="submitReport">独立评分并归档</el-button></p>
               <el-button :disabled="authRole !== 'admin'" :loading="starting" @click="runCalibration">运行评分器校准</el-button>
+              <p>以上为程序检查/未启用语义模型的兼容入口。下方可实际调用评分模型：</p>
+              <el-select v-model="judgeTarget" aria-label="真实评分对象"><el-option label="上述稿件" value="report" /><el-option label="10条评分器校准样本" value="calibration" /></el-select>
+              <LiveEvaluationLaunch kind="judge" :case-count="1" :disabled="judgeTarget === 'report' && !reportText.trim()" :busy="starting" @launch="startJudge($event)" />
             </template>
             <template v-else-if="a.profile === 'full_task_local'">
               <p>真实完整工作流；模型供应商为替身，资料冻结，记忆隔离。完成状态不代表报告质量。</p>
@@ -334,7 +350,7 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
         </el-table><p v-if="!historyError && !history.length">尚无运行记录</p>
         <template v-if="tab === 'records'"><h4>专项评测记录</h4>
           <el-table :data="mechanismRuns"><el-table-column prop="run_id" label="运行编号" /><el-table-column label="执行状态"><template #default="{ row }">{{ runLabels[row.execution_status] }}</template></el-table-column>
-            <el-table-column label="类型"><template #default="{ row }">{{ row.profile === 'bounded_experiment' ? '有限重试实验' : row.profile?.startsWith('full_task_') ? '完整任务' : row.profile === 'grader_calibration' ? '评分器校准' : row.profile === 'report_grading' ? '独立报告评分' : row.profile === 'search_live' ? '真实搜索' : row.profile === 'search_replay' ? '搜索回放' : '机制回归' }}</template></el-table-column>
+            <el-table-column label="类型"><template #default="{ row }">{{ row.profile === 'independent_judging' ? '真实独立评分' : row.profile === 'bounded_experiment' ? '有限重试实验' : row.profile?.startsWith('full_task_') ? '完整任务' : row.profile === 'grader_calibration' ? '评分器校准' : row.profile === 'report_grading' ? '独立报告评分' : row.profile === 'search_live' ? '真实搜索' : row.profile === 'search_replay' ? '搜索回放' : '机制回归' }}</template></el-table-column>
             <el-table-column label="通过/计划"><template #default="{ row }">{{ ['search_replay', 'search_live'].includes(row.profile) ? '语义待评判' : `${row.summary.passed}/${row.summary.planned}` }}</template></el-table-column>
             <el-table-column prop="summary.unknown" label="待确认/未评分" />
             <el-table-column label="详情"><template #default="{ row }"><router-link :to="`/evaluation/runs/${row.run_id}`">查看实际回归结果</router-link></template></el-table-column>
@@ -360,10 +376,23 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
         </section>
       </template>
       <template v-else-if="tab === 'run-detail'">
-        <h3>{{ activeRun?.profile === 'bounded_experiment' ? '有限重试实验详情' : activeRun?.profile?.startsWith('full_task_') ? '完整任务运行详情' : activeRun?.profile === 'grader_calibration' ? '评分器校准详情' : activeRun?.profile === 'report_grading' ? '独立报告评分详情' : activeRun?.profile === 'search_live' ? '真实搜索详情' : activeRun?.profile === 'search_replay' ? '冻结搜索回放详情' : '主备与恢复机制回归详情' }}</h3><p v-if="activeRun?.profile === 'search_live'">当次EXA提供商摘要不等于已核验网页正文；相关性、统计期与证据充分性仍待独立评判。</p><p v-else-if="activeRun?.profile !== 'report_grading' && activeRun?.profile !== 'grader_calibration'">{{ activeRun?.profile === 'full_task_live' ? '本次使用真实模型与固定资料；工作流完成不等于独立质量通过。' : '报告质量尚未评判；本地替身/冻结回放不代表真实模型或自主搜索效果。' }}</p><p v-else>独立判分与评分器校准分别展示；真实模型效果仍待授权验证。</p>
+        <h3>{{ activeRun?.profile === 'independent_judging' ? '真实独立评分详情' : activeRun?.profile === 'bounded_experiment' ? '有限重试实验详情' : activeRun?.profile?.startsWith('full_task_') ? '完整任务运行详情' : activeRun?.profile === 'grader_calibration' ? '评分器校准详情' : activeRun?.profile === 'report_grading' ? '独立报告评分详情' : activeRun?.profile === 'search_live' ? '真实搜索详情' : activeRun?.profile === 'search_replay' ? '冻结搜索回放详情' : '主备与恢复机制回归详情' }}</h3><p v-if="activeRun?.profile === 'search_live'">当次EXA提供商摘要不等于已核验网页正文；相关性、统计期与证据充分性仍待独立评判。</p><p v-else-if="activeRun?.profile !== 'report_grading' && activeRun?.profile !== 'grader_calibration' && activeRun?.profile !== 'independent_judging'">{{ activeRun?.profile === 'full_task_live' ? '本次使用真实模型与固定资料；工作流完成不等于独立质量通过。' : '报告质量尚未评判；本地替身/冻结回放不代表真实模型或自主搜索效果。' }}</p><p v-else>独立判分与评分器校准分别展示；请结合逐项依据、用量和人工抽查判断。</p>
         <template v-if="activeRun"><p>{{ activeRun.run_id }} · {{ runLabels[activeRun.execution_status] }} · 已处理 {{ activeRun.summary.processed }}/{{ activeRun.summary.planned }}</p>
           <p v-if="activeRun.error" role="alert">{{ activeRun.error }}</p>
-          <section v-if="activeRun.profile === 'bounded_experiment'"><p>初始失败保留；诊断反馈来自公开执行状态，未使用隐藏答案。结果不证明真实模型或报告质量增益。</p>
+          <section v-if="activeRun.profile === 'independent_judging'">
+            <p>评分模型：{{ activeRun.metadata?.model }}；本次实际评分结论如下，不能代替人工事实核验。</p>
+            <p v-if="activeRun.metadata?.judge_same_as_primary">评分器沿用主模型，可能存在同模型偏差。</p>
+            <p v-if="activeRun.metadata?.source_run_id">原运行：<router-link :to="`/evaluation/runs/${activeRun.metadata.source_run_id}`">{{ activeRun.metadata.source_run_id }}</router-link>；原始结果指纹 {{ activeRun.metadata.source_result_sha256 }}；原记录保持不变。</p>
+            <p v-if="activeRun.metadata?.judge_usage">实际模型请求 {{ activeRun.metadata.judge_usage.calls }}；输入Token {{ activeRun.metadata.judge_usage.input_tokens ?? '未知' }}；输出Token {{ activeRun.metadata.judge_usage.output_tokens ?? '未知' }}；费用估计 {{ JSON.stringify(activeRun.metadata.judge_usage.estimated_costs) }}（{{ activeRun.metadata.judge_usage.cost_complete ? '已知用量估计，非账单' : '用量或费用不完整' }}）。</p>
+            <p v-if="activeRun.metadata?.calibration">校准样本 {{ activeRun.metadata.calibration.total }}；未知 {{ activeRun.metadata.calibration.unknown }}；误放行 {{ activeRun.metadata.calibration.false_accepts }}；误拒绝 {{ activeRun.metadata.calibration.false_rejects }}；准确率 {{ activeRun.metadata.calibration.accuracy ?? '未知' }}。</p>
+            <article v-for="r in activeRun.results" :key="r.case_id"><h4>{{ r.case_id }} · {{ checkLabels[r.check_status] }}</h4>
+              <pre v-if="r.report">{{ r.report }}</pre>
+              <el-table v-if="r.judgements" :data="r.judgements"><el-table-column prop="rubric_id" label="检查" /><el-table-column prop="label" label="结论" /><el-table-column prop="reason" label="依据" /><el-table-column prop="evidence_refs" label="依据资料编号" /></el-table>
+              <p v-else>{{ r.label }}：{{ r.reason }}；参考 {{ r.expected }}</p>
+            </article>
+            <el-table :data="activeRun.metadata?.judge_usage?.items || []"><el-table-column prop="status" label="调用状态" /><el-table-column prop="error" label="错误分类" /><el-table-column prop="duration_seconds" label="耗时（秒）" /><el-table-column prop="input_tokens" label="输入Token" /><el-table-column prop="output_tokens" label="输出Token" /></el-table>
+          </section>
+          <section v-else-if="activeRun.profile === 'bounded_experiment'"><p>初始失败保留；诊断反馈来自公开执行状态，未使用隐藏答案。结果不证明真实模型或报告质量增益。</p>
             <p>已保存过程：{{ activeRun.metadata?.experiment_progress?.length || 0 }} 条</p>
             <details v-if="activeRun.metadata?.experiment_progress?.length"><summary>查看增量保存的尝试</summary><ol><li v-for="(p, index) in activeRun.metadata.experiment_progress" :key="index">{{ p.case_id }} · {{ p.phase }} · {{ p.attempt }} · {{ p.result.task_execution_status }} · 供应商尝试 {{ p.result.provider_calls ?? '未知' }}</li></ol></details>
             <article v-for="r in activeRun.results" :key="r.case_id"><h4>{{ r.case_id }}</h4><p v-if="r.error" role="alert">{{ r.error }}</p>
@@ -388,6 +417,11 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
           <el-table v-else :data="activeRun.results"><el-table-column prop="case_id" label="案例" /><el-table-column label="结果数"><template #default="{ row }">{{ row.metrics?.returned_count ?? '未知' }}</template></el-table-column><el-table-column label="去重后来源数"><template #default="{ row }">{{ row.metrics?.unique_sources ?? '未知' }}</template></el-table-column><el-table-column label="统计期未知"><template #default="{ row }">{{ row.metrics?.unknown_period_documents ?? '未知' }}</template></el-table-column><el-table-column v-if="activeRun.profile === 'search_live'" label="实际请求"><template #default="{ row }">{{ row.metrics?.network_calls ?? '未知' }}</template></el-table-column><el-table-column v-if="activeRun.profile === 'search_live'" label="供应商估计费用 USD"><template #default="{ row }">{{ row.metrics?.provider_estimated_cost_usd ?? '未知' }}</template></el-table-column><el-table-column label="过期数"><template #default="{ row }">{{ row.metrics?.stale_documents ?? '未指定窗口' }}</template></el-table-column><el-table-column label="语义质量"><template #default>待独立评判</template></el-table-column><el-table-column prop="error" label="异常" /><el-table-column label="过程与资料"><template #default="{ row }"><el-button link @click="showProcess(row)">{{ activeRun.profile === 'search_live' ? '查看当次摘要' : '查看回放资料' }}</el-button></template></el-table-column></el-table>
           <section v-if="traceRows !== null"><h4>实际执行事件</h4><p v-if="!traceRows.length">该记录没有可用轨迹证据，不补造过程。</p><ol><li v-for="(event, index) in traceRows" :key="index">{{ traceLabel(event) }}</li></ol></section>
           <article v-for="(doc, index) in evidenceRows" :key="index"><h4>{{ doc.title }}</h4><a v-if="doc.url?.startsWith('https://') || doc.url?.startsWith('http://')" :href="doc.url || undefined" target="_blank" rel="noopener noreferrer">查看原始来源</a><p>{{ doc.snippet || doc.excerpt }}</p><p>发布日期：{{ doc.published_at || '未知' }}；统计期：{{ doc.data_period || '未知' }}；{{ doc.content_available ? '回放片段可用' : '内容不可用' }}</p></article>
+          <section v-if="['full_task_live','full_task_local','search_live','search_replay'].includes(activeRun.profile || '') && activeRun.execution_status === 'completed'">
+            <h4>对本次结果做真实独立评分</h4>
+            <el-select v-model="judgeCase" aria-label="独立复评案例"><el-option v-for="r in activeRun.results" :key="r.case_id" :value="r.case_id" :label="r.case_id" /></el-select>
+            <LiveEvaluationLaunch kind="judge" :case-count="1" :disabled="!judgeCase" :busy="starting" @launch="startJudge($event, true)" />
+          </section>
           <section class="review-form"><h4>人工复核本次案例结果</h4><p>记录人工意见，原始机制判定保留。</p>
             <el-select v-model="reviewCaseId" aria-label="复核运行案例" :disabled="authRole !== 'admin'"><el-option v-for="r in activeRun.results" :key="r.case_id" :value="r.case_id" :label="r.case_id" /></el-select>
             <el-select v-model="reviewDecision" aria-label="运行复核结论" :disabled="authRole !== 'admin'"><el-option label="复核通过" value="pass" /><el-option label="复核不通过" value="fail" /><el-option label="无法确认" value="unknown" /></el-select>

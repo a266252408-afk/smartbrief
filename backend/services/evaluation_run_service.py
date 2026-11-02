@@ -89,8 +89,27 @@ def start(body: MechanismRequest | SearchRequest | FullTaskRequest | ExperimentR
     return record
 
 
+def start_judging(body):
+    global _handle,_run_id
+    if _handle is not None and not _handle.done():
+        raise EvaluationError('EVALUATION_RUNNING','已有专项评测正在运行',409)
+    from services.evaluation_judging_service import prepare
+    record=prepare(body)
+    try:
+        repository.save(record)
+    except OSError:
+        raise EvaluationError('RUN_STORAGE_FAILED','评分归档不可写，已停止调用') from None
+    _run_id=record['run_id']
+    _handle=asyncio.create_task(_execute(record))
+    return record
+
+
 async def _execute(record):
     try:
+        if record['profile']=='independent_judging':
+            from services.evaluation_judging_service import execute
+            await execute(record)
+            return
         for cid in record['case_ids']:
             if record['profile'] == 'search_live':
                 result = LiveSearchResult.model_validate(await live_search_case(cid,

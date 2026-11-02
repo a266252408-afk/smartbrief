@@ -67,13 +67,13 @@ class CalibrationResult(CalibrationCounts):
     scope: str
 
 
-async def grade_report(body, grader=None):
-    detail = catalog.detail(body.case_id)
-    allowed = {source['id'] for source in detail['sources']}
+async def grade_report(body, grader=None, *, material=None):
+    detail = material if material is not None else catalog.detail(body.case_id)
+    allowed = set(detail.get('allowed_citations', [source['id'] for source in detail['sources']]))
     cited = re.findall(r'\[(S\d+)\]', body.report)
     valid = bool(body.report.strip()) and not re.search(r'待补充|\[S编号\]', body.report)
     valid = valid and bool(cited) and set(cited) <= allowed
-    judgements = [Judgement(rubric_id='Q_CITE', label='pass' if valid else 'fail',
+    judgements = [] if detail.get('skip_citation_check') else [Judgement(rubric_id='Q_CITE', label='pass' if valid else 'fail',
         reason='引用仅验证当前资料映射，不证明语义' if valid else '空稿、占位符、无引用或引用不属于当前资料')]
     for rubric in detail['rubrics']:
         if rubric['id'] == 'Q_CITE':
@@ -93,7 +93,7 @@ async def grade_report(body, grader=None):
 async def semantic(payload, grader):
     if grader is not None:
         try:
-            raw = await asyncio.wait_for(grader(payload), timeout=10)
+            raw = await asyncio.wait_for(grader(payload), timeout=getattr(grader,'timeout_seconds',10))
             judged = Judgement.model_validate(dict(rubric_id='semantic', **raw))
             allowed = {s['id'] for s in payload['sources']}
             if not set(judged.evidence_refs) <= allowed:
@@ -104,7 +104,7 @@ async def semantic(payload, grader):
     return dict(label='unknown', reason='未启用独立语义评分器', evidence_refs=[])
 
 
-async def calibrate(grader=None):
+async def calibrate(grader=None, on_result=None):
     # _load先验证冻结资料指纹；参考标签在模型返回之后才使用。
     _, _, sources, _, _ = catalog._load()
     cases = catalog._read(catalog.PACK_ROOT / 'calibration.json')['cases']
@@ -116,6 +116,8 @@ async def calibrate(grader=None):
         expected = 'pass' if case['label'] == 'supported' else 'unknown' if case['label'] == 'insufficient' else 'fail'
         rows.append(dict(case_id=case['id'], check_status=judged['label'] if judged['label'] in ('pass', 'fail') else 'unknown',
                          rubric_id='Q_SUPPORT', split=case['split'], expected=expected, **judged))
+        if on_result is not None:
+            await on_result(rows[-1])
     def counts(items):
         unknown = sum(r['label'] in ('unknown', 'not_applicable') for r in items)
         return dict(total=len(items), unknown=unknown,

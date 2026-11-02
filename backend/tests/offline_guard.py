@@ -28,7 +28,7 @@ def install():
     os.environ["LANGCHAIN_TRACING_V2"] = "false"
     os.environ["LANGSMITH_TRACING"] = "false"
     os.environ['MODEL_FAILOVER_ENABLED'] = 'false'
-    for name in ("OPENAI_API_KEY", "BACKUP_OPENAI_API_KEY", "EMBEDDING_API_KEY", "EXA_API_KEY", "LANGCHAIN_API_KEY", "LANGSMITH_API_KEY"):
+    for name in ("EVALUATION_JUDGE_API_KEY", "OPENAI_API_KEY", "BACKUP_OPENAI_API_KEY", "EMBEDDING_API_KEY", "EXA_API_KEY", "LANGCHAIN_API_KEY", "LANGSMITH_API_KEY"):
         os.environ[name] = ""
     original_dns = socket.getaddrinfo
     original_connect = socket.socket.connect

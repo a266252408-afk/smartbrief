@@ -80,7 +80,7 @@ class LiveSearchResult(MechanismResult):
 
 
 class EvaluationRun(MechanismRun):
-    profile: Literal['mechanism_regression','search_replay','search_live','report_grading','grader_calibration','full_task_local','full_task_live','bounded_experiment']
+    profile: Literal['mechanism_regression','search_replay','search_live','report_grading','grader_calibration','full_task_local','full_task_live','bounded_experiment','independent_judging']
     report_quality: Literal['unknown','passed','rejected']
     results: list[MechanismResult | SearchResult | LiveSearchResult | ReportGradeResult | CalibrationRow | FullTaskResult | ExperimentCaseResult]
 

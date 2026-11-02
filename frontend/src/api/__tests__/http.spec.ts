@@ -30,3 +30,13 @@ describe('统一认证客户端', () => {
     })
   }
 })
+
+it('真实评测预算拒绝不会把管理员误提示为只读', async () => {
+  authRole.value = 'admin'; accessToken.value = 'fixture-token'
+  const client = createHttp({ adapter: async config => {
+    throw new AxiosError('预算不足', undefined, config, undefined, { data: { error: { code: 'JUDGE_NOT_AUTHORIZED', message: '预算不足' } }, status: 403, statusText: 'Denied', headers: new AxiosHeaders(), config })
+  } })
+  await expect(client.post('/judge')).rejects.toThrow('预算不足')
+  expect(authRole.value).toBe('admin')
+  expect(authNotice.value).toBe('')
+})

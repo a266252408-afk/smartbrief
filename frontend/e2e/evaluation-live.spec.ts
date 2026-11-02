@@ -31,3 +31,38 @@ test('管理员按当前模型确认预算后才发起真实评测，结果区�
   await expect(page.getByText('待独立评判', { exact: true })).toBeVisible()
   await page.screenshot({ path: '../docs/verification/EVAL-LIVE-01-01-ui.png', fullPage: true })
 })
+
+
+test('归档结果独立复评发送原运行与案例，展示依据和真实用量', async ({ page }) => {
+  const writes: any[] = [], original = 'er_' + '7'.repeat(32), judged = 'er_' + '6'.repeat(32)
+  const env = (data: unknown) => ({ data, meta: { request_id: 'fixture' } })
+  await page.route('**/api/v*/**', async route => {
+    const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/auth/session')) return route.fulfill({ json: env({ role: 'admin' }) })
+    if (path.endsWith('/catalog')) return route.fulfill({ json: env({ version: 'v1', cutoff: '2026-11-02', total_cases: 4, cases: [], areas: [] }) })
+    if (path.endsWith('/live-config')) return route.fulfill({ json: env({ dataset_hash: 'a'.repeat(64), model: { ready: true, name: 'current-model', base_url: 'https://provider.invalid/v1' }, judge: { ready: true, name: 'current-model', base_url: 'https://provider.invalid/v1', same_as_primary: true }, search: { ready: false, base_url: 'https://api.exa.ai/search' } }) })
+    if (path.endsWith('/judge')) { writes.push(route.request().postDataJSON()); return route.fulfill({ status: 202, json: env({ run_id: judged }) }) }
+    if (path.endsWith('/runs/' + original)) return route.fulfill({ json: env({ run_id: original, profile: 'full_task_live', execution_status: 'completed', metadata: { dataset_hash: 'a'.repeat(64), model: 'current-model' }, summary: { processed: 1, planned: 1 }, results: [{ case_id: 'G017', report: '需复评的原始稿件', calls: 4 }] }) })
+    if (path.endsWith('/runs/' + judged)) return route.fulfill({ json: env({ run_id: judged, profile: 'independent_judging', execution_status: 'completed', report_quality: 'rejected', metadata: { dataset_hash: 'a'.repeat(64), model: 'current-model', source_run_id: original, source_result_sha256: 'b'.repeat(64), judge_same_as_primary: true, judge_usage: { calls: 4, input_tokens: 100, output_tokens: 20, estimated_costs: { CNY: 0.001 }, cost_complete: true, items: [] } }, summary: { processed: 1, planned: 1 }, results: [{ case_id: 'G017', check_status: 'fail', report: '需复评的原始稿件', judgements: [{ rubric_id: 'Q_SCOPE', label: 'fail', reason: '混淆统计期', evidence_refs: ['S01'] }] }] }) })
+    return route.fulfill({ status: 404, json: { error: { message: '未声明请求' } } })
+  })
+  await page.goto('/evaluation/runs/' + original)
+  await page.getByLabel('访问令牌').fill('fixture-real-judge')
+  await page.getByRole('button', { name: '验证并进入' }).click()
+  await page.getByRole('combobox', { name: '独立复评案例', exact: true }).focus()
+  await page.getByRole('combobox', { name: '独立复评案例', exact: true }).press('Enter')
+  await page.getByRole('option', { name: 'G017', exact: true }).click()
+  const form = page.getByRole('region', { name: '真实独立评分设置' })
+  await expect(form).toContainText('同模型偏差')
+  await form.getByLabel('每百万输入Token单价', { exact: true }).fill('1')
+  await form.getByLabel('每百万输出Token单价', { exact: true }).fill('2')
+  await form.getByLabel('本次估计费用上限', { exact: true }).fill('2')
+  expect(writes).toEqual([])
+  await form.getByText('我允许发送上述公开内容，并按本次参数调用及消费', { exact: true }).click()
+  await form.getByRole('button', { name: '确认运行真实独立评分', exact: true }).click()
+  await expect(page).toHaveURL(new RegExp('/evaluation/runs/' + judged))
+  expect(writes[0]).toMatchObject({ target: 'run_result', run_id: original, case_id: 'G017', live_consent: { confirmed: true } })
+  await expect(page.getByRole('cell', { name: '混淆统计期', exact: true })).toBeVisible()
+  await expect(page.getByText('实际模型请求 4', { exact: false })).toBeVisible()
+  await page.screenshot({ path: '../docs/verification/EVAL-LIVE-01-02-judge.png', fullPage: true })
+})

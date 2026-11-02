@@ -39,6 +39,19 @@ async def comparison_create(request: Request):
         return failure(request, exc.status, exc.code, str(exc))
 
 
+@router.post('/judge')
+async def real_judgement(request: Request):
+    from evaluation.real_judge import LiveJudgeRequest
+    try:
+        body=LiveJudgeRequest.model_validate(await request.json())
+    except ValueError:
+        return failure(request,422,'INVALID_JUDGE_REQUEST','评分目标或本次消费确认无效')
+    try:
+        return result(request,runs.start_judging(body),202)
+    except (EvaluationError,catalog.CatalogError) as exc:
+        return failure(request,exc.status,exc.code,str(exc))
+
+
 @router.post('/grade-report')
 async def grade_report(request: Request):
     try:

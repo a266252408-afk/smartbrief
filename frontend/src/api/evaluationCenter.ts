@@ -35,6 +35,7 @@ export interface MechanismResult {
   task_execution_status?: string; business_quality?: string; calls?: number | null; input_tokens?: number | null; output_tokens?: number | null
   provider_calls?: number | null; baseline?: MechanismResult
   arms?: { mode: string; attempts: MechanismResult[]; provider_calls: number | null; ever_passed: boolean; always_passed: boolean }[]
+  label?: string; reason?: string; expected?: string
   report?: string; report_sha256?: string; grader_version?: string
   judgements?: { rubric_id: string; label: string; reason: string; evidence_refs: string[] }[]
   trace?: Record<string, unknown>[]
@@ -42,11 +43,14 @@ export interface MechanismResult {
   evidence?: { title: string; url: string | null; snippet?: string; excerpt?: string; published_at: string | null; data_period: string | null; origin: string; content_scope: string; content_available: boolean }[]
 }
 export interface MechanismRun {
-  profile?: 'mechanism_regression' | 'search_replay' | 'search_live' | 'report_grading' | 'grader_calibration' | 'full_task_local' | 'full_task_live' | 'bounded_experiment'
+  profile?: 'mechanism_regression' | 'search_replay' | 'search_live' | 'report_grading' | 'grader_calibration' | 'full_task_local' | 'full_task_live' | 'bounded_experiment' | 'independent_judging'
   run_id: string; execution_status: 'running' | 'completed' | 'failed'; report_quality: string
   created_at: string; error: string | null; results: MechanismResult[]
   summary: { planned: number; processed: number; passed: number; failed: number; unknown: number }
-  metadata?: { dataset_hash: string; model?: string; model_group?: string; source_hash?: string; code_commit?: string; experiment_progress?: { case_id: string; phase: string; attempt: number; result: MechanismResult }[] }
+  metadata?: { dataset_hash: string; model?: string; target?: string; source_run_id?: string; source_result_sha256?: string; judge_same_as_primary?: boolean
+    calibration?: { total: number; unknown: number; false_accepts: number; false_rejects: number; accuracy: number | null }
+    judge_usage?: { calls: number; input_tokens: number | null; output_tokens: number | null; estimated_costs: Record<string, number>; cost_complete: boolean; items: { status: string; error: string | null; duration_seconds: number; input_tokens: number | null; output_tokens: number | null }[] }
+    model_group?: string; source_hash?: string; code_commit?: string; experiment_progress?: { case_id: string; phase: string; attempt: number; result: MechanismResult }[] }
 }
 export async function startMechanism(caseIds: string[]): Promise<MechanismRun> {
   return (await http.post('/runs', { profile: 'mechanism_regression', case_ids: caseIds })).data.data
@@ -122,6 +126,7 @@ export interface SearchConsent {
 }
 export interface LiveConfig {
   dataset_hash: string; model: { name: string; base_url: string; ready: boolean }
+  judge?: { name: string; base_url: string; ready: boolean; same_as_primary: boolean }
   search: { ready: boolean; base_url: string }; scope: string
 }
 export async function fetchLiveConfig(): Promise<LiveConfig> {
@@ -132,4 +137,11 @@ export async function startLiveFullTask(caseIds: string[], consent: ModelConsent
 }
 export async function startConsentedSearch(caseIds: string[], consent: SearchConsent): Promise<MechanismRun> {
   return (await http.post('/runs', { profile: 'search_live', case_ids: caseIds, live_consent: consent })).data.data
+}
+
+export interface LiveJudgeRequest {
+  target: 'report' | 'calibration' | 'run_result'; case_id?: string; run_id?: string; report?: string; live_consent: ModelConsent
+}
+export async function startRealJudgement(body: LiveJudgeRequest): Promise<MechanismRun> {
+  return (await http.post('/judge', body)).data.data
 }
