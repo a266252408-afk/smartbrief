@@ -79,6 +79,15 @@ async def review_create(request: Request):
         return failure(request,exc.status,exc.code,str(exc))
 
 
+@router.get('/live-config')
+async def live_config(request: Request):
+    from services.evaluation_live_config import read_config
+    try:
+        return result(request,read_config())
+    except catalog.CatalogError as exc:
+        return failure(request,exc.status,exc.code,str(exc))
+
+
 @router.get('/capabilities')
 async def capabilities(request: Request):
     return result(request,runs.capabilities())

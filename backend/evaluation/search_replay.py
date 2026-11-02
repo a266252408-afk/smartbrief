@@ -6,6 +6,7 @@ from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from evaluation.live_consent import SearchConsent
 from evaluation import catalog
 from evaluation.mechanism import MechanismResult, MechanismRun
 from evaluation.report_grading import ReportGradeResult, CalibrationRow
@@ -22,13 +23,17 @@ class SearchRequest(BaseModel):
     case_ids: list[str]=Field(min_length=1,max_length=12)
     authorization_id: str | None = Field(default=None, pattern=r'^[A-Za-z0-9_-]{8,80}$')
 
+    live_consent: SearchConsent | None = None
+
     @model_validator(mode='after')
     def valid_cases(self):
         allowed=GOLDEN if self.profile=='search_live' else SUPPORTED
         if len(set(self.case_ids))!=len(self.case_ids) or any(cid not in allowed for cid in self.case_ids):
             raise ValueError('未知、重复或不支持的搜索案例')
-        if self.profile == 'search_replay' and self.authorization_id is not None:
+        if self.profile == 'search_replay' and (self.authorization_id is not None or self.live_consent is not None):
             raise ValueError('本地回放不接受消费授权')
+        if self.authorization_id is not None and self.live_consent is not None:
+            raise ValueError('不能同时使用两种授权方式')
         return self
 
 

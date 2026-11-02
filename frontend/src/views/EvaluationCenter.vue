@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import LiveEvaluationLaunch from '../components/LiveEvaluationLaunch.vue'
+import { startLiveFullTask, startConsentedSearch, type ModelConsent, type SearchConsent } from '../api/evaluationCenter'
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { startLiveSearch, startExperiment, createComparison, fetchComparisons, type ComparisonResult, startFullTask, gradeReport, calibrateGrader, type CalibrationSummary, fetchCatalog, fetchCatalogCase, startMechanism, startSearchReplay, fetchMechanismRuns, fetchMechanismRun, saveEvaluationReview, fetchEvaluationReviews, type MechanismResult, type EvaluationReview, type MechanismRun, type EvaluationCatalog, type CatalogDetail, type CatalogCase } from '../api/evaluationCenter'
@@ -142,6 +144,20 @@ async function startFull() {
   catch { mechanismError.value = '完整任务未启动，请检查案例和运行状态' }
   finally { starting.value = false }
 }
+async function startRealFull(consent: ModelConsent | SearchConsent) {
+  if (starting.value || authRole.value !== 'admin') return
+  starting.value = true; mechanismError.value = ''
+  try { const data = await startLiveFullTask(fullCases.value, consent as ModelConsent); await router.push(`/evaluation/runs/${data.run_id}`) }
+  catch (e: any) { mechanismError.value = e?.response?.data?.error?.message || '真实模型评测未启动，请核对模型配置、案例及预算' }
+  finally { starting.value = false }
+}
+async function startRealSearch(consent: ModelConsent | SearchConsent) {
+  if (starting.value || authRole.value !== 'admin') return
+  starting.value = true; mechanismError.value = ''
+  try { const data = await startConsentedSearch(searchCases.value, consent as SearchConsent); await router.push(`/evaluation/runs/${data.run_id}`) }
+  catch (e: any) { mechanismError.value = e?.response?.data?.error?.message || '真实搜索未启动，请核对配置、案例及预算' }
+  finally { starting.value = false }
+}
 async function loadComparisons() {
   comparisonError.value = ''
   try { comparisonRows.value = await fetchComparisons() }
@@ -281,7 +297,8 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
               <p>冻结资料与响应解析；不调用真实搜索或模型，语义质量另行评判。</p>
               <el-select v-model="searchCases" multiple aria-label="搜索回放案例" :disabled="authRole !== 'admin'"><el-option v-for="id in a.supported_case_ids || []" :key="id" :value="id" :label="`${id} ${catalog.cases.find(c => c.case_id === id)?.title || ''}`" /></el-select>
               <p><el-button :disabled="!a.runnable || authRole !== 'admin' || !searchCases.length" :loading="starting" @click="startSearch">运行搜索回放</el-button></p>
-              <p>真实搜索需要用户另行批准并由服务端配置单次授权；填写编号不会创建授权，仅支持黄金搜索案例。</p>
+              <LiveEvaluationLaunch kind="search" :case-count="searchCases.length" :disabled="!searchCases.every(id => a.live_case_ids?.includes(id))" :busy="starting" @launch="startRealSearch" />
+              <p>真实搜索仅支持黄金搜索案例。以下保留已有服务端授权编号入口：</p>
               <el-input v-model="searchAuthorization" aria-label="真实搜索单次授权编号" placeholder="已批准并在服务端配置的编号" :disabled="authRole !== 'admin'" />
               <p><el-button :disabled="authRole !== 'admin' || !liveSearchReady" :loading="starting" @click="runLiveSearch">按已批准授权运行真实搜索</el-button></p>
             </template>
@@ -297,7 +314,7 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
               <el-select v-model="fullCases" multiple aria-label="完整任务案例" :disabled="authRole !== 'admin'"><el-option v-for="id in a.supported_case_ids || []" :key="id" :value="id" :label="id" /></el-select>
               <el-select v-model="modelGroup" aria-label="模型运行组" :disabled="authRole !== 'admin'"><el-option label="主模型" value="primary" /><el-option label="固定备用" value="backup" /><el-option label="主故障后接管" value="mixed" /></el-select>
               <p><el-button :disabled="authRole !== 'admin' || !fullCases.length" :loading="starting" @click="startFull">运行完整任务替身基线</el-button></p>
-              <p>真实模型：等待服务端单次授权和预算，页面不能自行授权。</p>
+              <LiveEvaluationLaunch kind="model" :case-count="fullCases.length" :busy="starting" @launch="startRealFull" />
             </template>
             <el-button v-else disabled>执行器待接通</el-button>
           </article></div>
@@ -343,7 +360,7 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
         </section>
       </template>
       <template v-else-if="tab === 'run-detail'">
-        <h3>{{ activeRun?.profile === 'bounded_experiment' ? '有限重试实验详情' : activeRun?.profile?.startsWith('full_task_') ? '完整任务运行详情' : activeRun?.profile === 'grader_calibration' ? '评分器校准详情' : activeRun?.profile === 'report_grading' ? '独立报告评分详情' : activeRun?.profile === 'search_live' ? '真实搜索详情' : activeRun?.profile === 'search_replay' ? '冻结搜索回放详情' : '主备与恢复机制回归详情' }}</h3><p v-if="activeRun?.profile === 'search_live'">当次EXA提供商摘要不等于已核验网页正文；相关性、统计期与证据充分性仍待独立评判。</p><p v-else-if="activeRun?.profile !== 'report_grading' && activeRun?.profile !== 'grader_calibration'">报告质量尚未评判，真实供应商在线可用性尚未验证；冻结回放不代表自主搜索效果。</p><p v-else>独立判分与评分器校准分别展示；真实模型效果仍待授权验证。</p>
+        <h3>{{ activeRun?.profile === 'bounded_experiment' ? '有限重试实验详情' : activeRun?.profile?.startsWith('full_task_') ? '完整任务运行详情' : activeRun?.profile === 'grader_calibration' ? '评分器校准详情' : activeRun?.profile === 'report_grading' ? '独立报告评分详情' : activeRun?.profile === 'search_live' ? '真实搜索详情' : activeRun?.profile === 'search_replay' ? '冻结搜索回放详情' : '主备与恢复机制回归详情' }}</h3><p v-if="activeRun?.profile === 'search_live'">当次EXA提供商摘要不等于已核验网页正文；相关性、统计期与证据充分性仍待独立评判。</p><p v-else-if="activeRun?.profile !== 'report_grading' && activeRun?.profile !== 'grader_calibration'">{{ activeRun?.profile === 'full_task_live' ? '本次使用真实模型与固定资料；工作流完成不等于独立质量通过。' : '报告质量尚未评判；本地替身/冻结回放不代表真实模型或自主搜索效果。' }}</p><p v-else>独立判分与评分器校准分别展示；真实模型效果仍待授权验证。</p>
         <template v-if="activeRun"><p>{{ activeRun.run_id }} · {{ runLabels[activeRun.execution_status] }} · 已处理 {{ activeRun.summary.processed }}/{{ activeRun.summary.planned }}</p>
           <p v-if="activeRun.error" role="alert">{{ activeRun.error }}</p>
           <section v-if="activeRun.profile === 'bounded_experiment'"><p>初始失败保留；诊断反馈来自公开执行状态，未使用隐藏答案。结果不证明真实模型或报告质量增益。</p>
@@ -356,7 +373,7 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
               </section>
             </article>
           </section>
-          <section v-else-if="activeRun.profile?.startsWith('full_task_')"><p>工作流完成、业务审核、独立报告质量分别记录；替身模型结果不能当成真实模型效果。</p>
+          <section v-else-if="activeRun.profile?.startsWith('full_task_')"><p>工作流完成、业务审核、独立报告质量分别记录；{{ activeRun.profile === 'full_task_live' ? `真实模型：${activeRun.metadata?.model || '未知'}` : '本次为替身模型' }}。</p>
             <el-table :data="activeRun.results"><el-table-column prop="case_id" label="案例" /><el-table-column prop="task_execution_status" label="工作流状态" /><el-table-column prop="business_quality" label="业务审核" /><el-table-column label="独立报告质量"><template #default>待独立评判</template></el-table-column><el-table-column prop="calls" label="账本调用数" /><el-table-column label="结果"><template #default="{ row }"><el-button link @click="showProcess(row)">查看完整任务过程</el-button></template></el-table-column></el-table>
             <article v-for="r in activeRun.results" :key="r.case_id"><h4>{{ r.case_id }} 报告</h4><pre>{{ r.report }}</pre><p v-if="r.error" role="alert">{{ r.error }}</p></article>
           </section>

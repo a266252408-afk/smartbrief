@@ -1,6 +1,6 @@
 """评测调用授权契约；网页不能签发授权。"""
 from typing import Literal
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import os
@@ -45,14 +45,18 @@ class SearchEvaluationGrant(BaseModel):
 
 def reserve(body):
     try:
-        grant = EvaluationGrant.model_validate_json(os.environ.get('SMARTBRIEF_EVALUATION_GRANT', ''))
+        consent = getattr(body, 'live_consent', None)
+        grant = (EvaluationGrant(**consent.model_dump(exclude={'confirmed'}),case_ids=body.case_ids,
+            expires_at=(datetime.now(timezone.utc)+timedelta(minutes=30)).isoformat()) if consent else
+            EvaluationGrant.model_validate_json(os.environ.get('SMARTBRIEF_EVALUATION_GRANT', '')))
+        requested_id = consent.authorization_id if consent else body.authorization_id
         endpoint = urlsplit(grant.base_url)
         estimate = len(body.case_ids) * grant.max_model_calls * (
             grant.max_input_bytes * grant.input_price_per_million + grant.max_output_tokens * grant.output_price_per_million) / 1000000
-        if (body.authorization_id != grant.authorization_id or body.group != 'primary'
+        if (requested_id != grant.authorization_id or body.group != 'primary'
                 or body.case_ids != grant.case_ids or grant.dataset_hash != catalog.summary()['dataset_hash']
                 or datetime.fromisoformat(grant.expires_at) <= datetime.now(timezone.utc)
-                or endpoint.scheme != 'https' or not endpoint.hostname or endpoint.username or endpoint.password
+                or endpoint.scheme != 'https' or not endpoint.hostname or endpoint.username or endpoint.password or endpoint.query or endpoint.fragment
                 or grant.base_url != os.getenv('OPENAI_BASE_URL') or grant.model != os.getenv('OPENAI_MODEL')
                 or not os.getenv('OPENAI_API_KEY') or estimate > grant.estimated_cost_ceiling):
             raise ValueError
@@ -64,9 +68,13 @@ def reserve(body):
 
 def reserve_search(body):
     try:
-        grant = SearchEvaluationGrant.model_validate_json(os.environ.get('SMARTBRIEF_SEARCH_EVALUATION_GRANT', ''))
+        consent = getattr(body, 'live_consent', None)
+        grant = (SearchEvaluationGrant(**consent.model_dump(exclude={'confirmed'}),case_ids=body.case_ids,
+            max_search_calls=len(body.case_ids),expires_at=(datetime.now(timezone.utc)+timedelta(minutes=30)).isoformat()) if consent else
+            SearchEvaluationGrant.model_validate_json(os.environ.get('SMARTBRIEF_SEARCH_EVALUATION_GRANT', '')))
+        requested_id = consent.authorization_id if consent else body.authorization_id
         estimate = grant.max_search_calls * grant.per_call_estimate_ceiling
-        if (body.authorization_id != grant.authorization_id or body.case_ids != grant.case_ids
+        if (requested_id != grant.authorization_id or body.case_ids != grant.case_ids
                 or grant.dataset_hash != catalog.summary()['dataset_hash']
                 or datetime.fromisoformat(grant.expires_at) <= datetime.now(timezone.utc)
                 or not os.getenv('EXA_API_KEY', '').strip() or len(body.case_ids) > grant.max_search_calls

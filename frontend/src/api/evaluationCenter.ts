@@ -46,7 +46,7 @@ export interface MechanismRun {
   run_id: string; execution_status: 'running' | 'completed' | 'failed'; report_quality: string
   created_at: string; error: string | null; results: MechanismResult[]
   summary: { planned: number; processed: number; passed: number; failed: number; unknown: number }
-  metadata?: { dataset_hash: string; model_group?: string; source_hash?: string; code_commit?: string; experiment_progress?: { case_id: string; phase: string; attempt: number; result: MechanismResult }[] }
+  metadata?: { dataset_hash: string; model?: string; model_group?: string; source_hash?: string; code_commit?: string; experiment_progress?: { case_id: string; phase: string; attempt: number; result: MechanismResult }[] }
 }
 export async function startMechanism(caseIds: string[]): Promise<MechanismRun> {
   return (await http.post('/runs', { profile: 'mechanism_regression', case_ids: caseIds })).data.data
@@ -109,4 +109,27 @@ export async function startExperiment(caseIds: string[], maxAttempts: number, ca
 
 export async function startLiveSearch(caseIds: string[], authorizationId: string): Promise<MechanismRun> {
   return (await http.post('/runs', { profile: 'search_live', case_ids: caseIds, authorization_id: authorizationId })).data.data
+}
+
+export interface ModelConsent {
+  confirmed: boolean; authorization_id: string; dataset_hash: string; model: string; base_url: string
+  max_model_calls: number; max_input_bytes: number; max_output_tokens: number
+  input_price_per_million: number; output_price_per_million: number; currency: 'USD' | 'CNY'; estimated_cost_ceiling: number
+}
+export interface SearchConsent {
+  confirmed: boolean; authorization_id: string; dataset_hash: string
+  per_call_estimate_ceiling: number; estimated_cost_ceiling: number
+}
+export interface LiveConfig {
+  dataset_hash: string; model: { name: string; base_url: string; ready: boolean }
+  search: { ready: boolean; base_url: string }; scope: string
+}
+export async function fetchLiveConfig(): Promise<LiveConfig> {
+  return (await http.get('/live-config')).data.data
+}
+export async function startLiveFullTask(caseIds: string[], consent: ModelConsent): Promise<MechanismRun> {
+  return (await http.post('/runs', { profile: 'full_task_live', case_ids: caseIds, group: 'primary', live_consent: consent })).data.data
+}
+export async function startConsentedSearch(caseIds: string[], consent: SearchConsent): Promise<MechanismRun> {
+  return (await http.post('/runs', { profile: 'search_live', case_ids: caseIds, live_consent: consent })).data.data
 }

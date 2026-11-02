@@ -3246,6 +3246,46 @@
       "type": "object"
     },
     "SearchRequest": {
+      "$defs": {
+        "SearchConsent": {
+          "additionalProperties": false,
+          "properties": {
+            "confirmed": {
+              "title": "Confirmed",
+              "type": "boolean"
+            },
+            "authorization_id": {
+              "pattern": "^[A-Za-z0-9_-]{8,80}$",
+              "title": "Authorization Id",
+              "type": "string"
+            },
+            "dataset_hash": {
+              "pattern": "^[a-f0-9]{64}$",
+              "title": "Dataset Hash",
+              "type": "string"
+            },
+            "estimated_cost_ceiling": {
+              "exclusiveMinimum": 0,
+              "title": "Estimated Cost Ceiling",
+              "type": "number"
+            },
+            "per_call_estimate_ceiling": {
+              "exclusiveMinimum": 0,
+              "title": "Per Call Estimate Ceiling",
+              "type": "number"
+            }
+          },
+          "required": [
+            "confirmed",
+            "authorization_id",
+            "dataset_hash",
+            "estimated_cost_ceiling",
+            "per_call_estimate_ceiling"
+          ],
+          "title": "SearchConsent",
+          "type": "object"
+        }
+      },
       "additionalProperties": false,
       "properties": {
         "profile": {
@@ -3278,6 +3318,17 @@
           ],
           "default": null,
           "title": "Authorization Id"
+        },
+        "live_consent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SearchConsent"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -5128,6 +5179,93 @@
       "type": "object"
     },
     "FullTaskRequest": {
+      "$defs": {
+        "ModelConsent": {
+          "additionalProperties": false,
+          "properties": {
+            "confirmed": {
+              "title": "Confirmed",
+              "type": "boolean"
+            },
+            "authorization_id": {
+              "pattern": "^[A-Za-z0-9_-]{8,80}$",
+              "title": "Authorization Id",
+              "type": "string"
+            },
+            "dataset_hash": {
+              "pattern": "^[a-f0-9]{64}$",
+              "title": "Dataset Hash",
+              "type": "string"
+            },
+            "estimated_cost_ceiling": {
+              "exclusiveMinimum": 0,
+              "title": "Estimated Cost Ceiling",
+              "type": "number"
+            },
+            "model": {
+              "minLength": 1,
+              "title": "Model",
+              "type": "string"
+            },
+            "base_url": {
+              "title": "Base Url",
+              "type": "string"
+            },
+            "max_model_calls": {
+              "maximum": 40,
+              "minimum": 1,
+              "title": "Max Model Calls",
+              "type": "integer"
+            },
+            "max_input_bytes": {
+              "maximum": 200000,
+              "minimum": 1,
+              "title": "Max Input Bytes",
+              "type": "integer"
+            },
+            "max_output_tokens": {
+              "maximum": 8000,
+              "minimum": 1,
+              "title": "Max Output Tokens",
+              "type": "integer"
+            },
+            "input_price_per_million": {
+              "exclusiveMinimum": 0,
+              "title": "Input Price Per Million",
+              "type": "number"
+            },
+            "output_price_per_million": {
+              "exclusiveMinimum": 0,
+              "title": "Output Price Per Million",
+              "type": "number"
+            },
+            "currency": {
+              "enum": [
+                "USD",
+                "CNY"
+              ],
+              "title": "Currency",
+              "type": "string"
+            }
+          },
+          "required": [
+            "confirmed",
+            "authorization_id",
+            "dataset_hash",
+            "estimated_cost_ceiling",
+            "model",
+            "base_url",
+            "max_model_calls",
+            "max_input_bytes",
+            "max_output_tokens",
+            "input_price_per_million",
+            "output_price_per_million",
+            "currency"
+          ],
+          "title": "ModelConsent",
+          "type": "object"
+        }
+      },
       "additionalProperties": false,
       "properties": {
         "profile": {
@@ -5169,6 +5307,17 @@
           ],
           "default": null,
           "title": "Authorization Id"
+        },
+        "live_consent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelConsent"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -6574,6 +6723,129 @@
         "evidence"
       ],
       "title": "LiveSearchResult",
+      "type": "object"
+    },
+    "ModelConsent": {
+      "additionalProperties": false,
+      "properties": {
+        "confirmed": {
+          "title": "Confirmed",
+          "type": "boolean"
+        },
+        "authorization_id": {
+          "pattern": "^[A-Za-z0-9_-]{8,80}$",
+          "title": "Authorization Id",
+          "type": "string"
+        },
+        "dataset_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Dataset Hash",
+          "type": "string"
+        },
+        "estimated_cost_ceiling": {
+          "exclusiveMinimum": 0,
+          "title": "Estimated Cost Ceiling",
+          "type": "number"
+        },
+        "model": {
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "base_url": {
+          "title": "Base Url",
+          "type": "string"
+        },
+        "max_model_calls": {
+          "maximum": 40,
+          "minimum": 1,
+          "title": "Max Model Calls",
+          "type": "integer"
+        },
+        "max_input_bytes": {
+          "maximum": 200000,
+          "minimum": 1,
+          "title": "Max Input Bytes",
+          "type": "integer"
+        },
+        "max_output_tokens": {
+          "maximum": 8000,
+          "minimum": 1,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        },
+        "input_price_per_million": {
+          "exclusiveMinimum": 0,
+          "title": "Input Price Per Million",
+          "type": "number"
+        },
+        "output_price_per_million": {
+          "exclusiveMinimum": 0,
+          "title": "Output Price Per Million",
+          "type": "number"
+        },
+        "currency": {
+          "enum": [
+            "USD",
+            "CNY"
+          ],
+          "title": "Currency",
+          "type": "string"
+        }
+      },
+      "required": [
+        "confirmed",
+        "authorization_id",
+        "dataset_hash",
+        "estimated_cost_ceiling",
+        "model",
+        "base_url",
+        "max_model_calls",
+        "max_input_bytes",
+        "max_output_tokens",
+        "input_price_per_million",
+        "output_price_per_million",
+        "currency"
+      ],
+      "title": "ModelConsent",
+      "type": "object"
+    },
+    "SearchConsent": {
+      "additionalProperties": false,
+      "properties": {
+        "confirmed": {
+          "title": "Confirmed",
+          "type": "boolean"
+        },
+        "authorization_id": {
+          "pattern": "^[A-Za-z0-9_-]{8,80}$",
+          "title": "Authorization Id",
+          "type": "string"
+        },
+        "dataset_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Dataset Hash",
+          "type": "string"
+        },
+        "estimated_cost_ceiling": {
+          "exclusiveMinimum": 0,
+          "title": "Estimated Cost Ceiling",
+          "type": "number"
+        },
+        "per_call_estimate_ceiling": {
+          "exclusiveMinimum": 0,
+          "title": "Per Call Estimate Ceiling",
+          "type": "number"
+        }
+      },
+      "required": [
+        "confirmed",
+        "authorization_id",
+        "dataset_hash",
+        "estimated_cost_ceiling",
+        "per_call_estimate_ceiling"
+      ],
+      "title": "SearchConsent",
       "type": "object"
     }
   }

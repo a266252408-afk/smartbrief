@@ -1,0 +1,33 @@
+import { test, expect } from '@playwright/test'
+
+test('管理员按当前模型确认预算后才发起真实评测，结果区分真实与替身', async ({ page }) => {
+  const writes: any[] = [], rid = 'er_' + '8'.repeat(32)
+  await page.route('**/api/v*/**', async route => {
+    const path = new URL(route.request().url()).pathname, env = (data: unknown) => ({ data, meta: { request_id: 'fixture' } })
+    if (path.endsWith('/auth/session')) return route.fulfill({ json: env({ role: 'admin' }) })
+    if (path.endsWith('/catalog')) return route.fulfill({ json: env({ version: 'v1', cutoff: '2026-11-02', total_cases: 4, cases: [], areas: [{ area: 'end_to_end', label: '完整任务', profile: 'full_task_local', supported_case_ids: ['G017'], runnable: true }] }) })
+    if (path.endsWith('/live-config')) return route.fulfill({ json: env({ dataset_hash: 'a'.repeat(64), model: { ready: true, name: 'configured-real-model', base_url: 'https://provider.invalid/v1' }, search: { ready: false, base_url: 'https://api.exa.ai/search' } }) })
+    if (path.endsWith('/runs') && route.request().method() === 'POST') { writes.push(route.request().postDataJSON()); return route.fulfill({ status: 202, json: env({ run_id: rid }) }) }
+    if (path.endsWith('/runs/' + rid)) return route.fulfill({ json: env({ run_id: rid, profile: 'full_task_live', execution_status: 'completed', metadata: { model: 'configured-real-model', dataset_hash: 'a'.repeat(64) }, summary: { processed: 1, planned: 1 }, results: [{ case_id: 'G017', task_execution_status: 'completed', business_quality: 'passed', calls: 4, report: '实际响应归档' }] }) })
+    return route.fulfill({ status: 404, json: { error: { message: '未声明请求' } } })
+  })
+  await page.goto('/evaluation/run')
+  await page.getByLabel('访问令牌').fill('fixture-live')
+  await page.getByRole('button', { name: '验证并进入' }).click()
+  const form = page.getByRole('region', { name: '真实模型评测设置' })
+  await expect(form).toContainText('configured-real-model')
+  const launch = form.getByRole('button', { name: '确认运行真实模型评测', exact: true })
+  await expect(launch).toBeDisabled()
+  await form.getByLabel('每百万输入Token单价', { exact: true }).fill('1')
+  await form.getByLabel('每百万输出Token单价', { exact: true }).fill('2')
+  await form.getByLabel('本次估计费用上限', { exact: true }).fill('2')
+  expect(writes).toEqual([])
+  await form.getByText('我允许发送上述公开内容，并按本次参数调用及消费', { exact: true }).click()
+  await launch.click()
+  await expect(page).toHaveURL(new RegExp('/evaluation/runs/' + rid))
+  expect(writes).toHaveLength(1)
+  expect(writes[0]).toMatchObject({ profile: 'full_task_live', group: 'primary', case_ids: ['G017'], live_consent: { confirmed: true, model: 'configured-real-model', estimated_cost_ceiling: 2, dataset_hash: 'a'.repeat(64) } })
+  await expect(page.getByText('真实模型：configured-real-model', { exact: false })).toBeVisible()
+  await expect(page.getByText('待独立评判', { exact: true })).toBeVisible()
+  await page.screenshot({ path: '../docs/verification/EVAL-LIVE-01-01-ui.png', fullPage: true })
+})

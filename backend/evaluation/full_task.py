@@ -7,6 +7,7 @@ import subprocess
 import sys
 from time import perf_counter
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from evaluation.live_consent import ModelConsent
 from evaluation.mechanism import REPO, child_environment, stop_owned_process
 
 SUPPORTED = ['G017', 'G018', 'G019', 'G020']
@@ -19,13 +20,16 @@ class FullTaskRequest(BaseModel):
     case_ids: list[str] = Field(min_length=1, max_length=4)
     group: Literal['primary', 'backup', 'mixed'] = 'primary'
     authorization_id: str | None = None
+    live_consent: ModelConsent | None = None
 
     @model_validator(mode='after')
     def cases(self):
         if len(set(self.case_ids)) != len(self.case_ids) or not set(self.case_ids) <= set(SUPPORTED):
             raise ValueError('完整任务仅支持固定资料案例')
-        if self.profile == 'full_task_local' and self.authorization_id is not None:
+        if self.profile == 'full_task_local' and (self.authorization_id is not None or self.live_consent is not None):
             raise ValueError('本地替身运行不接受付费授权')
+        if self.authorization_id is not None and self.live_consent is not None:
+            raise ValueError('不能同时使用两种授权方式')
         return self
 
 
