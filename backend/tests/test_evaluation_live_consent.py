@@ -10,6 +10,9 @@ def configure(monkeypatch):
     monkeypatch.setenv('OPENAI_MODEL', 'configured-model')
     monkeypatch.setenv('OPENAI_BASE_URL', 'https://provider.invalid/v1')
     monkeypatch.setenv('OPENAI_API_KEY', 'secret-not-returned')
+    monkeypatch.setenv('BACKUP_OPENAI_MODEL', 'configured-model')
+    monkeypatch.setenv('BACKUP_OPENAI_BASE_URL', 'https://provider.invalid/v1')
+    monkeypatch.setenv('BACKUP_OPENAI_API_KEY', 'secret-not-returned')
     monkeypatch.setenv('EXA_API_KEY', 'search-secret')
 
 
@@ -19,6 +22,10 @@ def consent():
         model='configured-model', base_url='https://provider.invalid/v1', max_model_calls=10,
         max_input_bytes=20000, max_output_tokens=2000, input_price_per_million=1.0,
         output_price_per_million=2.0, currency='USD', estimated_cost_ceiling=1.0)
+
+
+def full_consent():
+    return consent() | {'max_model_calls': 40}
 
 
 def test_live_config_readonly_and_no_secrets(monkeypatch):
@@ -38,7 +45,7 @@ def test_explicit_consent_is_single_use_and_configuration_bound(monkeypatch):
     from evaluation.authorization import reserve
     from services.evaluation_service import EvaluationError
     configure(monkeypatch)
-    body=FullTaskRequest(profile='full_task_live',case_ids=['G017'],live_consent=consent())
+    body=FullTaskRequest(profile='full_task_live',case_ids=['G017'],live_consent=full_consent())
     grant=reserve(body)
     assert grant.model=='configured-model' and grant.case_ids==['G017']
     assert datetime.fromisoformat(grant.expires_at)>datetime.now(timezone.utc)
@@ -57,7 +64,7 @@ def test_invalid_consent_never_creates_reservation(monkeypatch,change):
     from db import evaluation_run_repository
     configure(monkeypatch)
     with pytest.raises((ValueError,RuntimeError)):
-        reserve(FullTaskRequest(profile='full_task_live',case_ids=['G017'],live_consent=consent()|change))
+        reserve(FullTaskRequest(profile='full_task_live',case_ids=['G017'],live_consent=full_consent()|change))
     assert not list((evaluation_run_repository.root()/'authorizations').glob('*.json'))
 
 
@@ -117,7 +124,7 @@ def test_http_consent_permissions_and_archive(monkeypatch):
             input_tokens=2,output_tokens=3,duration_seconds=0.1,error=None).model_dump()
     monkeypatch.setattr(evaluation_run_service,'full_case',external)
     with TestClient(app,headers=ADMIN_HEADERS) as client:
-        body=dict(profile='full_task_live',case_ids=['G017'],live_consent=consent())
+        body=dict(profile='full_task_live',case_ids=['G017'],live_consent=full_consent())
         assert client.post('/api/v2/evaluation-center/runs',headers=READ_HEADERS,json=body).status_code==403
         response=client.post('/api/v2/evaluation-center/runs',json=body)
         assert response.status_code==202

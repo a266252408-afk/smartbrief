@@ -47,7 +47,7 @@ export interface MechanismRun {
   run_id: string; execution_status: 'running' | 'completed' | 'failed'; report_quality: string
   created_at: string; error: string | null; results: MechanismResult[]
   summary: { planned: number; processed: number; passed: number; failed: number; unknown: number }
-  metadata?: { dataset_hash: string; model?: string; target?: string; source_run_id?: string; source_result_sha256?: string; judge_same_as_primary?: boolean
+  metadata?: { dataset_hash: string; model?: string; target?: string; source_run_id?: string; source_result_sha256?: string; judge_same_as_primary?: boolean; judge_source?: 'dedicated' | 'backup' | 'primary'
     calibration?: { total: number; unknown: number; false_accepts: number; false_rejects: number; accuracy: number | null }
     judge_usage?: { calls: number; input_tokens: number | null; output_tokens: number | null; estimated_costs: Record<string, number>; cost_complete: boolean; items: { status: string; error: string | null; duration_seconds: number; input_tokens: number | null; output_tokens: number | null }[] }
     model_group?: string; source_hash?: string; code_commit?: string; experiment_progress?: { case_id: string; phase: string; attempt: number; result: MechanismResult }[] }
@@ -126,7 +126,7 @@ export interface SearchConsent {
 }
 export interface LiveConfig {
   dataset_hash: string; model: { name: string; base_url: string; ready: boolean }
-  judge?: { name: string; base_url: string; ready: boolean; same_as_primary: boolean }
+  judge?: { name: string; base_url: string; ready: boolean; same_as_primary: boolean; source: 'dedicated' | 'backup' | 'primary' }
   search: { ready: boolean; base_url: string }; scope: string
 }
 export async function fetchLiveConfig(): Promise<LiveConfig> {

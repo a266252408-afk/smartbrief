@@ -163,3 +163,23 @@ def test_reference_spacing_is_normalized_before_persisting():
     from services.citations import strip_placeholder_citations
     assert strip_placeholder_citations('出货12万台[ S1 ]，增长[ S2]。') == '出货12万台[S1]，增长[S2]。'
     assert strip_placeholder_citations('引用位：[S编号] 数据待补充') == ' 数据待补充'
+
+
+def test_dates_and_period_labels_are_not_numeric_claims():
+    from services.citations import check_citations
+    body = '说明[S1]。\n\n截至2026年10月31日，统计期为2026年前三季度、2025年全年及2024-2026年。'
+    assert check_citations('t', body, [source()])['valid'] is True
+
+
+def test_attach_citations_only_when_one_source_matches_all_numbers():
+    from services.citations import attach_citations
+    unique = [source(excerpt='2026年预计2300万辆，占比28%'),
+              source(source_id='S2', url='https://example.invalid/b', excerpt='其他资料')]
+    result = attach_citations('预测销量为2300万辆。', unique)
+    assert result['attached'] == 1
+    assert result['body'].strip().endswith('[S1]')
+
+    ambiguous = [source(excerpt='2300万辆'), source(source_id='S2', url='https://example.invalid/b', excerpt='2300万辆')]
+    result = attach_citations('预测销量为2300万辆。', ambiguous)
+    assert result['attached'] == 0
+    assert result['issues'][0]['candidates'] == ['S1', 'S2']

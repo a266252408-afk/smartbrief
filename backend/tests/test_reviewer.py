@@ -151,3 +151,19 @@ def test_reviewer_node_llm_error_passes():
     assert out["quality_status"] == "unavailable"
     assert out["review_history"][-1]["passed"] is None
     assert out["review_comments"][0].startswith("审核调用失败")
+
+
+def test_reviewer_prompt_accepts_internal_citation_ids_and_limited_sources():
+    captured = {}
+
+    async def fake_chat(messages):
+        captured['system'] = messages[0]['content']
+        captured['user'] = messages[1]['content']
+        return FakeResp('{"passed": true, "comments": []}')
+
+    with patch.object(reviewer, 'chat', new=fake_chat):
+        run(reviewer_node(_state(draft='## 草稿[S1]')))
+    assert '[S#' in captured['system']
+    assert '不得要求改写' in captured['system']
+    assert '可用来源编号：S1' in captured['user']
+    assert '资料不足以支撑 1000 字' in captured['user']

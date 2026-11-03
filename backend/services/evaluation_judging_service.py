@@ -58,13 +58,14 @@ def prepare(body):
             # 完整任务的工程标准不交给语义模型，单列内容质量标准。
             rubrics=catalog._read(catalog.PACK_ROOT/'rubrics.json')
             material['rubrics']=[rubrics[k] for k in ('Q_SCOPE','Q_SUPPORT','Q_COVER','Q_GAP')]
+    judge=judge_config()
     grant=reserve_grading(body,case_ids)
     now=datetime.now(timezone.utc).isoformat()
     return dict(run_id='er_'+uuid4().hex,profile='independent_judging',execution_status='running',case_ids=case_ids,
         results=[],report_quality='unknown',summary=dict(planned=len(case_ids),processed=0,passed=0,failed=0,unknown=0),
         error=None,created_at=now,updated_at=now,metadata=dict(provenance(grant.dataset_hash,None),dataset_hash=grant.dataset_hash,
             model=grant.model,grader_version=JUDGE_VERSION,rubric_hash=fingerprint(material['rubrics']) if material else digest('calibration-v1'),
-            judge_same_as_primary=judge_config()['same_as_primary'],mode='online',target=body.target,
+            judge_same_as_primary=judge['same_as_primary'],judge_source=judge['source'],mode='online',target=body.target,
             source_run_id=body.run_id,source_result_sha256=source_hash,
             authorized_judge_grant=grant.model_dump(),judge_material=material,
             submitted_report=report if body.target!='calibration' else None))

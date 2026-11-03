@@ -289,3 +289,17 @@ def test_react_writer_summarize_research():
     assert "数据待补充" in summary  # 缺URL的旧原始字段不能提升为证据
     assert "（暂无研究数据）" not in summary
     assert "（暂无研究数据）" in react_writer._summarize_research({})
+
+
+def test_react_researcher_stops_when_search_has_no_new_sources():
+    from agents import react_researcher
+    logs = []
+    always_search = FakeResp('{"action": "web_search", "query": "q"}')
+    same = {'results': [{'title': 't', 'url': 'https://example.invalid/a', 'snippet': 's'}]}
+    with (
+        patch.object(react_researcher, 'chat', new=AsyncMock(return_value=always_search)),
+        patch.object(react_researcher.mcp_manager, 'call_tool', new=AsyncMock(return_value=same)),
+    ):
+        result = run(react_researcher.react_researcher_run('循环搜索', 1, logs))
+    assert len(result['observations']) == 2
+    assert any('没有新增来源' in log['content'] for log in logs)

@@ -5,7 +5,7 @@ import { fetchLiveConfig, type LiveConfig, type ModelConsent, type SearchConsent
 const props = defineProps<{ kind: 'model' | 'search' | 'judge'; caseCount: number; disabled?: boolean; busy?: boolean }>()
 const emit = defineEmits<{ launch: [consent: ModelConsent | SearchConsent] }>()
 const config = ref<LiveConfig | null>(null), error = ref(''), loading = ref(false), confirmed = ref(false)
-const calls = ref(20), inputBytes = ref(60000), outputTokens = ref(4000)
+const calls = ref(props.kind === 'judge' ? 10 : 40), inputBytes = ref(60000), outputTokens = ref(4000)
 const inputPrice = ref<number | undefined>(), outputPrice = ref<number | undefined>(), searchPrice = ref<number | undefined>()
 const ceiling = ref<number | undefined>(), currency = ref<'USD' | 'CNY'>('CNY')
 const id = ref('ui_' + crypto.randomUUID().replace(/-/g, ''))
@@ -46,8 +46,11 @@ onMounted(load)
       <p v-else>公开查询发送至 {{ config.search.base_url }}，每案例一次请求，最多5条摘要，不自动重试。</p>
       <p v-if="!ready" role="alert">{{ kind !== 'search' ? '模型名称、HTTPS端点或API Key未正确配置，请在后端本地配置后刷新。' : 'EXA API Key未配置，请在后端本地配置后刷新。' }}</p>
       <p v-if="kind === 'model'">使用当前主模型实际执行，发送所选公开题干、资料及模型生成上下文；搜索使用固定资料，长期记忆隔离。独立质量另行评判。</p>
+      <p v-if="kind === 'model'">完整任务每案例至少 20 次模型调用，建议 40 次；低于 20 次会在改写前耗尽预算，服务端直接拒绝。</p>
       <p v-if="kind === 'judge'">单独调用评分器检查给定报告/结果及参考资料，结论不是人工核验；本次次数和费用为整批上限（校准为10样本）。</p>
-      <p v-if="kind === 'judge' && config.judge?.same_as_primary">评分器沿用当前主模型，独立调用仍可能存在同模型偏差，建议人工抽查或配置不同评分模型。</p>
+      <p v-if="kind === 'judge' && config.judge?.source === 'backup'">评分器使用备用模型，与主模型独立；模型判定仍需人工抽查，不等于事实准确率。</p>
+      <p v-else-if="kind === 'judge' && config.judge?.source === 'dedicated'">评分器使用独立配置模型；模型判定仍需人工抽查，不等于事实准确率。</p>
+      <p v-else-if="kind === 'judge' && config.judge?.same_as_primary">评分器沿用当前主模型，独立调用仍可能存在同模型偏差，建议人工抽查或配置不同评分模型。</p>
       <fieldset :disabled="authRole !== 'admin' || busy">
         <template v-if="kind !== 'search'">
           <label>{{ kind === 'judge' ? '本次评分总调用上限' : '每案例模型调用上限' }} <el-input-number v-model="calls" :min="1" :max="40" :aria-label="kind === 'judge' ? '本次评分总调用上限' : '每案例模型调用上限'" /></label>

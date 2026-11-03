@@ -13,7 +13,7 @@ from evaluation.authorization import EvaluationGrant, CallBudget, _reserve_once
 from evaluation.live_consent import ModelConsent
 from evaluation.report_grading import Judgement
 from services.evaluation_service import EvaluationError
-from services.evaluation_live_config import judge_config
+from services.evaluation_live_config import judge_config, judge_prefix
 
 JUDGE_VERSION='real-evidence-judge-1'
 DEFAULT_JUDGE_TIMEOUT_SECONDS=60
@@ -118,7 +118,7 @@ class RealJudge:
         self.call_timeout=judge_timeout_seconds()
         # 外层 wait_for 留 5 秒收尾，确保供应商超时先于调度层超时生效。
         self.timeout_seconds=self.call_timeout+5
-        prefix='EVALUATION_JUDGE' if any(os.getenv('EVALUATION_JUDGE_'+key) for key in ('MODEL','BASE_URL','API_KEY')) else 'OPENAI'
+        prefix=judge_prefix()
         self.client=AsyncOpenAI(base_url=grant.base_url,api_key=os.environ[prefix+'_API_KEY'],max_retries=0,
             http_client=httpx.AsyncClient(follow_redirects=False))
         async def external_create(**kwargs):

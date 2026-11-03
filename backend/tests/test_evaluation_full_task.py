@@ -28,7 +28,7 @@ def grant_payload():
     from evaluation import catalog
     return dict(authorization_id='fixture-approval', dataset_hash=catalog.summary()['dataset_hash'], case_ids=['G017'],
         model='approved-model', base_url='https://approved.invalid/v1',
-        expires_at=(datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(), max_model_calls=8,
+        expires_at=(datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(), max_model_calls=40,
         max_input_bytes=20000, max_output_tokens=1000, input_price_per_million=1.0, output_price_per_million=2.0,
         currency='USD', estimated_cost_ceiling=1.0)
 
@@ -56,6 +56,24 @@ def test_grant_denial_and_single_use(monkeypatch):
     assert reserve(body).model == 'approved-model'
     with pytest.raises(EvaluationError):
         reserve(body)
+
+
+def test_live_grant_rejects_call_budget_below_workflow_minimum(monkeypatch):
+    from evaluation.full_task import FullTaskRequest
+    from evaluation.authorization import FULL_TASK_MIN_MODEL_CALLS, reserve
+    from services.evaluation_service import EvaluationError
+    from tests.test_evaluation_live_consent import configure, consent
+    configure(monkeypatch)
+    body = FullTaskRequest(profile='full_task_live', case_ids=['G017'],
+        live_consent=consent() | {'max_model_calls': FULL_TASK_MIN_MODEL_CALLS - 1})
+    with pytest.raises(EvaluationError) as info:
+        reserve(body)
+    assert info.value.code == 'LIVE_EVALUATION_BUDGET_TOO_LOW'
+    ok = FullTaskRequest(profile='full_task_live', case_ids=['G017'],
+        live_consent=consent() | {'authorization_id': 'fixture-minimum-ok',
+                                  'max_model_calls': FULL_TASK_MIN_MODEL_CALLS,
+                                  'estimated_cost_ceiling': 2.0})
+    assert reserve(ok).max_model_calls == FULL_TASK_MIN_MODEL_CALLS
 
 
 def test_call_budget_prevents_external_call(monkeypatch):

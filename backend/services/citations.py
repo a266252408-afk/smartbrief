@@ -18,6 +18,28 @@ PLACEHOLDER_REFERENCE = re.compile(
 RANKING_LABEL = re.compile(r"(?i)(?:top|前|第|cr)\s*[0-9]+")
 # “B2B2C”“5G”“Wi-Fi 6”等是业务/技术标签，不是定量声明。
 ALPHANUMERIC_LABEL = re.compile(r"(?i)[a-z][0-9]+|[2456]g|wi-?fi\s*[0-9]+")
+# 日期、季度、期号只限定统计期，不是定量声明；避免“截至2026年10月31日”被误判为缺引用。
+DATE_LABEL = re.compile(
+    r"(?:(?:19|20)\d{2}\s*[-~—至]\s*(?:19|20)\d{2}\s*年?"
+    r"|(?:19|20)\d{2}\s*[Qq][1-4]"
+    r"|(?:19|20)\d{2}\s*[-/年]\s*\d{1,2}\s*[-/月]\s*\d{1,2}\s*日?"
+    r"|(?:19|20)\d{2}\s*年\s*\d{1,2}\s*月"
+    r"|(?:19|20)\d{2}\s*[-/]\s*\d{1,2}"
+    r"|\d{1,2}\s*月\s*\d{1,2}\s*日"
+    r"|第\s*[一二三四五六七八九十0-9]+\s*季度"
+    r"|[Qq][1-4]"
+    r"|(?:19|20)\d{2}\s*年)"
+)
+# 有序列表编号、章节编号不是定量声明。
+ORDER_LABEL = re.compile(r"(?m)^\s*\d+\s*[.)、]\s*")
+SECTION_LABEL = re.compile(r"第\s*\d+\s*[部分章节条款]")
+# 提取定量 token（数字 + 常见单位）；日期和标签先被移除。
+QUANTITY = re.compile(
+    r"(?<![A-Za-z0-9.])\d+(?:\.\d+)?\s*(?:%|％|亿|万|千|百|元|美元|台|辆|人|个|件|家|座|GW|GWh|MW|MWh|kW|kWh|吨|平方米|公里|km|℃|倍|次)?",
+    re.IGNORECASE,
+)
+# 只有带单位/小数或至少 3 位数字的 token 才算定量声明；裸“3”多半是编号。
+QUANTITY_SUBSTANTIVE = re.compile(r"[%％亿万千百元台辆人个件家座GWkWh吨公里倍次]|\.|[0-9]{3}", re.IGNORECASE)
 
 
 def normalize_reference_spacing(body: str) -> str:
@@ -49,8 +71,75 @@ def _prose(body: str) -> str:
     return re.sub(r"(`+).*?\1", "", body, flags=re.DOTALL)
 
 
+def _factual_text(paragraph: str) -> str:
+    """移除标题、编号、日期、排名和技术标签，只留可能构成定量声明的文本。"""
+    factual = REFERENCE.sub("", _prose(paragraph))
+    factual = re.sub(r"(?m)^\s*#{1,6} .*?$", "", factual)
+    factual = ORDER_LABEL.sub("", factual)
+    factual = DATE_LABEL.sub("", factual)
+    factual = RANKING_LABEL.sub("", factual)
+    factual = ALPHANUMERIC_LABEL.sub("", factual)
+    return SECTION_LABEL.sub("", factual)
+
+
+def quantitative_tokens(paragraph: str) -> list[str]:
+    return [token for token in (match.group(0).strip() for match in QUANTITY.finditer(_factual_text(paragraph)))
+            if QUANTITY_SUBSTANTIVE.search(token)]
+
+
+def _number_parts(tokens: list[str]) -> list[str]:
+    numbers = []
+    for token in tokens:
+        match = re.match(r"\d+(?:\.\d+)?", token)
+        if match:
+            numbers.append(match.group(0))
+    return numbers
+
+
+def _number_in_text(number: str, text: str) -> bool:
+    return re.search(r"(?<![\d.])" + re.escape(number) + r"(?![\d])", text or "") is not None
+
+
+def _candidate_ids(tokens: list[str], sources) -> list[str]:
+    """返回摘要中同时包含全部数字的来源编号；无唯一候选时由调用方决定。"""
+    numbers = _number_parts(tokens)
+    if not numbers:
+        return []
+    return sorted({source.get("source_id") for source in sources
+                   if source.get("source_id") and not source.get("source_deleted")
+                   and all(_number_in_text(number, source.get("excerpt", "")) for number in numbers)})
+
+
+def attach_citations(body: str, sources) -> dict:
+    """对“数字唯一对应一个来源”的段落做确定性补引用。
+
+    只处理当前没有引用、且全部数字都能在同一来源摘要中找到的段落；
+    多个来源同时匹配或没有匹配时保留原样，交给 Rewriter/人工处理。
+    """
+    parts = re.split(r"(\n\s*\n)", body or "")
+    attached, issues = 0, []
+    for index in range(0, len(parts), 2):
+        paragraph = parts[index]
+        if not paragraph.strip() or REFERENCE.search(paragraph):
+            continue
+        if re.fullmatch(r"\s*#{1,6} .*", paragraph.strip()):
+            continue
+        tokens = quantitative_tokens(paragraph)
+        if not tokens:
+            continue
+        candidates = _candidate_ids(tokens, sources)
+        if len(candidates) == 1:
+            stripped = paragraph.rstrip()
+            parts[index] = stripped + f" [{candidates[0]}]" + paragraph[len(stripped):]
+            attached += 1
+        else:
+            issues.append(dict(paragraph=index // 2 + 1, excerpt=" ".join(paragraph.split())[:160],
+                               tokens=tokens, candidates=candidates))
+    return {"body": "".join(parts), "attached": attached, "issues": issues}
+
+
 def check_citations(task_id: str, body: str, sources: list, required=()) -> dict:
-    errors, records, seen = [], [], set()
+    errors, records, seen, issues = [], [], set(), []
     try:
         known = {s["source_id"]: s for s in validate_sources(task_id, sources)}
     except ValueError:
@@ -63,19 +152,15 @@ def check_citations(task_id: str, body: str, sources: list, required=()) -> dict
         errors.append("正文缺少[S编号]引用，数据待补充")
     for paragraph_no, paragraph in enumerate(re.split(r"\n\s*\n", _prose(body)), 1):
         claim = REFERENCE.sub("", paragraph).strip().strip("#>* -")[:2000]
-        factual = re.sub(r"(?m)^\s*#{1,6} .*?$|^\s*[0-9]+[.)、]\s*", "", REFERENCE.sub("", paragraph))
-        # 年份/年份区间用于限定主题，不等于定量数据；金额2026元等仍须引用。
-        factual = re.sub(
-            r"(?<![0-9])(?:(?:19|20)[0-9]{2}\s*[-~—至]\s*(?:19|20)[0-9]{2}|(?:19|20)[0-9]{2})\s*年",
-            "", factual,
-        )
-        # 排名/业务/技术标签不是定量声明；但同段只要有份额/金额/数量等数字，
+        # 年份、日期、季度、排名/业务/技术标签不是定量声明；但同段只要有份额/金额/数量等数字，
         # 即使同时写了“数据待补充”，仍须引用。
-        factual = RANKING_LABEL.sub("", factual)
-        factual = ALPHANUMERIC_LABEL.sub("", factual)
-        if re.search(r"[0-9]", factual) and not REFERENCE.search(paragraph):
+        tokens = quantitative_tokens(paragraph)
+        if tokens and not REFERENCE.search(paragraph):
             excerpt = " ".join(paragraph.split())[:160]
-            errors.append(f"含数字的声明段落缺少来源引用，数据待补充（段落{paragraph_no}：{excerpt}）")
+            candidates = _candidate_ids(tokens, known.values())
+            issues.append(dict(paragraph=paragraph_no, excerpt=excerpt, tokens=tokens, candidates=candidates))
+            hint = "；候选来源：" + "、".join(candidates) if candidates else "；无唯一候选来源"
+            errors.append(f"含数字的声明段落缺少来源引用，数据待补充（段落{paragraph_no}：{excerpt}{hint}）")
         for source_id in REFERENCE.findall(paragraph):
             if (source_id, claim) in seen:
                 continue
@@ -93,7 +178,7 @@ def check_citations(task_id: str, body: str, sources: list, required=()) -> dict
             if reason:
                 errors.append(reason)
     errors.extend(f"返工丢失原引用[{sid}]" for sid in sorted(set(required) - used))
-    return {"valid": not errors, "citations": records, "errors": list(dict.fromkeys(errors))}
+    return {"valid": not errors, "citations": records, "errors": list(dict.fromkeys(errors)), "issues": issues}
 
 
 def evidence_context(research_data: dict, sources=None, budget=12000) -> str:

@@ -84,3 +84,35 @@ def test_rewriter_prompt_shares_factual_discipline():
         run(rewriter_node(_state(draft="## 原稿")))
     for keyword in ("预测", "存量", "百分点", "冲突", "用户指令"):
         assert keyword in captured["system"]
+
+
+def test_rewriter_attaches_unique_citation_before_review():
+    from tests.test_evidence import source
+
+    async def fake_chat(messages):
+        return FakeResp('预测销量为2300万辆。')
+
+    state = {'task_id': 't', 'topic': '电动车', 'draft_content': '预测销量为2300万辆。',
+             'review_comments': ['含数字的声明段落缺少来源引用'], 'react_logs': [],
+             'evidence': [source(excerpt='2026年预计2300万辆')], 'research_data': {}}
+    with patch.object(rewriter, 'chat', new=fake_chat):
+        out = run(rewriter_node(state))
+    assert out['draft_content'].strip().endswith('[S1]')
+    assert any('确定性补引用' in log['content'] for log in out['react_logs'])
+
+
+def test_rewriter_prompt_lists_candidate_sources_when_ambiguous():
+    from tests.test_evidence import source
+    captured = {}
+
+    async def fake_chat(messages):
+        captured['user'] = messages[1]['content']
+        return FakeResp('预测销量为2300万辆。')
+
+    sources = [source(excerpt='2300万辆'), source(source_id='S2', url='https://example.invalid/b', excerpt='2300万辆')]
+    state = {'task_id': 't', 'topic': '电动车', 'draft_content': '预测销量为2300万辆。',
+             'review_comments': ['含数字的声明段落缺少来源引用'], 'react_logs': [],
+             'evidence': sources, 'research_data': {}}
+    with patch.object(rewriter, 'chat', new=fake_chat):
+        run(rewriter_node(state))
+    assert '候选来源：S1、S2' in captured['user']

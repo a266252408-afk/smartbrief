@@ -5,7 +5,7 @@ import LiveEvaluationLaunch from '../LiveEvaluationLaunch.vue'
 import { fetchLiveConfig } from '../../api/evaluationCenter'
 import { authRole } from '../../api/session'
 vi.mock('../../api/evaluationCenter', () => ({ fetchLiveConfig: vi.fn() }))
-const config = { dataset_hash: 'a'.repeat(64), model: { name: 'current-model', base_url: 'https://model.invalid/v1', ready: true }, search: { ready: true, base_url: 'https://api.exa.ai/search' }, judge: { ready: true, name: 'judge-model', base_url: 'https://judge.invalid/v1', same_as_primary: false }, scope: '公开资料' }
+const config = { dataset_hash: 'a'.repeat(64), model: { name: 'current-model', base_url: 'https://model.invalid/v1', ready: true }, search: { ready: true, base_url: 'https://api.exa.ai/search' }, judge: { ready: true, name: 'judge-model', base_url: 'https://judge.invalid/v1', same_as_primary: false, source: 'dedicated' as const }, scope: '公开资料' }
 let wrapper: ReturnType<typeof mount>
 afterEach(() => { wrapper?.unmount(); vi.resetAllMocks() })
 async function open(kind: 'model' | 'search' | 'judge' = 'model') {

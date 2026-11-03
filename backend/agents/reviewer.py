@@ -12,8 +12,8 @@ REVIEW_STEP_ID = 0
 SYSTEM_PROMPT = """你是市场调研报告质量审核员。请对给定的报告草稿进行评审，严格按以下三条标准判断：
 
 1. 是否包含至少 2 个具体数据点（数字、百分比、金额等）？
-2. 是否引用信息来源（来源标注、机构名、报告名等）？
-3. 正文字数是否不少于 1000 字？
+2. 是否使用系统引用标注 [S#] 将数字声明绑定到给定来源？[S#] 是合法的内部来源编号，不得要求改写成机构名、报告全称或参考文献列表。
+3. 正文是否完整覆盖主题？字数目标为不少于 1000 字；若给定资料不足以支撑该长度，允许在明确标注“数据待补充”的情况下低于目标，但不得为凑字数编造内容。
 
 仅返回 JSON：{"passed": true/false, "comments": ["意见1", "意见2", ...]}
 - passed：满足全部 3 条为 true，否则为 false
@@ -22,10 +22,15 @@ SYSTEM_PROMPT = """你是市场调研报告质量审核员。请对给定的报�
 """
 
 
-async def _review(draft: str) -> dict:
+async def _review(draft: str, evidence: list) -> dict:
+    ids = sorted({source.get("source_id") for source in evidence if source.get("source_id")})
+    source_chars = sum(len(source.get("excerpt", "") or "") for source in evidence)
+    guidance = f"可用来源编号：{'、'.join(ids) or '无'}；给定资料摘要约 {source_chars} 字。"
+    if source_chars < 1500:
+        guidance += "资料不足以支撑 1000 字时，允许明确标注“数据待补充”后低于目标，不得编造。"
     resp = await chat([
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": f"待审核报告草稿：\n\n{draft}"},
+        {"role": "user", "content": f"{guidance}\n\n待审核报告草稿：\n\n{draft}"},
     ])
     return parse_review(resp.choices[0].message.content or "")
 
@@ -52,7 +57,8 @@ async def reviewer_node(state: dict) -> dict:
     evidence = await asyncio.to_thread(refresh_document_sources, state.get("evidence", []))
     check = check_citations(state.get("task_id", ""), draft, evidence, state.get("required_citations", []))
     required = sorted(set(state.get("required_citations", [])) | {c["source_id"] for c in check["citations"] if c["valid"]})
-    common = {"evidence": evidence, "citations": check["citations"], "citation_errors": check["errors"], "required_citations": required}
+    common = {"evidence": evidence, "citations": check["citations"], "citation_errors": check["errors"],
+              "citation_issues": check.get("issues", []), "required_citations": required}
     if not state.get("evidence") and "数据待补充：暂无可追溯来源" not in draft:
         draft += "\n\n> 数据待补充：暂无可追溯来源。"
         common["draft_content"] = draft
@@ -64,7 +70,7 @@ async def reviewer_node(state: dict) -> dict:
         {"type": "Action", "content": "llm_gen(query=按 3 条标准评审报告草稿)" if check["valid"] else "citation_check（确定性来源映射检查）", "step_id": 0},
     ])
     try:
-        review = await _review(draft) if check["valid"] else {"passed": False, "comments": check["errors"]}
+        review = await _review(draft, evidence) if check["valid"] else {"passed": False, "comments": check["errors"]}
     except UsagePersistenceError:
         raise
     except Exception:

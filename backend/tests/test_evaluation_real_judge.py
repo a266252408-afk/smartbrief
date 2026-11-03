@@ -18,8 +18,14 @@ def wait_run(client,rid):
     raise AssertionError('评分没有在测试期限内完成')
 
 
+class Captured(list):
+    def __init__(self):
+        super().__init__()
+        self.client={}
+
+
 def install_sdk(monkeypatch, outcome='pass'):
-    captured=[]
+    captured=Captured()
     async def create(**kwargs):
         captured.append(kwargs)
         if outcome=='broken':
@@ -43,6 +49,7 @@ def install_sdk(monkeypatch, outcome='pass'):
         return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content),finish_reason=finish_reason)],
             usage=SimpleNamespace(prompt_tokens=100,completion_tokens=20))
     def sdk(**kwargs):
+        captured.client.update(kwargs)
         assert kwargs['max_retries']==0 and kwargs['base_url']=='https://provider.invalid/v1'
         async def close():
             await kwargs['http_client'].aclose()
@@ -67,6 +74,7 @@ def test_real_report_grading_async_ledger_and_single_use(monkeypatch):
         assert row['metadata']['judge_usage']['input_tokens']==100*len(captured)
         assert row['metadata']['judge_usage']['estimated_costs']['USD']>0
         assert row['metadata']['judge_same_as_primary']
+        assert row['metadata']['judge_source']=='backup'
         assert client.post('/api/v2/evaluation-center/judge',json=body).status_code==409
         assert 'secret-not-returned' not in str(row)
 
@@ -220,6 +228,30 @@ def test_judge_configuration_and_budget_reject_before_sdk(monkeypatch):
     monkeypatch.setenv('EVALUATION_JUDGE_API_KEY','judge-private-key')
     config=read_config()['judge']
     assert config['ready'] and not config['same_as_primary'] and 'private-key' not in str(config)
+
+
+def test_judge_defaults_to_backup_model_and_key(monkeypatch):
+    import asyncio
+    from evaluation.real_judge import LiveJudgeRequest,RealJudge,reserve_grading
+    from services.evaluation_live_config import judge_prefix,read_config
+    configure(monkeypatch)
+    monkeypatch.setenv('BACKUP_OPENAI_MODEL','backup-judge')
+    monkeypatch.setenv('BACKUP_OPENAI_BASE_URL','https://provider.invalid/v1')
+    monkeypatch.setenv('BACKUP_OPENAI_API_KEY','backup-secret')
+    assert judge_prefix()=='BACKUP_OPENAI'
+    config=read_config()['judge']
+    assert config['name']=='backup-judge' and config['source']=='backup'
+    assert config['ready'] and not config['same_as_primary'] and 'backup-secret' not in str(config)
+    async def scenario():
+        captured=install_sdk(monkeypatch)
+        async def update(value):
+            pass
+        grant=reserve_grading(LiveJudgeRequest(target='calibration',
+            live_consent=consent()|{'model':'backup-judge','max_model_calls':1}),['J01'])
+        judge=RealJudge(grant,update)
+        assert captured.client['api_key']=='backup-secret'
+        await judge.close()
+    asyncio.run(scenario())
 
 
 def test_judge_boundaries_and_cancellation_preserve_attempts(monkeypatch):

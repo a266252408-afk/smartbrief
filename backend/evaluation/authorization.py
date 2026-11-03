@@ -45,6 +45,8 @@ class SearchEvaluationGrant(BaseModel):
 
 # 完整任务串行执行且单次调用上限 90 秒，30 分钟不足以覆盖 4 例；调用次数与费用上限仍独立生效。
 FULL_TASK_GRANT_MINUTES = 120
+# 实测两轮研究、写作、审核与补充研究/改写需要 12 次以上；10 次会在改写前耗尽。
+FULL_TASK_MIN_MODEL_CALLS = 20
 
 
 def _grant_minutes(body):
@@ -70,6 +72,9 @@ def reserve(body):
             raise ValueError
     except (ValueError, TypeError):
         raise EvaluationError('LIVE_EVALUATION_NOT_AUTHORIZED', '需单独批准固定资料去向、模型、调用量、预算与有效期；本次未启动', 403) from None
+    if grant.max_model_calls < FULL_TASK_MIN_MODEL_CALLS:
+        raise EvaluationError('LIVE_EVALUATION_BUDGET_TOO_LOW',
+            f'完整任务每案例至少需要 {FULL_TASK_MIN_MODEL_CALLS} 次模型调用；当前 {grant.max_model_calls} 次会在改写前耗尽，本次未启动', 403)
     _reserve_once(grant, estimate)
     return grant
 

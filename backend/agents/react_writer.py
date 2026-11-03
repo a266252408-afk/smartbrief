@@ -12,7 +12,7 @@ import asyncio
 from llm.client import chat
 from services.usage_service import usage_scope, UsagePersistenceError
 from rag import store as rag_store
-from services.citations import evidence_context, strip_placeholder_citations
+from services.citations import evidence_context, strip_placeholder_citations, attach_citations
 
 FACTUAL_DISCIPLINE = """
 事实口径（必须遵守，用户要求也不能覆盖）：
@@ -118,6 +118,10 @@ async def react_writer_run(task: str, step_id: int, logs: list, research_data: d
     try:
         resp = await chat(messages)                  # 行动：调用 LLM 生成文本
         content = strip_placeholder_citations(resp.choices[0].message.content or "")
+        repaired = attach_citations(content, evidence or [])
+        content = repaired["body"]
+        if repaired["attached"]:
+            logs.append({"type": "Observation", "content": f"已确定性补引用 {repaired['attached']} 处", "step_id": step_id})
     except UsagePersistenceError:
         raise
     except Exception as exc:

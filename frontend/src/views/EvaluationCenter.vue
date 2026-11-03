@@ -381,7 +381,9 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(runPoll) })
           <p v-if="activeRun.error" role="alert">{{ activeRun.error }}</p>
           <section v-if="activeRun.profile === 'independent_judging'">
             <p>评分模型：{{ activeRun.metadata?.model }}；本次实际评分结论如下，不能代替人工事实核验。</p>
-            <p v-if="activeRun.metadata?.judge_same_as_primary">评分器沿用主模型，可能存在同模型偏差。</p>
+            <p v-if="activeRun.metadata?.judge_source === 'backup'">本次评分使用备用模型，与主模型独立；仍需人工抽查，模型结论不等于事实准确率。</p>
+            <p v-else-if="activeRun.metadata?.judge_source === 'dedicated'">本次评分使用独立配置模型；仍需人工抽查，模型结论不等于事实准确率。</p>
+            <p v-else-if="activeRun.metadata?.judge_same_as_primary">评分器沿用主模型，可能存在同模型偏差。</p>
             <p v-if="activeRun.metadata?.source_run_id">原运行：<router-link :to="`/evaluation/runs/${activeRun.metadata.source_run_id}`">{{ activeRun.metadata.source_run_id }}</router-link>；原始结果指纹 {{ activeRun.metadata.source_result_sha256 }}；原记录保持不变。</p>
             <p v-if="activeRun.metadata?.judge_usage">实际模型请求 {{ activeRun.metadata.judge_usage.calls }}；输入Token {{ activeRun.metadata.judge_usage.input_tokens ?? '未知' }}；输出Token {{ activeRun.metadata.judge_usage.output_tokens ?? '未知' }}；费用估计 {{ JSON.stringify(activeRun.metadata.judge_usage.estimated_costs) }}（{{ activeRun.metadata.judge_usage.cost_complete ? '已知用量估计，非账单' : '用量或费用不完整' }}）。</p>
             <p v-if="activeRun.metadata?.calibration">校准样本 {{ activeRun.metadata.calibration.total }}；未知 {{ activeRun.metadata.calibration.unknown }}；误放行 {{ activeRun.metadata.calibration.false_accepts }}；误拒绝 {{ activeRun.metadata.calibration.false_rejects }}；准确率 {{ activeRun.metadata.calibration.accuracy ?? '未知' }}。</p>

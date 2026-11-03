@@ -113,13 +113,39 @@ def usage_scope(agent: str, *, task=False, state=False, standalone=False):
     return decorate
 
 
+async def _wait_hard(awaitable, timeout):
+    """硬超时：到点立即返回，不等待底层请求完成取消。
+
+    供应商或 httpx 有时会忽略取消，直接 wait_for(协程) 会一直等到
+    请求自己结束（实测 90 秒配置拖到 204 秒）。shield 让 wait_for
+    只取消外层 future，超时后主动 cancel 内层任务但不 await 它。
+    """
+    task = asyncio.ensure_future(awaitable)
+    try:
+        return await asyncio.wait_for(asyncio.shield(task), timeout)
+    except asyncio.TimeoutError:
+        task.cancel()
+        def _consume(done):
+            if done.cancelled():
+                return
+            try:
+                done.exception()
+            except Exception:
+                pass
+        task.add_done_callback(_consume)
+        raise
+    except asyncio.CancelledError:
+        task.cancel()
+        raise
+
+
 async def measured_call(create, kwargs, *, policy, attempt=1, price=None,
                         provider=None, model_role=None, logical_call_id=None):
     """每次调用前落占位、结束后记录；写入失败不得冒充完成。"""
     context = usage_context.get()
     if context is None:
         try:
-            return await asyncio.wait_for(create(**kwargs), policy.timeout_seconds)
+            return await _wait_hard(create(**kwargs), policy.timeout_seconds)
         except Exception as exc:
             raise classify_model_error(exc) from None
     entry = ModelUsage(call_id=uuid4().hex, task_id=context[0], agent=context[1],
@@ -138,7 +164,7 @@ async def measured_call(create, kwargs, *, policy, attempt=1, price=None,
         assert_active()
         return response
     try:
-        response = await asyncio.wait_for(guarded_create(), policy.timeout_seconds)
+        response = await _wait_hard(guarded_create(), policy.timeout_seconds)
     except asyncio.CancelledError:
         entry.status, entry.error_code = "cancelled", "MODEL_CANCELLED"
         raise

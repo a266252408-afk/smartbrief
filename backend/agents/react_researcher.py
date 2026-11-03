@@ -19,6 +19,8 @@ MAX_REACT_STEPS = 3
 # 连续两次“搜索结果与主题无关”即停止换词：搜索端点降级时换词不会改善，
 # 继续重试只会消耗步骤预算。单次无关仍按原逻辑让模型调整关键词。
 MAX_IRRELEVANT_STREAK = 2
+# 连续一轮没有新增来源/片段就停止：冻结资料和重复查询下继续换词只会白耗调用。
+MAX_NO_NEW_STREAK = 1
 # 技能中心里的 EXA 搜索内置技能；启用且配置 Key 时 research 优先使用。
 EXA_SKILL_NAME = "builtin_exa_search"
 
@@ -175,6 +177,8 @@ async def react_researcher_run(
     observations = [] if observations is None else observations   # 收集本轮所有搜索结果
     failure = None
     irrelevant_streak = 0
+    no_new_streak = 0
+    seen_source_keys = set()
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": f"研究子任务：{task}"},
@@ -244,6 +248,24 @@ async def react_researcher_run(
         failure = None
         irrelevant_streak = 0
         observations.append({"query": query, "result": result})
+
+        rows = result.get("results") if isinstance(result, dict) else None
+        if isinstance(rows, list):
+            keys = {(str(row.get("url") or row.get("title") or "").strip() + "|" + str(row.get("snippet") or "")[:200])
+                    for row in rows if isinstance(row, dict) and (row.get("url") or row.get("title"))}
+            fresh = keys - seen_source_keys
+            seen_source_keys |= keys
+            if fresh:
+                no_new_streak = 0
+            else:
+                no_new_streak += 1
+                if no_new_streak >= MAX_NO_NEW_STREAK:
+                    logs.append({
+                        "type": "Thought",
+                        "content": "本轮搜索没有新增来源或片段，结束本轮研究，避免重复查询消耗调用",
+                        "step_id": step_id,
+                    })
+                    break
 
         # 携带上一轮 Observation 继续思考（限两轮，防止上下文过长）
         if round_no < MAX_REACT_STEPS:
