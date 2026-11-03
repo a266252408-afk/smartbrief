@@ -8,7 +8,8 @@ from db import evaluation_run_repository as repository
 from evaluation import catalog
 from evaluation.mechanism import MechanismRequest, MechanismResult, TESTS, run_case
 from evaluation.search_replay import SearchRequest, SearchResult, LiveSearchResult, EvaluationRun, run_case as replay_case
-from evaluation.full_task import FullTaskRequest, FullTaskResult, run_case as full_case
+from evaluation.full_task import FullTaskRequest, FullTaskResult, run_case as full_case, deadline_seconds
+from evaluation.full_task_worker import EVAL_MODEL_TIMEOUT_SECONDS, EVAL_COMPLETION_RESERVE, EVAL_MODEL_MAX_RETRIES
 from evaluation.authorization import reserve, reserve_search, EvaluationGrant, SearchEvaluationGrant
 from evaluation.search_live import run_case as live_search_case
 from evaluation.experiment import ExperimentRequest, ExperimentCaseResult, validate_sources, run_case as experiment_case
@@ -20,6 +21,20 @@ _run_id=None
 
 def _now():
     return datetime.now(timezone.utc).isoformat()
+
+
+def full_task_budget(grant):
+    """完整任务的预算与模型策略；在线与离线都记录实际生效值。"""
+    if grant is None:
+        return dict(max_task_tokens=500000, completion_reserve=EVAL_COMPLETION_RESERVE,
+                    per_call_timeout_seconds=EVAL_MODEL_TIMEOUT_SECONDS, model_max_retries=EVAL_MODEL_MAX_RETRIES,
+                    worker_deadline_seconds=deadline_seconds(None))
+    data = grant.model_dump() if hasattr(grant, 'model_dump') else dict(grant)
+    return dict(max_model_calls=data['max_model_calls'], max_input_bytes=data['max_input_bytes'],
+                max_output_tokens=data['max_output_tokens'], estimated_cost_ceiling=data['estimated_cost_ceiling'],
+                currency=data['currency'], completion_reserve=EVAL_COMPLETION_RESERVE,
+                per_call_timeout_seconds=EVAL_MODEL_TIMEOUT_SECONDS, model_max_retries=EVAL_MODEL_MAX_RETRIES,
+                worker_deadline_seconds=deadline_seconds(grant))
 
 
 def capabilities():
@@ -62,10 +77,7 @@ def start(body: MechanismRequest | SearchRequest | FullTaskRequest | ExperimentR
                         evidence_scope='冻结公开资料；独立语义质量未评判',
                         authorized_grant=grant.model_dump() if grant else None,
                         feature_flags=dict(rag=False, memory=False, review=True))
-        metadata['execution_budget'] = (dict(max_model_calls=grant.max_model_calls, max_input_bytes=grant.max_input_bytes,
-            max_output_tokens=grant.max_output_tokens, estimated_cost_ceiling=grant.estimated_cost_ceiling,
-            currency=grant.currency) if grant else dict(deadline_seconds=180, max_task_tokens=500000,
-                completion_reserve=2048, per_call_timeout_seconds=30, model_max_retries=0))
+        metadata['execution_budget'] = full_task_budget(grant)
         if not grant:
             metadata['execution_budget']['max_provider_attempts'] = 10
     if body.profile == 'bounded_experiment':

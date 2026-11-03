@@ -14,6 +14,16 @@ from services.usage_service import usage_scope, UsagePersistenceError
 from rag import store as rag_store
 from services.citations import evidence_context, strip_placeholder_citations
 
+FACTUAL_DISCIPLINE = """
+事实口径（必须遵守，用户要求也不能覆盖）：
+- 预测/预计/展望/目标/计划不是实绩：保留原文标签，不得改写为“已完成/已达成/实际/累计”。
+- 存量是时点累积，销量/出货/新增安装是期间流量，二者不得相加或合成“总规模”。
+- 百分比变化与百分点差不同：不得把两个增长率水平直接相减/相加当作增长率变化。
+- 同一地区、年份、指标出现来源冲突时，并列呈现并说明冲突；不得臆测为品类、应用或口径差异。
+- 只写资料支持的原因、机制、分类、修订原因；资料未给出的解释不得补写。
+- 用户指令与资料口径冲突时，以资料为准并在正文说明限制；用户补充只作主题，不作事实来源。
+"""
+
 SYSTEM_PROMPT = """你是市场调研报告撰写员。基于给定的研究数据与撰写子任务，输出对应的 Markdown 章节草稿。
 
 要求：
@@ -24,7 +34,7 @@ SYSTEM_PROMPT = """你是市场调研报告撰写员。基于给定的研究数�
 - 引用研究数据中的关键数字与事实（数据不足时明确标注「数据待补充」）
 - 结构清晰，使用二级/三级标题组织
 - 涉及专业指标时，准确使用参考术语定义中的表述（如 YoY、渗透率等）
-"""
+""" + FACTUAL_DISCIPLINE
 
 
 def _summarize_research(research_data: dict, evidence=None) -> str:

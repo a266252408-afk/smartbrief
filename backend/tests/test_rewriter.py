@@ -71,3 +71,16 @@ def test_rewriter_node_injects_topic_and_research_data():
     # 系统提示词包含"围绕主题/严禁跑题"约束
     assert "研究主题" in captured["system"]
     assert "严禁" in captured["system"] or "不得偏离" in captured["system"]
+
+
+def test_rewriter_prompt_shares_factual_discipline():
+    captured = {}
+
+    async def fake_chat(messages):
+        captured["system"] = messages[0]["content"]
+        return FakeResp("## 修改稿")
+
+    with patch.object(rewriter, "chat", new=fake_chat):
+        run(rewriter_node(_state(draft="## 原稿")))
+    for keyword in ("预测", "存量", "百分点", "冲突", "用户指令"):
+        assert keyword in captured["system"]

@@ -5,6 +5,8 @@ from pydantic import BaseModel, ConfigDict, StrictBool
 from services.evidence import normalize_evidence, validate_sources
 
 REFERENCE = re.compile(r"\[(S[0-9]+)\](?![ \t]*\()")
+# 模型偶尔输出“[ S1 ]”；落稿前归一为合法引用，避免生产检查与独立评分把空格式误判为缺引用。
+REFERENCE_SPACING = re.compile(r"\[\s*(S[0-9]+)\s*\]")
 # 无来源时模型可能照抄提示词里的“[S编号]”占位符。它不是合法引用，
 # 也不应出现在最终报告；在写入草稿前确定性清除。
 PLACEHOLDER_REFERENCE = re.compile(
@@ -18,9 +20,14 @@ RANKING_LABEL = re.compile(r"(?i)(?:top|前|第|cr)\s*[0-9]+")
 ALPHANUMERIC_LABEL = re.compile(r"(?i)[a-z][0-9]+|[2456]g|wi-?fi\s*[0-9]+")
 
 
+def normalize_reference_spacing(body: str) -> str:
+    """把“[ S1 ]”归一为“[S1]”，不改变引用编号。"""
+    return REFERENCE_SPACING.sub(r"[\1]", body or "")
+
+
 def strip_placeholder_citations(body: str) -> str:
-    """移除模型生成的非法引用占位符，保留其余正文。"""
-    return PLACEHOLDER_REFERENCE.sub("", body or "")
+    """移除模型生成的非法引用占位符，并归一引用空格后保留其余正文。"""
+    return normalize_reference_spacing(PLACEHOLDER_REFERENCE.sub("", body or ""))
 
 
 class Citation(BaseModel):

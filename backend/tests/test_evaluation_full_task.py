@@ -88,6 +88,9 @@ def test_full_task_http_and_live_no_record():
         assert client.post(path, json=dict(profile='full_task_local', case_ids=['G017'], authorized=True)).status_code == 422
         response = client.post(path, json=dict(profile='full_task_local', case_ids=['G017'], group='mixed'))
         assert response.status_code == 202
+        budget = response.json()['data']['metadata']['execution_budget']
+        assert budget['per_call_timeout_seconds'] == 90 and budget['completion_reserve'] == 4000
+        assert budget['model_max_retries'] == 0 and budget['worker_deadline_seconds'] == 180
         import time
         rid = response.json()['data']['run_id']
         end = time.monotonic() + 40
@@ -131,6 +134,9 @@ def test_worker_provider_boundary_without_network(tmp_path, monkeypatch, mode):
         else:
             os.environ.pop('SMARTBRIEF_EVALUATION_GRANT', None)
         asyncio.run(execute(tmp_path, 'G017', 'primary' if mode.startswith('live') else mode))
+        assert os.environ['MODEL_TIMEOUT_SECONDS'] == '90'
+        assert os.environ['MODEL_COMPLETION_RESERVE'] == '4000'
+        assert os.environ['MODEL_MAX_RETRIES'] == '0'
     result = json.loads((tmp_path / 'result.json').read_text('utf8'))
     if mode == 'live_failure':
         assert result['check_status'] == 'fail' and '私人错误' not in str(result)
@@ -216,6 +222,9 @@ def test_live_service_uses_reserved_grant_without_real_provider(monkeypatch):
                 break
             time.sleep(.01)
         assert received == [good['authorization_id']] and row['metadata']['mode'] == 'online'
+        budget = row['metadata']['execution_budget']
+        assert budget['per_call_timeout_seconds'] == 90 and budget['worker_deadline_seconds'] == 900
+        assert budget['completion_reserve'] == 4000 and budget['model_max_retries'] == 0
         assert row['report_quality'] == 'unknown' and row['summary']['unknown'] == 1
         assert client.post('/api/v2/evaluation-center/runs', json=body).status_code == 409
 
@@ -260,3 +269,19 @@ def test_child_env_and_incomplete_output(tmp_path, monkeypatch, outcome):
         EvaluationGrant(**(grant_payload() | {'expires_at': '2020-01-01T00:00:00Z'})), expired)
     with pytest.raises(EvaluationError):
         asyncio.run(budget(messages=[]))
+
+
+def test_full_task_effective_policy_and_deadline_selection():
+    from evaluation import full_task, full_task_worker
+    from services import evaluation_run_service
+    assert full_task_worker.EVAL_MODEL_TIMEOUT_SECONDS == 90
+    assert full_task_worker.EVAL_COMPLETION_RESERVE == 4000
+    assert full_task_worker.EVAL_MODEL_MAX_RETRIES == 0
+    assert full_task.deadline_seconds(None) == 180
+    assert full_task.deadline_seconds(object()) == 900
+    budget = evaluation_run_service.full_task_budget(None)
+    assert budget == dict(max_task_tokens=500000, completion_reserve=4000,
+                          per_call_timeout_seconds=90, model_max_retries=0, worker_deadline_seconds=180)
+    live = evaluation_run_service.full_task_budget(grant_payload())
+    assert live['worker_deadline_seconds'] == 900 and live['per_call_timeout_seconds'] == 90
+    assert 'estimated_cost_ceiling' in live

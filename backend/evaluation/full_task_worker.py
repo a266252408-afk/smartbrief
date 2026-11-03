@@ -10,6 +10,12 @@ from time import perf_counter
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+# 评测沿用产品默认的单次模型超时（backend/.env.example 为 90 秒）。
+# 30 秒低于 qwen 思考模型一次完整章节的生成耗时，会把写作统一打成 MODEL_TIMEOUT。
+EVAL_MODEL_TIMEOUT_SECONDS = 90
+EVAL_COMPLETION_RESERVE = 4000
+EVAL_MODEL_MAX_RETRIES = 0
+
 
 async def execute(directory, case_id, group):
     os.environ.update(PYTHON_DOTENV_DISABLED='1', DATA_DIR=str(directory / 'runtime'),
@@ -44,8 +50,10 @@ async def execute(directory, case_id, group):
     tid = 'full-' + case_id
     task_repository.create_task(tid, topic, metadata=dict(execution_mode='offline',
         evaluation_id=directory.parent.name, evaluation_case_id=case_id))
-    os.environ.update(MODEL_FAILOVER_ENABLED='false' if live else 'true', MODEL_MAX_RETRIES='0',
-        MAX_TASK_TOKENS='500000', MODEL_COMPLETION_RESERVE='2048', MODEL_TIMEOUT_SECONDS='30')
+    os.environ.update(MODEL_FAILOVER_ENABLED='false' if live else 'true',
+        MODEL_MAX_RETRIES=str(EVAL_MODEL_MAX_RETRIES), MAX_TASK_TOKENS='500000',
+        MODEL_COMPLETION_RESERVE=str(EVAL_COMPLETION_RESERVE),
+        MODEL_TIMEOUT_SECONDS=str(EVAL_MODEL_TIMEOUT_SECONDS))
     calls = Counter()
     if not live:
         os.environ.update(OPENAI_MODEL='fixture-primary', BACKUP_OPENAI_MODEL='fixture-backup',

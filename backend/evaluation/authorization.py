@@ -43,11 +43,19 @@ class SearchEvaluationGrant(BaseModel):
     max_results: Literal[5] = 5
 
 
+# 完整任务串行执行且单次调用上限 90 秒，30 分钟不足以覆盖 4 例；调用次数与费用上限仍独立生效。
+FULL_TASK_GRANT_MINUTES = 120
+
+
+def _grant_minutes(body):
+    return FULL_TASK_GRANT_MINUTES if getattr(body, 'profile', None) == 'full_task_live' else 30
+
+
 def reserve(body):
     try:
         consent = getattr(body, 'live_consent', None)
         grant = (EvaluationGrant(**consent.model_dump(exclude={'confirmed'}),case_ids=body.case_ids,
-            expires_at=(datetime.now(timezone.utc)+timedelta(minutes=30)).isoformat()) if consent else
+            expires_at=(datetime.now(timezone.utc)+timedelta(minutes=_grant_minutes(body))).isoformat()) if consent else
             EvaluationGrant.model_validate_json(os.environ.get('SMARTBRIEF_EVALUATION_GRANT', '')))
         requested_id = consent.authorization_id if consent else body.authorization_id
         endpoint = urlsplit(grant.base_url)

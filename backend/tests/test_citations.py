@@ -157,3 +157,9 @@ def test_uncited_numeric_paragraphs_need_source_even_with_missing_data_mark(extr
     assert result['valid'] is valid
     if not valid:
         assert any('数据待补充' in e for e in result['errors'])
+
+
+def test_reference_spacing_is_normalized_before_persisting():
+    from services.citations import strip_placeholder_citations
+    assert strip_placeholder_citations('出货12万台[ S1 ]，增长[ S2]。') == '出货12万台[S1]，增长[S2]。'
+    assert strip_placeholder_citations('引用位：[S编号] 数据待补充') == ' 数据待补充'

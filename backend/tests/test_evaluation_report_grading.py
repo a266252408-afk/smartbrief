@@ -20,6 +20,26 @@ def test_rules_unknown_and_no_business_reviewer():
     asyncio.run(scenario())
 
 
+def test_citation_structure_separates_gap_disclosure():
+    from evaluation.report_grading import ReportGradeRequest, grade_report
+    async def scenario():
+        gap = await grade_report(ReportGradeRequest(case_id='G002', report='2025年出货12万台[S01]。其他指标数据待补充。'))
+        assert gap['judgements'][0]['label'] == 'pass'
+        spaced = await grade_report(ReportGradeRequest(case_id='G002', report='2025年出货12万台[ S01 ]。'))
+        assert spaced['judgements'][0]['label'] == 'pass'
+        reasons = {}
+        for report in ('', '说明文字', '说明[S99]', '说明[S编号]', '[S01]'):
+            result = await grade_report(ReportGradeRequest(case_id='G002', report=report))
+            reasons[report] = result['judgements'][0]['reason']
+            assert result['judgements'][0]['label'] == 'fail'
+        assert '空稿' in reasons['']
+        assert '缺少' in reasons['说明文字']
+        assert 'S99' in reasons['说明[S99]']
+        assert '占位符' in reasons['说明[S编号]']
+        assert '绑定' in reasons['[S01]']
+    asyncio.run(scenario())
+
+
 def test_adapter_strictness_hard_failure_and_timeout():
     from evaluation.report_grading import ReportGradeRequest, grade_report, OpenJudgeAdapter
     async def scenario():
@@ -30,7 +50,8 @@ def test_adapter_strictness_hard_failure_and_timeout():
         good = OpenJudgeAdapter(Grader())
         body = ReportGradeRequest(case_id='G002', report='材料说明 [S01]')
         assert (await grade_report(body, good))['check_status'] == 'pass'
-        assert (await grade_report(body.model_copy(update={'report': '待补充 [S01]'}), good))['check_status'] == 'fail'
+        assert (await grade_report(body.model_copy(update={'report': '[S编号] [S01]'}), good))['check_status'] == 'fail'
+        assert (await grade_report(body.model_copy(update={'report': '数据待补充 [S01]'}), good))['check_status'] == 'pass'
         for score in (True, float('nan'), 0.5, '1'):
             class Bad:
                 async def aevaluate(self, **payload):

@@ -6,6 +6,7 @@ import re
 
 from pydantic import BaseModel, ConfigDict, Field
 from evaluation import catalog
+from services.citations import PLACEHOLDER_REFERENCE, REFERENCE, normalize_reference_spacing
 
 SUPPORTED = [f'G{i:03}' for i in range(2, 17, 2)]
 Label = Literal['pass', 'fail', 'unknown', 'not_applicable']
@@ -67,14 +68,35 @@ class CalibrationResult(CalibrationCounts):
     scope: str
 
 
+def citation_structure(report: str, allowed: set[str]) -> tuple[bool, str]:
+    """只判引用结构：非空、无占位符、引用存在且属于当前资料、引用绑定声明。
+
+    “数据待补充”是合法的缺口披露，不是引用失败；数字声明的映射由生产
+    check_citations 与 Q_SUPPORT 分别负责，避免把日期/季度讨论误判为引用错误。
+    """
+    if not (report or '').strip():
+        return False, '空稿，无正文'
+    if PLACEHOLDER_REFERENCE.search(report):
+        return False, '存在[S编号]/引用位占位符'
+    text = normalize_reference_spacing(report)
+    cited = REFERENCE.findall(text)
+    if not cited:
+        return False, '正文缺少[S编号]引用'
+    foreign = sorted(set(cited) - allowed)
+    if foreign:
+        return False, '引用不属于当前资料：' + '、'.join(foreign)
+    for number, paragraph in enumerate(re.split(r'\n\s*\n', text), 1):
+        if REFERENCE.findall(paragraph) and not re.search(r'\w', REFERENCE.sub('', paragraph).strip('#>* - ')):
+            return False, f'段落{number}引用无绑定声明'
+    return True, '引用仅验证当前资料映射，不证明语义'
+
+
 async def grade_report(body, grader=None, *, material=None):
     detail = material if material is not None else catalog.detail(body.case_id)
     allowed = set(detail.get('allowed_citations', [source['id'] for source in detail['sources']]))
-    cited = re.findall(r'\[(S\d+)\]', body.report)
-    valid = bool(body.report.strip()) and not re.search(r'待补充|\[S编号\]', body.report)
-    valid = valid and bool(cited) and set(cited) <= allowed
-    judgements = [] if detail.get('skip_citation_check') else [Judgement(rubric_id='Q_CITE', label='pass' if valid else 'fail',
-        reason='引用仅验证当前资料映射，不证明语义' if valid else '空稿、占位符、无引用或引用不属于当前资料')]
+    valid, cite_reason = citation_structure(body.report, allowed)
+    judgements = [] if detail.get('skip_citation_check') else [Judgement(rubric_id='Q_CITE',
+        label='pass' if valid else 'fail', reason=cite_reason)]
     for rubric in detail['rubrics']:
         if rubric['id'] == 'Q_CITE':
             continue

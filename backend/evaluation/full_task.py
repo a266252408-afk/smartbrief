@@ -12,6 +12,14 @@ from evaluation.mechanism import REPO, child_environment, stop_owned_process
 
 SUPPORTED = ['G017', 'G018', 'G019', 'G020']
 DEVELOPMENT_CASES = ['G002', 'G004', 'G008', 'G012', 'G014', 'G016']
+# 在线任务要覆盖规划、多次研究、写作与返工；单次调用上限 90 秒，180 秒不足以完成一个任务。
+LIVE_DEADLINE_SECONDS = 900
+LOCAL_DEADLINE_SECONDS = 180
+
+
+def deadline_seconds(grant=None):
+    """在线（有授权）与离线完整任务使用不同的子进程期限。"""
+    return LIVE_DEADLINE_SECONDS if grant is not None else LOCAL_DEADLINE_SECONDS
 
 
 class FullTaskRequest(BaseModel):
@@ -52,11 +60,12 @@ class FullTaskResult(BaseModel):
     error: str | None
 
 
-async def run_case(case_id, group, directory, grant=None, timeout=180, *, max_calls=10, feedback='', fault='none'):
+async def run_case(case_id, group, directory, grant=None, timeout=None, *, max_calls=10, feedback='', fault='none'):
     if (case_id not in SUPPORTED + DEVELOPMENT_CASES or group not in ('primary', 'backup', 'mixed')
             or type(max_calls) is not int or not 1 <= max_calls <= 10 or fault not in ('none', 'both_unavailable')
             or not isinstance(feedback, str) or len(feedback) > 1000):
         raise ValueError('未接通的完整任务配置')
+    deadline = timeout if timeout is not None else deadline_seconds(grant)
     directory = Path(directory).resolve()
     directory.mkdir(parents=True, exist_ok=True)
     env = child_environment(directory)
@@ -76,7 +85,7 @@ async def run_case(case_id, group, directory, grant=None, timeout=180, *, max_ca
                        if sys.platform == 'win32' else {'start_new_session': True})
             process = await asyncio.create_subprocess_exec(*command, cwd=REPO / 'backend', env=env,
                 stdout=output, stderr=asyncio.subprocess.STDOUT, **options)
-            code = await asyncio.wait_for(process.wait(), timeout)
+            code = await asyncio.wait_for(process.wait(), deadline)
             if code != 0:
                 raise ValueError('子进程异常')
             result = FullTaskResult.model_validate_json((directory / 'result.json').read_text('utf8'))

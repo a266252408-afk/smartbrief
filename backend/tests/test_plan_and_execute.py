@@ -259,6 +259,21 @@ def test_react_writer_strips_literal_placeholder():
     assert "数据待补充" in content
 
 
+def test_react_writer_prompt_contains_factual_discipline_and_normalizes_spacing():
+    captured = {}
+
+    async def fake_chat(messages):
+        captured["messages"] = messages
+        return FakeResp("## 摘要\n出货12万台[ S1]。")
+
+    with patch.object(react_writer, "chat", new=fake_chat):
+        content = run(react_writer.react_writer_run("写摘要", 2, [], {}))
+    system = captured["messages"][0]["content"]
+    for keyword in ("预测", "存量", "百分点", "冲突", "用户指令"):
+        assert keyword in system
+    assert content.endswith("出货12万台[S1]。")
+
+
 def test_react_writer_llm_error():
     logs = []
     with patch.object(react_writer, "chat", new=AsyncMock(side_effect=RuntimeError("boom"))):

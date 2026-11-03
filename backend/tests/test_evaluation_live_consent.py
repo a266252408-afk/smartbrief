@@ -61,6 +61,18 @@ def test_invalid_consent_never_creates_reservation(monkeypatch,change):
     assert not list((evaluation_run_repository.root()/'authorizations').glob('*.json'))
 
 
+def test_full_task_grant_ttl_covers_multi_case_run(monkeypatch):
+    from evaluation.full_task import FullTaskRequest
+    from evaluation.authorization import reserve
+    configure(monkeypatch)
+    body = FullTaskRequest(profile='full_task_live', case_ids=['G017', 'G018', 'G019', 'G020'],
+        live_consent=consent() | {'authorization_id': 'ui-full-task-ttl', 'max_model_calls': 40,
+                                  'max_input_bytes': 60000, 'estimated_cost_ceiling': 20.0})
+    grant = reserve(body)
+    remaining = (datetime.fromisoformat(grant.expires_at) - datetime.now(timezone.utc)).total_seconds()
+    assert remaining > 100 * 60
+
+
 def test_local_and_ambiguous_consent_rejected():
     from evaluation.full_task import FullTaskRequest
     from evaluation.search_replay import SearchRequest

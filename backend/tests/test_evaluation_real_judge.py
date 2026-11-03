@@ -25,10 +25,22 @@ def install_sdk(monkeypatch, outcome='pass'):
         if outcome=='broken':
             raise TimeoutError('PRIVATE_SECRET')
         payload=json.loads(kwargs['messages'][1]['content'])
-        content=json.dumps(dict(label=outcome,reason='依据所给资料作出独立判定',evidence_refs=[payload['sources'][0]['id']]))
+        label=outcome if outcome in ('pass','fail','unknown','not_applicable') else 'pass'
+        content=json.dumps(dict(label=label,reason='依据所给资料作出独立判定',evidence_refs=[payload['sources'][0]['id']]))
         if outcome=='invalid':
             content='not-json'
-        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))],
+        elif outcome=='truncated':
+            content='{"label":"pass","reason":"响应被截断'
+        elif outcome=='fenced':
+            content='```json\n'+content+'\n```'
+        elif outcome=='prose':
+            content='判定如下：\n'+content+'\n以上。'
+        elif outcome=='extra':
+            content=json.dumps(dict(label=label,reason='附带了多余字段',evidence_refs=[payload['sources'][0]['id']],confidence=0.9))
+        elif outcome=='empty':
+            content=None
+        finish_reason='length' if outcome=='truncated' else ('stop' if content is not None else None)
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content),finish_reason=finish_reason)],
             usage=SimpleNamespace(prompt_tokens=100,completion_tokens=20))
     def sdk(**kwargs):
         assert kwargs['max_retries']==0 and kwargs['base_url']=='https://provider.invalid/v1'
@@ -70,10 +82,64 @@ def test_failed_judge_is_unknown_and_usage_not_fabricated(monkeypatch,outcome):
         row=wait_run(client,response.json()['data']['run_id'])
         assert row['results'][0]['check_status']=='unknown' and row['report_quality']=='unknown'
         assert 'PRIVATE_SECRET' not in str(row)
+        item=row['metadata']['judge_usage']['items'][-1]
         if outcome=='broken':
             assert row['metadata']['judge_usage']['input_tokens'] is None
+            assert item['diagnostic']=='TimeoutError' and item['response_excerpt'] is None
         else:
             assert row['metadata']['judge_usage']['input_tokens']>0
+            assert item['diagnostic']=='JUDGE_JSON_INVALID' and item['response_excerpt']=='not-json'
+            assert 'JUDGE_JSON_INVALID' in row['results'][0]['judgements'][1]['reason']
+
+
+@pytest.mark.parametrize('outcome',['fenced','prose'])
+def test_judge_parses_wrapped_json(monkeypatch,outcome):
+    from main import app
+    configure(monkeypatch)
+    install_sdk(monkeypatch,outcome)
+    with TestClient(app,headers=ADMIN_HEADERS) as client:
+        response=client.post('/api/v2/evaluation-center/judge',json=dict(target='report',case_id='G002',report='腕戴设备情况 [S01]',live_consent=consent()))
+        row=wait_run(client,response.json()['data']['run_id'])
+        assert row['results'][0]['check_status']=='pass'
+
+
+@pytest.mark.parametrize('outcome,diagnostic',[
+    ('extra','JUDGE_SCHEMA_INVALID'),('truncated','JUDGE_TRUNCATED'),('empty','JUDGE_EMPTY_RESPONSE')])
+def test_judge_failure_diagnostics_are_specific(monkeypatch,outcome,diagnostic):
+    from main import app
+    configure(monkeypatch)
+    install_sdk(monkeypatch,outcome)
+    with TestClient(app,headers=ADMIN_HEADERS) as client:
+        response=client.post('/api/v2/evaluation-center/judge',json=dict(target='report',case_id='G002',report='腕戴设备情况 [S01]',live_consent=consent()))
+        row=wait_run(client,response.json()['data']['run_id'])
+        assert row['results'][0]['check_status']=='unknown'
+        item=row['metadata']['judge_usage']['items'][-1]
+        assert item['diagnostic']==diagnostic
+        if outcome=='empty':
+            assert item['response_excerpt'] is None
+        else:
+            assert item['response_excerpt']
+        assert diagnostic in row['results'][0]['judgements'][1]['reason']
+        if outcome=='truncated':
+            assert item['finish_reason']=='length'
+
+
+def test_judge_timeout_setting_is_shared(monkeypatch):
+    import asyncio
+    from evaluation.real_judge import RealJudge,reserve_grading,LiveJudgeRequest
+    configure(monkeypatch)
+    monkeypatch.setenv('EVALUATION_JUDGE_TIMEOUT_SECONDS','12')
+    async def scenario():
+        captured=install_sdk(monkeypatch)
+        async def update(value):
+            pass
+        grant=reserve_grading(LiveJudgeRequest(target='calibration',live_consent=consent()|{'max_model_calls':1}),['J01'])
+        judge=RealJudge(grant,update)
+        assert judge.timeout_seconds==17
+        assert (await judge(dict(query='x',sources=[dict(id='S01')])))['label']=='pass'
+        assert captured[-1]['timeout']==12
+        await judge.close()
+    asyncio.run(scenario())
 
 
 def test_real_calibration_does_not_leak_reference_labels(monkeypatch):
