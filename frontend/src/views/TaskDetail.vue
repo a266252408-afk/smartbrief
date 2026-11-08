@@ -4,6 +4,7 @@ import UsagePanel from '../components/UsagePanel.vue'
 import RetrievalPanel from '../components/RetrievalPanel.vue'
 import QualityBadge from '../components/QualityBadge.vue'
 import DemoBadge from '../components/DemoBadge.vue'
+import RewriteAudit from '../components/RewriteAudit.vue'
 import { isOfflineTask } from '../utils/taskOrigin'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -12,6 +13,7 @@ import { renderReport, escapeHtml } from '../utils/report'
 import '../styles/report.css'
 import { authRole } from '../api/session'
 import { fetchTaskStatus, regenerateTask, type TaskStatus, type ReactLog, type ReviewRound } from '../api/tasks'
+import ReviewEvidence from '../components/ReviewEvidence.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -207,6 +209,21 @@ const reviewRounds = computed<ReviewRound[]>(() => {
   return []
 })
 
+const stopText = computed(() => {
+  const last = reviewRounds.value[reviewRounds.value.length - 1]
+  if (!last?.convergence && (last?.stop_reason === 'NO_CONVERGENCE' || last?.convergence_stopped))
+    return '旧版收敛规则提前结束，缺少问题身份进展记录'
+  const reasons: Record<string, string> = {
+    REWRITE_FAILED: '返工失败，已保留原稿', REWRITE_NO_CHANGE: '返工未产生有效修改',
+    REVIEW_NO_ACTIONABLE_FINDINGS: '审核未提供有效修改目标', NO_CONVERGENCE: '完整复审确认旧硬问题均未解决',
+    MAX_ITERATIONS: '已达审核次数上限',
+  }
+  if (last?.stop_reason) return reasons[last.stop_reason] ?? '流程已停止，报告未通过审核'
+  if (last?.convergence_stopped) return reasons.NO_CONVERGENCE
+  return (detail.value?.iteration ?? 0) >= (detail.value?.max_iterations ?? 3)
+    ? reasons.MAX_ITERATIONS : '流程已停止，报告未通过审核'
+})
+
 /** 审核循环进度文案：第 N 次（上限 M）/ 已达上限 */
 const iterationText = computed(() => {
   const it = detail.value?.iteration ?? 0
@@ -361,8 +378,8 @@ watch(() => route.params.taskId, async value => {
       </template>
       <el-alert
         v-if="detail.forced_output"
-        title="已达循环上限，草稿已强制输出"
-        description="部分章节未通过审核，质量仍为未通过，并在草稿末尾追加了警告标记。"
+        :title="stopText"
+        description="报告保留供查看，质量仍为未通过。"
         type="warning"
         show-icon
         :closable="false"
@@ -381,6 +398,17 @@ watch(() => route.params.taskId, async value => {
               {{ (!detail.quality_status || detail.quality_status === 'unknown') ? '历史记录（质量未知）' : round.passed === true ? '通过' : round.passed === null ? '审核不可用' : '未通过' }}
             </el-tag>
           </div>
+          <p v-if="round.review_diagnostics" class="hint">审核格式诊断：{{ round.review_diagnostics.message }}</p>
+          <p v-if="round.action_plan" class="hint">修改范围：{{ round.action_plan.scope === 'full' ? '全文重组' : '点名段落' }}；问题清单：{{ round.action_plan.finding_ids.join('、') || '按全文审核意见核对' }}</p>
+          <p v-if="round.convergence" class="hint" data-testid="review-progress">旧硬问题已解决 {{ round.convergence.resolved.length }} 项，仍存在 {{ round.convergence.persisting.length }} 项，新问题 {{ round.convergence.introduced.length }} 项；本轮审核{{ round.convergence.current_review_complete ? '完整' : '不完整，不能据此提前判定不收敛' }}。</p>
+          <details v-if="round.rejected_findings?.length">
+            <summary>未采纳的审核问题 {{ round.rejected_findings.length }} 条（审核不完整）</summary>
+            <div v-for="(item, index) in round.rejected_findings" :key="index">
+              <p>{{ item.code }}</p><pre style="white-space: pre-wrap; overflow-wrap: anywhere">{{ JSON.stringify(item.finding, null, 2) }}</pre>
+            </div>
+          </details>
+          <RewriteAudit v-if="round.rewrite" :audit="round.rewrite" />
+          <ReviewEvidence :round="round" />
           <div v-if="round.comments?.length" class="review-bubbles">
             <div v-for="(c, i) in round.comments" :key="i" class="review-bubble">
               <div class="review-bubble-text">{{ c }}</div>

@@ -7,8 +7,10 @@ ReAct Researcher / ReAct Writer 执行，并更新完成状态与数据。
 from services.evidence import normalize_evidence
 from services.retrieval_service import refresh_document_sources
 from services.event_logs import EventLogs
-from services.report_quality import data_gap_section
+from services.report_quality import data_gap_section, repair_structure
+from services.citations import apply_unit_scale_fixes, rebind_citations
 from services.execution_context import run_before_deadline
+from services.usage_service import ModelCallError
 
 import asyncio
 import time
@@ -16,17 +18,18 @@ from typing import List, Dict
 
 from agents.react_researcher import react_researcher_run
 from agents.react_writer import react_writer_run
+from services.fact_binding import build_registry, locate_bindings
+from services.report_plan import is_assembly_step as _is_assembly, normalize_report_plan
 
 # 单个 Agent 步骤执行超时上限（超过则跳过该步骤，不让工作流卡死）。
-# Researcher 预算按 3 轮 ReAct 估算：每轮 = LLM 决策（慢模型实测 5~14s）
-# + web_search（www 超时回退 cn 的最坏路径约 5~6s），30s 只够 1~2 轮，
-# 会把已完成轮次的结果一并掐断，故放宽到 90s。
+# Researcher 预算按 3 轮 ReAct 估算：慢搜索可达 30s，慢模型单轮 18~27s，
+# 90s 会在第 3 轮只剩十几秒，故放宽到 300s，给每轮留出完整决策时间。
 # 单次 LLM 决策另由 react_researcher_run 的 deadline 约束，避免内层
-# 模型超时（60s × 重试）大于外层步骤超时、导致整步被静默取消。
-# Writer 需一次性生成整篇章节/报告、耗时明显更长；若沿用同一超时会被误掐断
-# （草稿退化为占位符，后续 A2A 返工极易跑题），故单独放宽。
-AGENT_STEP_TIMEOUT_SECONDS = 90     # researcher 步骤超时上限
-WRITER_STEP_TIMEOUT_SECONDS = 200   # writer 步骤超时上限；覆盖 90s 单次上限 × 最多 2 次尝试及检索开销
+# 模型超时大于外层步骤超时、导致整步被静默取消。
+# Writer 需一次性生成整篇章节/报告、耗时明显更长；主备合计预算 900s，
+# 故写作步骤放宽到 1000s，避免长文在主备切换时被外层误掐断。
+AGENT_STEP_TIMEOUT_SECONDS = 300    # researcher 步骤超时上限；慢搜索+慢模型时 3 轮常超过 90 秒
+WRITER_STEP_TIMEOUT_SECONDS = 1000  # writer 步骤超时上限；覆盖主备合计预算与长文生成
 STEP_DEADLINE_MARGIN_SECONDS = 0.5  # 给外层 wait_for 留出收尾/落日志时间
 
 
@@ -56,6 +59,21 @@ def _append_log(logs: List[Dict], step_id: int, log_type: str, content: str) -> 
     logs.append({"type": log_type, "content": content, "step_id": step_id})
 
 
+def _assemble_sections(plan, sections):
+    chunks = []
+    by_id = {str(s['id']): s for s in plan}
+    # 按实际完成顺序组装，不能假设模型给出的ID天然是拓扑顺序。
+    for step_id, content in sections.items():
+        step = by_id.get(str(step_id))
+        if step is None:
+            continue
+        if _is_assembly(step, plan) and '撰写超时' not in content and '撰写失败' not in content:
+            chunks = [content]
+        else:
+            chunks.append(content)
+    return '\n\n'.join(chunks)
+
+
 async def scheduler_node(state: dict, *, single_step: bool = False) -> dict:
     """LangGraph 节点：调度执行所有可执行步骤。
 
@@ -71,12 +89,14 @@ async def scheduler_node(state: dict, *, single_step: bool = False) -> dict:
     :param state: AgentState（含 plan / completed_steps / research_data / draft_content）
     :return: state 增量（completed_steps、research_data、draft_content、current_step_index、react_logs）
     """
-    plan = state.get("plan", [])
+    plan = normalize_report_plan(state.get("plan", []))
     completed: List[int] = list(state.get("completed_steps", []))   # 已完成步骤（会逐步累加）
     logs: List[Dict] = EventLogs(state.get("react_logs", []))       # 日志在产生时记录时间
     research_data: Dict = dict(state.get("research_data", {}))      # 研究数据（逐步填充）
     evidence = list(state.get("evidence", []))
     sections = dict(state.get("draft_sections", {}))
+    bound = state.get("report_pipeline_version", 1) >= 2
+    bindings = list(state.get("claim_bindings", []))
 
     # 逐轮派发：每轮取所有就绪步骤；线性版串行执行（当前串行执行）
     pending = True
@@ -122,6 +142,20 @@ async def scheduler_node(state: dict, *, single_step: bool = False) -> dict:
                         "skipped": True,
                         "error": f"timeout>{AGENT_STEP_TIMEOUT_SECONDS}s",
                     }
+                except ModelCallError as exc:
+                    if not getattr(exc, "step_budget_limited", False):
+                        raise
+                    degraded = True
+                    _append_log(
+                        logs, step_id, "Observation",
+                        f"步骤 {step_id} 模型调用被步预算截断，"
+                        f"已保留 {len(step_observations)} 轮已完成搜索结果",
+                    )
+                    research_data[f"step_{step_id}"] = {
+                        "observations": step_observations,
+                        "skipped": True,
+                        "error": "step_budget_timeout",
+                    }
                 degraded = degraded or bool(research_data[f"step_{step_id}"].get("error"))
             else:
                 evidence = await asyncio.to_thread(refresh_document_sources, evidence)
@@ -139,13 +173,22 @@ async def scheduler_node(state: dict, *, single_step: bool = False) -> dict:
                     sections[str(step_id)] = data_gap_section(task, state.get("topic"))
                 else:
                     try:
+                        assembly_input = ({'existing_draft': _assemble_sections(plan, sections)}
+                                          if _is_assembly(step, plan) else {})
+                        binding_context = {"task_id": state["task_id"], "claims": []}
+                        if bound:
+                            assembly_input["binding_context"] = binding_context
                         section = await asyncio.wait_for(
                             run_before_deadline(
-                                react_writer_run(task, step_id, logs, research_data, evidence=evidence),
+                                react_writer_run(task, step_id, logs, research_data, evidence=evidence, **assembly_input),
                                 time.monotonic() + WRITER_STEP_TIMEOUT_SECONDS - STEP_DEADLINE_MARGIN_SECONDS),
                             timeout=WRITER_STEP_TIMEOUT_SECONDS,
                         )
                         sections[str(step_id)] = section
+                        if bound:
+                            bindings.extend(binding_context["claims"])
+                        if assembly_input:
+                            _append_log(logs, step_id, 'Observation', '报告装配：已提供现有正文，整稿替换先前章节拼接结果；原始章节保留')
                     except asyncio.TimeoutError:
                         degraded = True
                         # 超时降级：追加占位章节，保证后续拼接 / 审核不因缺章节而崩
@@ -155,6 +198,15 @@ async def scheduler_node(state: dict, *, single_step: bool = False) -> dict:
                         )
                         # 占位文案与 Rewriter 的"草稿为空/仅占位则重写"约定呼应，改动需两边同步
                         sections[str(step_id)] = f"（步骤 {step_id} 撰写超时，内容待补充）"
+                    except ModelCallError as exc:
+                        if not getattr(exc, "step_budget_limited", False):
+                            raise
+                        degraded = True
+                        _append_log(
+                            logs, step_id, "Observation",
+                            f"步骤 {step_id} 写作模型调用被步预算截断，已跳过",
+                        )
+                        sections[str(step_id)] = f"（步骤 {step_id} 撰写超时，内容待补充）"
             completed.append(step_id)             # 3. 标记完成，解锁后续依赖
             ending = "已结束（降级，详见前述错误或超时记录）" if degraded else "完成"
             _append_log(logs, step_id, "Observation", f"步骤 {step_id} {ending}")
@@ -162,16 +214,29 @@ async def scheduler_node(state: dict, *, single_step: bool = False) -> dict:
             break
 
     # 组装草稿：writer 步骤的章节按执行顺序拼接成完整 Markdown
-    draft_content = "\n\n".join(sections.values())
+    draft_content = _assemble_sections(plan, sections)
     if not draft_content:
         # 没有 writer 步骤（或全部失败）时给出占位说明
         draft_content = "（无 writer 步骤生成内容）"
+    evidence_items = normalize_evidence(state.get("task_id", ""), research_data, evidence)
+    scaled = ({"body": draft_content, "fixed": []} if bound else apply_unit_scale_fixes(draft_content, evidence_items))
+    if scaled["fixed"]:
+        _append_log(logs, 0, "Observation", f"写作后确定性单位换算 {len(scaled['fixed'])} 处")
+    draft_content = scaled["body"]
+    repaired = ({"body": draft_content, "rebound": 0} if bound else rebind_citations(draft_content, evidence_items))
+    if repaired["rebound"]:
+        _append_log(logs, 0, "Observation", f"写作后确定性重挂引用 {repaired['rebound']} 处")
+    draft_content = repair_structure(repaired["body"], state.get("topic"))
 
     return {
+        "fact_registry": build_registry(
+            state.get("task_id", ""), evidence_items) if bound else state.get("fact_registry", {}),
+        "claim_bindings": locate_bindings(draft_content, bindings),
+        "plan": plan,
         "draft_sections": sections,
         "completed_steps": completed,             # 已完成步骤 id 列表
         "research_data": research_data,           # 各步骤研究结果（供前端/Writer 引用）
-        "evidence": normalize_evidence(state.get("task_id", ""), research_data, evidence),
+        "evidence": evidence_items,
         "draft_content": draft_content,           # 拼接后的报告草稿
         "current_step_index": len(completed),     # 进度 = 已完成步骤数
         "react_logs": logs,                       # 日志流

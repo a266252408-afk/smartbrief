@@ -29,6 +29,39 @@ async def invoke(task_id, times=1):
         await client.chat([{"role": "user", "content": "测试"}])
 
 
+def test_primary_and_backup_have_independent_limits(monkeypatch):
+    from services.budget import ModelPolicy
+    monkeypatch.setenv("MODEL_COMPLETION_RESERVE", "1000")
+    monkeypatch.setenv("MODEL_TIMEOUT_SECONDS", "30")
+    monkeypatch.setenv("PRIMARY_MODEL_COMPLETION_RESERVE", "4000")
+    monkeypatch.setenv("PRIMARY_MODEL_TIMEOUT_SECONDS", "45")
+    monkeypatch.setenv("BACKUP_MODEL_COMPLETION_RESERVE", "8000")
+    monkeypatch.setenv("BACKUP_MODEL_TIMEOUT_SECONDS", "60")
+    primary, backup = ModelPolicy.for_role("primary"), ModelPolicy.for_role("backup")
+    assert (primary.completion_reserve, primary.timeout_seconds) == (4000, 45)
+    assert (backup.completion_reserve, backup.timeout_seconds) == (8000, 60)
+
+
+def test_role_without_override_falls_back_to_shared_values(monkeypatch):
+    from services.budget import ModelPolicy
+    monkeypatch.setenv("MODEL_COMPLETION_RESERVE", "1500")
+    monkeypatch.setenv("MODEL_TIMEOUT_SECONDS", "25")
+    backup = ModelPolicy.for_role("backup")
+    assert (backup.completion_reserve, backup.timeout_seconds) == (1500, 25)
+
+
+@pytest.mark.parametrize("name,value", [
+    ("PRIMARY_MODEL_COMPLETION_RESERVE", "bad"),
+    ("BACKUP_MODEL_TIMEOUT_SECONDS", "nan"),
+])
+def test_invalid_role_limits_fail_before_call(monkeypatch, name, value):
+    from services.budget import ModelPolicy
+    from services.usage_service import UsagePersistenceError
+    monkeypatch.setenv(name, value)
+    with pytest.raises(UsagePersistenceError, match="配置无效"):
+        ModelPolicy.for_role("backup" if name.startswith("BACKUP") else "primary")
+
+
 def test_unknown_usage_consumes_reservation_before_next_call(model):
     from services.budget import BudgetExceeded
     with pytest.raises(BudgetExceeded):

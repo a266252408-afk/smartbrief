@@ -78,7 +78,7 @@ v2 memory提供分页、五状态过滤和管理员墓碑删除；索引删除�
 
 所有报告Agent通过ContextVar绑定task_id/agent；单智能体对话使用独立chat_UUID。llm/client只调用OpenAI兼容SDK，SDK重试为0，业务层按MODEL_MAX_RETRIES重试超时/连接/429/5xx；每次尝试有唯一call_id、attempt、模型、耗时、结果与固定错误码。调用前SQLite原子写占位及预留，结束后写入供应商usage，取消也记账；失败/崩溃保留unknown，不记录prompt或密钥。仓储/预算持久化失败和预算不足传播到工作流失败终态，不由Agent降级吞掉。
 
-MAX_TASK_TOKENS默认20000，MODEL_COMPLETION_RESERVE默认2048，MODEL_TIMEOUT_SECONDS默认60，MODEL_MAX_RETRIES默认1。消息及工具UTF-8字节数加完成预留用于调用前保守估算；成功已知Token后按供应商值结算，未知/失败按预留扣账，旧未知无预留按当前预算扣满。同任务并发事务保护，恢复读取持久化账本。分词器和供应商用量可能不同，不能宣称严格Token或金额封顶。
+MAX_TASK_TOKENS默认500000，MODEL_COMPLETION_RESERVE默认16384，MODEL_TIMEOUT_SECONDS默认180，MODEL_MAX_RETRIES默认1。主备各自可用PRIMARY_MODEL_COMPLETION_RESERVE / PRIMARY_MODEL_TIMEOUT_SECONDS 与 BACKUP_MODEL_COMPLETION_RESERVE / BACKUP_MODEL_TIMEOUT_SECONDS 覆盖，未配置时回退通用值；带思考过程的备用模型需要更大完成预留，否则思考token耗尽后正文为空。消息及工具UTF-8字节数加完成预留用于调用前保守估算；成功已知Token后按供应商值结算，未知/失败按预留扣账，旧未知无预留按当前预算扣满。同任务并发事务保护，恢复读取持久化账本。分词器和供应商用量可能不同，不能宣称严格Token或金额封顶。
 
 MODEL_PRICES_JSON可按模型指定每百万输入/输出单价与三字母币种，无默认值；费用按调用时配置估算并持久化，价格变化不重估历史，不同币种分开统计。v2 tasks/{id}/usage统一包对管理员/只读开放，未知任务404、损坏/不可用503；旧任务无记录显示未知而非零，v1形状保留。TaskDetail按需查看和轮询，切任务/卸载拒绝迟到响应；JSON导出只含结构化账本，费用部分已知时不称总额。
 
@@ -119,3 +119,20 @@ MODEL_FAILOVER_ENABLED=true时启用独立备用配置。任务切备用前先�
 v2 usage统一包增加缓存汇总、任务备用绑定和仅包含Agent/步骤/完成编号的检查点投影；不回显供应商URL、Key、prompt或草稿。读不到检查点时为null，不用业务进度假冒断点；终止快照无待执行单元。前端原用量面板展示，v1形状保留。
 
 长期记忆模型来源按该任务成功调用账本推导：只有一个模型才写model_name；混合模型或没有成功调用证据为null。失败的主模型尝试不会把成功备用的标签覆盖为主模型；不重写历史已存记忆。
+# 报告生成流程版本 2（2026-11-06 本地实现）
+
+在线任务创建与重新生成写入metadata.report_pipeline_version=2。Planner保留研究分工，最终唯一Writer依赖全部研究；已有匹配文档且无需额外研究的计划可直接写作。旧任务缺少版本时保持原路径，检查点恢复使用已保存计划。
+
+采集、入库和模型上下文共用完整句段摘录：500字符为目标，完整句可超出目标，仍有4000字符证据存储上限；超长无边界片段不给半句事实并保留检索线索。残缺数字尾部标记incomplete_tail，同网址补回明确延续的完整片段可更新当前运行证据且保持来源编号。历史快照保持可追溯。
+
+任务内事实使用F加内容摘要编号，绑定原句、source_id及结构化数值/口径索引。Writer和Rewriter使用事实编号，程序核验归属、数值、期间/地区、统计对象与预测属性后渲染[S#]。新定性断言同样需要绑定，建议与推断明确标识。显示、复审和导出共用渲染后的Markdown；事实与声明位置随检查点和审核历史保存。
+
+每轮来源硬意见最多一次独立争议复审，使用完整审核标准，保存原意见、报告原句、完整来源和复核结果。复核不可用时保留拒绝并标审核不完整。确定性错误仍阻止通过。候选验收比较问题及出现次数，位置移动不算新增；全文不能携带返工协议或新增硬错覆盖已接受稿。语义正确性仍须审核判断。
+
+当前在线效果未复测，服务未主动重启；离线验收结果与源码指纹见verification/REVIEW-CONTRACT-01-pipeline-v2.json。
+
+## 统一思考档位（2026-11-08）
+
+backend/.env 的 `MODEL_REASONING_EFFORT=high` 控制 GLM-5.3 系列的所有业务 Agent、主备调用、自修复与独立评测；可选 `low`、`high`、`max`，默认 `high`，修改后重启后端加载。共享策略在业务 measured_call 与独立评测 CallBudget 的供应商边界应用，不按角色自动升档。非法值在调用前停止，不静默回退最高档。
+
+适配只覆盖已确认的枚举参数：GLM-5.3 系列依据 [官方模型卡](https://huggingface.co/zai-org/GLM-5.3-Flash#note) 传 `reasoning_effort`。千问 3.7 官方仅明确提供思考预算，未确认该枚举，保留原参数；不把预算臆测成 high，也不向其他未知模型盲目发送参数。详见 [千问参数文档](https://docs.qwencloud.com/api-reference/chat/openai-chat)。输出 Token 额度、超时和审核标准保持原设置。本次仅离线验证参数传递，不表示真实生成速度或质量已通过在线验证。

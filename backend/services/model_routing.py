@@ -11,7 +11,7 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from services.usage_service import UsagePersistenceError, ModelCallError, measured_call, usage_context
-from services.budget import ModelPolicy
+from services.budget import ModelPolicy, completion_reserve_for
 from services.execution_context import assert_active, model_deadline
 
 
@@ -131,12 +131,14 @@ def select_backup(task_id, reason):
         raise UsagePersistenceError('备用模型绑定保存失败，已停止调用') from None
 
 
-async def routed_chat(messages, tools=None, tool_choice=None):
+async def routed_chat(messages, tools=None, tool_choice=None, model=None, output_contract=None):
     """主备共享时间/次数/Token预算；模型选择按任务持久化。"""
     from llm.client import get_client, get_backup_client, get_model
     from services.usage_summary import configured_price
     from services.usage_service import classify_model_error
-    failover, policy = FailoverPolicy.from_env(), ModelPolicy.from_env()
+    failover = FailoverPolicy.from_env()
+    primary_policy = ModelPolicy.for_role('primary')
+    backup_policy = ModelPolicy.for_role('backup')
     logical_call_id = uuid4().hex
     assert_active()
     context = usage_context.get()
@@ -150,26 +152,43 @@ async def routed_chat(messages, tools=None, tool_choice=None):
         ticket = circuit.acquire()
         if ticket is None:
             binding = select_backup(task_id, 'PRIMARY_CIRCUIT_OPEN')
+    transient = False
     try:
         for attempt in range(1, failover.max_attempts + 1):
             assert_active()
             remaining = deadline - monotonic()
             if remaining <= 0:
                 break
-            role = 'backup' if binding is not None else 'primary'
+            use_backup = binding is not None or transient
+            role = 'backup' if use_backup else 'primary'
+            policy = backup_policy if role == 'backup' else primary_policy
+            # 步预算比模型超时先到时，单次调用会被压缩；这种超时不能算供应商故障。
+            budget_limited = remaining <= policy.timeout_seconds
             timeout = min(policy.timeout_seconds, remaining / 2 if role == 'primary' else remaining)
             attempt_policy = policy.model_copy(update={'timeout_seconds': timeout})
-            kwargs = dict(model=binding['model'] if binding else get_model(), messages=messages,
-                          max_tokens=policy.completion_reserve, timeout=timeout)
+            if binding is not None:
+                model_name = binding['model']
+                provider = binding['provider']
+            elif transient:
+                model_name = os.environ['BACKUP_OPENAI_MODEL']
+                provider = os.getenv('BACKUP_OPENAI_PROVIDER', 'backup') or 'backup'
+            else:
+                model_name = model or get_model()
+                provider = os.getenv('OPENAI_PROVIDER', 'primary') or 'primary'
+            from services.structured_output import prepare_output
+            output_messages, output_kwargs, output_meta = prepare_output(messages, output_contract, model_name,
+                os.getenv('BACKUP_OPENAI_BASE_URL' if use_backup else 'OPENAI_BASE_URL'))
+            kwargs = dict(model=model_name, messages=output_messages,
+                          max_tokens=completion_reserve_for(model_name, policy), timeout=timeout)
+            kwargs.update(output_kwargs)
             if tools:
                 kwargs['tools'] = tools
             if tool_choice:
                 kwargs['tool_choice'] = tool_choice
-            provider = binding['provider'] if binding else os.getenv('OPENAI_PROVIDER', 'primary') or 'primary'
             price = configured_price(kwargs['model'], provider)
             try:
                 try:
-                    create = (get_backup_client() if binding else get_client()).chat.completions.create
+                    create = (get_backup_client() if use_backup else get_client()).chat.completions.create
                 except RuntimeError:
                     error = ModelCallError('模型客户端配置不可用')
                     error.failover_reason = 'MODEL_AUTH'
@@ -180,6 +199,16 @@ async def routed_chat(messages, tools=None, tool_choice=None):
                 raise
             except Exception as exc:
                 error = exc if isinstance(exc, ModelCallError) else classify_model_error(exc)
+                if budget_limited and error.code == 'MODEL_TIMEOUT':
+                    if role == 'primary' and not transient:
+                        # 只做一次临时备用尝试，不打开熔断、不持久化绑定；
+                        # 下一次调用仍会先试探主模型。
+                        transient = True
+                        circuit.finish(ticket, True, failover.cooldown_seconds)
+                        ticket = None
+                        continue
+                    error.failover_reason = None
+                    error.step_budget_limited = True
                 if not error.failover_reason:
                     if role == 'primary':
                         circuit.finish(ticket, True, failover.cooldown_seconds)

@@ -66,6 +66,55 @@ def test_fallback_plan_shape():
     assert [s["agent"] for s in steps] == ["researcher", "researcher", "writer"]
 
 
+def test_ensure_sectioned_plan_splits_single_full_report_writer():
+    plan = [
+        {"id": 1, "agent": "researcher", "task": "搜", "depends_on": []},
+        {"id": 2, "agent": "writer", "task": "撰写完整报告", "depends_on": [1]},
+    ]
+    result = planner.ensure_sectioned_plan(plan)
+    assert [step["agent"] for step in result] == ["researcher", "writer", "writer"]
+    assert "主体章节" in result[1]["task"] and "不输出报告标题" in result[1]["task"]
+    assert "标题在最前" in result[2]["task"] and "结论与建议" in result[2]["task"]
+    assert result[2]["depends_on"] == [1, 2]
+    assert result[2]["id"] == 3
+
+
+def test_ensure_sectioned_plan_leaves_section_writer():
+    plan = [{"id": 1, "agent": "writer", "task": "撰写市场规模章节", "depends_on": []}]
+    assert planner.ensure_sectioned_plan(plan) == plan
+
+
+def test_ensure_sectioned_plan_is_idempotent():
+    plan = [
+        {"id": 1, "agent": "researcher", "task": "搜", "depends_on": []},
+        {"id": 2, "agent": "writer", "task": "撰写《主题》市场调研报告草稿", "depends_on": [1]},
+    ]
+    once = planner.ensure_sectioned_plan(plan)
+    assert planner.ensure_sectioned_plan(once) == once
+
+
+def test_ensure_sectioned_plan_marks_last_report_writer_only():
+    plan = [
+        {"id": 1, "agent": "researcher", "task": "搜", "depends_on": []},
+        {"id": 2, "agent": "writer", "task": "撰写市场规模章节", "depends_on": [1]},
+        {"id": 3, "agent": "writer", "task": "撰写竞争格局章节", "depends_on": [1]},
+        {"id": 4, "agent": "writer", "task": "撰写摘要与结论", "depends_on": [1, 2, 3]},
+    ]
+    result = planner.ensure_sectioned_plan(plan)
+    assert "标题在最前" in result[-1]["task"]
+    assert "标题在最前" not in result[1]["task"]
+    assert "标题在最前" not in result[2]["task"]
+
+
+def test_ensure_sectioned_plan_respects_max_steps():
+    plan = [{"id": i, "agent": "researcher", "task": f"搜{i}", "depends_on": []}
+            for i in range(1, 5)]
+    plan.append({"id": 5, "agent": "writer", "task": "撰写完整报告", "depends_on": [1, 2, 3, 4]})
+    result = planner.ensure_sectioned_plan(plan)
+    assert len(result) == planner.MAX_STEPS
+    assert "标题在最前" in result[-1]["task"]
+
+
 def test_planner_node_uses_llm():
     content = json_dumps_list(
         [
@@ -85,7 +134,8 @@ def test_planner_node_falls_back_on_llm_error():
     state = {"task_id": "t1", "topic": "手机", "react_logs": []}
     with patch.object(planner, "chat", new=AsyncMock(side_effect=RuntimeError("boom"))):
         result = run(planner.planner_node(state))
-    assert len(result["plan"]) == 3  # 降级计划
+    assert len(result["plan"]) == 4  # 降级计划：2 研究 + 主体 + 摘要/结论
+    assert [step["agent"] for step in result["plan"]] == ["researcher", "researcher", "writer", "writer"]
     assert any("降级计划" in log["content"] for log in result["react_logs"])
 
 
@@ -262,7 +312,7 @@ def test_react_writer_strips_literal_placeholder():
 def test_react_writer_prompt_contains_factual_discipline_and_normalizes_spacing():
     captured = {}
 
-    async def fake_chat(messages):
+    async def fake_chat(messages, **kwargs):
         captured["messages"] = messages
         return FakeResp("## 摘要\n出货12万台[ S1]。")
 

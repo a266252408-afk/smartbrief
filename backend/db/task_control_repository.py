@@ -73,7 +73,7 @@ def create_job(topic=None, document_ids=None, *, key=None, source_id=None, metad
         task_id = "task_" + uuid4().hex
         task_repository.create_task(task_id,topic,document_ids=document_ids,regenerated_from=source_id,
                                      initial_status="queued",metadata=metadata if metadata is not None else
-                                     dict(generator_version=APP_VERSION, execution_mode='online'),_connection=conn)
+                                     dict(generator_version=APP_VERSION, execution_mode='online', report_pipeline_version=2),_connection=conn)
         result = dict(task_id=task_id,topic=topic,status="queued")
         if source_id is None:
             result["execution_status"] = "queued"

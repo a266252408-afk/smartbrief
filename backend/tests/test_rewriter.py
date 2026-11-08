@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 from agents import rewriter
 from agents.rewriter import rewriter_node
+from tests.test_evidence import source
 
 
 def run(coro):
@@ -47,7 +48,7 @@ def test_rewriter_node_injects_topic_and_research_data():
     """Prompt 必须携带研究主题与可引用研究数据，防止改写跑题/凭空编造。"""
     captured = {}
 
-    async def fake_chat(messages):
+    async def fake_chat(messages, **kwargs):
         captured["system"] = messages[0]["content"]
         captured["user"] = messages[1]["content"]
         return FakeResp("## 围绕主题的修改稿")
@@ -63,7 +64,8 @@ def test_rewriter_node_injects_topic_and_research_data():
     }
     with patch.object(rewriter, "chat", new=fake_chat):
         out = run(rewriter_node(state))
-    assert out["draft_content"] == "## 围绕主题的修改稿"
+    assert out["draft_content"].startswith("# 2026年智能手表市场报告\n\n")
+    assert out["draft_content"].endswith("## 围绕主题的修改稿")
     # 主题注入 Prompt，作为改写锚点
     assert "2026年智能手表市场" in captured["user"]
     # 研究数据摘要被注入（搜索结果里的"市场规模"关键词应出现在摘要里）
@@ -76,7 +78,7 @@ def test_rewriter_node_injects_topic_and_research_data():
 def test_rewriter_prompt_shares_factual_discipline():
     captured = {}
 
-    async def fake_chat(messages):
+    async def fake_chat(messages, **kwargs):
         captured["system"] = messages[0]["content"]
         return FakeResp("## 修改稿")
 
@@ -89,7 +91,7 @@ def test_rewriter_prompt_shares_factual_discipline():
 def test_rewriter_attaches_unique_citation_before_review():
     from tests.test_evidence import source
 
-    async def fake_chat(messages):
+    async def fake_chat(messages, **kwargs):
         return FakeResp('预测销量为2300万辆。')
 
     state = {'task_id': 't', 'topic': '电动车', 'draft_content': '预测销量为2300万辆。',
@@ -97,15 +99,28 @@ def test_rewriter_attaches_unique_citation_before_review():
              'evidence': [source(excerpt='2026年预计2300万辆')], 'research_data': {}}
     with patch.object(rewriter, 'chat', new=fake_chat):
         out = run(rewriter_node(state))
-    assert out['draft_content'].strip().endswith('[S1]')
-    assert any('确定性补引用' in log['content'] for log in out['react_logs'])
+    assert out['draft_content'].strip().endswith('[S1]。')
+    assert any('确定性重挂引用' in log['content'] for log in out['react_logs'])
+
+
+def test_rewriter_rebinds_model_output_to_matching_source():
+    sources = [source(excerpt='2026年增长10%'),
+               source(source_id='S2', url='https://example.invalid/b', excerpt='其他资料')]
+    state = {'task_id': 't', 'topic': '主题', 'draft_content': '2026年增长10%[S2]。',
+             'review_comments': ['核对引用'], 'react_logs': [],
+             'evidence': sources, 'research_data': {}}
+    with patch.object(rewriter, 'chat', new=AsyncMock(return_value=FakeResp('2026年增长10%[S2]。'))):
+        out = run(rewriter_node(state))
+    assert '[S1]' in out['draft_content']
+    assert '[S2]' not in out['draft_content']
+    assert out['citation_errors'] == []
 
 
 def test_rewriter_prompt_lists_candidate_sources_when_ambiguous():
     from tests.test_evidence import source
     captured = {}
 
-    async def fake_chat(messages):
+    async def fake_chat(messages, **kwargs):
         captured['user'] = messages[1]['content']
         return FakeResp('预测销量为2300万辆。')
 
@@ -116,3 +131,60 @@ def test_rewriter_prompt_lists_candidate_sources_when_ambiguous():
     with patch.object(rewriter, 'chat', new=fake_chat):
         run(rewriter_node(state))
     assert '候选来源：S1、S2' in captured['user']
+
+
+def test_rewriter_required_excludes_unbound_citation():
+    captured = {}
+
+    async def fake_chat(messages, **kwargs):
+        captured['user'] = messages[1]['content']
+        return FakeResp('增长10%[S1]。')
+
+    sources = [source(excerpt='增长10%'),
+               source(source_id='S2', url='https://example.invalid/b', excerpt='其他资料')]
+    state = {
+        'task_id': 't', 'topic': '主题',
+        'draft_content': '增长10%[S1]；58.13%[S2]。',
+        'review_comments': ['核对引用'], 'react_logs': [],
+        'evidence': sources, 'research_data': {},
+    }
+    with patch.object(rewriter, 'chat', new=fake_chat):
+        out = run(rewriter_node(state))
+    assert out['required_citations'] == ['S1']
+    assert out['citation_errors'] == []
+    assert '增长10%' in captured['user']
+
+
+def test_rewriter_does_not_require_citation_missing_from_context():
+    """候选编号不在本轮证据里时不得强制保留，否则返工永远无法收敛。"""
+    sources = [source(excerpt='增长10%')]
+    state = {
+        'task_id': 't', 'topic': '主题',
+        'draft_content': '增长10%[S1]。',
+        'review_comments': ['核对引用'], 'react_logs': [],
+        'evidence': sources, 'research_data': {},
+        'required_citations': ['S9'],
+    }
+    with patch.object(rewriter, 'chat', new=AsyncMock(return_value=FakeResp('增长10%[S1]。'))):
+        out = run(rewriter_node(state))
+    assert out['required_citations'] == ['S1']
+    assert out['citation_errors'] == []
+    assert 'S9' not in out['required_citations']
+
+
+def test_rewriter_prompt_lists_citations_that_must_be_kept():
+    captured = {}
+
+    async def fake_chat(messages, **kwargs):
+        captured['user'] = messages[1]['content']
+        return FakeResp('增长10%[S1]。')
+
+    state = {
+        'task_id': 't', 'topic': '主题',
+        'draft_content': '增长10%[S1]。',
+        'review_comments': ['核对引用'], 'react_logs': [],
+        'evidence': [source(excerpt='增长10%')], 'research_data': {},
+    }
+    with patch.object(rewriter, 'chat', new=fake_chat):
+        run(rewriter_node(state))
+    assert '必须保留的引用编号：S1' in captured['user']

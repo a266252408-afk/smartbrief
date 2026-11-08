@@ -1,4 +1,5 @@
 """上传文档选取的真实Chroma/SQLite离线行为，不替换筛选规则。"""
+import json
 from unittest.mock import Mock
 
 import pytest
@@ -170,12 +171,16 @@ def test_delete_exact_document_retains_historical_snapshot(documents):
 
 def test_http_generate_to_real_graph_and_deleted_report(documents, offline_services):
     import time
+    import re
     from fastapi.testclient import TestClient
     from main import app
     from tests.auth_support import ADMIN_HEADERS, READ_HEADERS
     a, _ = documents
     offline_services["planner"].outputs = ['[{"id":1,"agent":"writer","task":"写作","depends_on":[]}]']
-    offline_services["react_writer"].outputs = ['蓝鲸交付137台设备。[S1]']
+    offline_services["react_writer"].outputs = [lambda messages:
+        "# 蓝鲸报告\n\n## 执行摘要\n建议跟踪交付。\n\n## 正文\n蓝鲸交付137台设备["
+        + re.search(r"^\[(F[a-f0-9]+)\]", messages[-1]["content"], re.M)[1]
+        + "]。\n\n## 结论与建议\n建议核对后续数据。"]
     offline_services["reviewer"].outputs = ['{"passed":true,"comments":[]}']
     with TestClient(app, headers=ADMIN_HEADERS) as client:
         response = client.post("/api/v1/generate", json={"topic": "独有事实：蓝鲸项目交付137台设备", "document_ids": [a["document_id"]]})
@@ -210,8 +215,11 @@ def test_untrusted_document_and_rewrite_mapping(documents, offline_services):
     task_repository.update_task("inject", document_ids=[upload["document_id"]])
     offline_services["planner"].outputs = ['[{"id":1,"agent":"writer","task":"写作","depends_on":[]}]']
     offline_services["react_writer"].outputs = ['设备数量137。[S1]']
-    offline_services["reviewer"].outputs = ['{"passed":false,"comments":["改措辞"]}', '{"passed":true,"comments":[]}']
-    offline_services["rewriter"].outputs = ['依据文档，设备数量137。[S1]']
+    offline_services["reviewer"].outputs = [json.dumps({
+        'passed': False, 'comments': ['改措辞'], 'full_rewrite_required': True,
+        'findings': []}), '{"passed":true,"comments":[]}']
+    offline_services["rewriter"].outputs = [json.dumps({
+        'mode': 'full', 'reason': '统一文档表述', 'content': '依据文档，设备数量137。[S1]', 'results': []})]
     final = asyncio.run(run_task("inject", text))
     assert final["quality_status"] == "passed"
     for agent in ["react_writer", "rewriter"]:
@@ -220,6 +228,8 @@ def test_untrusted_document_and_rewrite_mapping(documents, offline_services):
         assert text in messages[1]["content"] and upload["document_id"] in messages[1]["content"]
     assert final["evidence"][0]["source_id"] == "S1"
     assert final["citations"][0]["valid"] is True
+    assert final['review_history'][0]['rewrite']['mode'] == 'full'
+    assert final['review_history'][0]['rewrite']['attempts'][0]['decision'] == 'applied'
 
 
 def test_deleted_source_cannot_pass_and_index_failure_not_deletion(documents, monkeypatch):
@@ -235,11 +245,15 @@ def test_deleted_source_cannot_pass_and_index_failure_not_deletion(documents, mo
         with pytest.raises(ValueError, match="文档索引暂不可用"):
             refresh_document_sources(result["evidence"])
     store.delete_document_by_id(a["document_id"])
-    review = AsyncMock()
+    review = AsyncMock(return_value=type("R", (), {
+        "choices": [type("C", (), {
+            "message": type("M", (), {"content": '{"passed": true, "comments": []}'})()
+        })()]
+    })())
     monkeypatch.setattr("agents.reviewer.chat", review)
     response = asyncio.run(reviewer_node({"task_id": "t", "draft_content": "137台设备。[S1]", "evidence": result["evidence"], "iteration": 2}))
     assert response["quality_status"] == "rejected" and response["evidence"][0]["source_deleted"]
-    review.assert_not_awaited()
+    review.assert_awaited()
     from services.citations import evidence_context
     assert "137" not in evidence_context({}, response["evidence"])
 

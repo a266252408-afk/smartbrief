@@ -20,6 +20,9 @@ class AgentState(TypedDict):
     6. 长期记忆命中：memory_hits
     """
     # ---------- 1. 任务信息 ----------
+    report_pipeline_version: int
+    fact_registry: Dict
+    claim_bindings: List[Dict]
     citations: List[Dict]
     citation_errors: List[str]
     required_citations: List[str]  # 图内返工保留要求，由检查点保存
@@ -55,7 +58,10 @@ class AgentState(TypedDict):
 
     # ---------- 5. A2A 审核循环----------
     review_comments: List[str]      # 最近一轮审核意见（通过时多为空数组；打回/强制轮为意见原文，历史全量见 review_history）
-    review_history: List[Dict]      # A2A 各轮审核记录（[{round, passed, comments}]，按轮保留，供详情页分轮展示）
+    review_history: List[Dict]      # A2A 各轮审核记录（[{round, passed, comments, findings}]，按轮保留，供详情页分轮展示）
+    findings: List[Dict]            # 最近一轮结构化 findings（含证据/位置/期望结果），供 rewriter 局部返工
+    possible_rule_issue: Optional[object]  # 审核 agent 认为规则误判的记录；只记录，不改变 passed
+    full_rewrite_required: bool     # 审核 agent 是否要求整篇重写；Phase 4 决定是否采用
     iteration: int                  # 当前循环次数（0 起；每次打回 +1）
     max_iterations: int             # 循环上限（默认 3，超限强制通过）
     passed: Optional[bool]          # 最近一次审核是否通过（None 表示尚未审核）

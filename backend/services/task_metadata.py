@@ -12,6 +12,7 @@ class TaskMetadata(BaseModel):
     execution_mode: Literal['online', 'offline'] | None = None
     evaluation_id: str | None = None
     evaluation_case_id: str | None = None
+    report_pipeline_version: Literal[1, 2] | None = None
 
     @field_validator("generator_version", "demo_sample_id", "demo_sample_version", "evaluation_id", "evaluation_case_id")
     @classmethod
@@ -39,7 +40,7 @@ def validate_metadata(value) -> dict:
     data = TaskMetadata.model_validate({} if value is None else value).model_dump()
     # 不向旧样例填充新增的未知元数据。
     return {key: value for key, value in data.items()
-            if key not in {'execution_mode', 'evaluation_id', 'evaluation_case_id'} or value is not None}
+            if key not in {'execution_mode', 'evaluation_id', 'evaluation_case_id', 'report_pipeline_version'} or value is not None}
 
 
 def is_offline_task(task: dict | None) -> bool:

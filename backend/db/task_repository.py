@@ -191,6 +191,24 @@ def finalize_task(task_id, fields, logs):
         raise ExecutionPersistenceError("任务结果或日志持久化失败") from None
 
 
+def replace_logs(task_id: str, logs) -> None:
+    """暂停/失败时也保存图日志；不要求任务处于 running。"""
+    from services.execution_context import ExecutionPersistenceError
+    try:
+        with get_connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute("DELETE FROM task_logs WHERE task_id=?", (task_id,))
+            for log in logs:
+                conn.execute(
+                    "INSERT INTO task_logs(task_id,step_id,log_type,content,created_at) "
+                    "VALUES (?,?,?,?,COALESCE(?,datetime('now','localtime')))",
+                    (task_id, log.get("step_id", 0), log.get("type", "Thought"),
+                     str(log.get("content", "")), log.get("created_at")),
+                )
+    except Exception:
+        raise ExecutionPersistenceError("任务日志持久化失败") from None
+
+
 def get_task(task_id: str) -> dict | None:
     """按 id 查询任务（含反序列化后的结构化字段），不存在返回 None。"""
     with get_connection() as conn:

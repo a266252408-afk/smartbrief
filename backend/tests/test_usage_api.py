@@ -160,17 +160,28 @@ def test_inflight_call_is_running_and_stale_call_is_interrupted(measured):
 @pytest.mark.parametrize("budget_failure", [False, True])
 def test_real_generate_http_graph_persistence_usage(measured, monkeypatch, budget_failure):
     import httpx
+    import re
     from agents import react_researcher
     from main import app
     from services.usage_service import usage_context
     from tests.fakes import fixture_search
     monkeypatch.setattr(react_researcher.mcp_manager, "call_tool", AsyncMock(return_value=fixture_search("离线")))
     monkeypatch.setenv("MAX_TASK_TOKENS", "1" if budget_failure else "20000")
+    # 用量归属测试的替身仅返回短文本；明确预留以隔离默认思考模型16k输出配置。
+    monkeypatch.setenv('MODEL_COMPLETION_RESERVE', '1000')
+    monkeypatch.setenv('PRIMARY_MODEL_COMPLETION_RESERVE', '1000')
     scripts = {"planner": ['[{"id":1,"agent":"researcher","task":"搜","depends_on":[]},{"id":2,"agent":"writer","task":"写","depends_on":[1]}]'],
                "researcher": ['{"action":"web_search","query":"离线"}', '{"action":"done"}'],
-               "writer": ["## 离线报告[S1]"], "reviewer": ['{"passed":true,"comments":[]}']}
+               "writer": [lambda messages:
+                   "# 离线报告\n\n## 执行摘要\n建议核对资料。\n\n## 正文\n"
+                   "本条为测试夹具，不是实际研究证据。["
+                   + re.search(r"^\[(F[a-f0-9]+)\]", messages[-1]["content"], re.M)[1]
+                   + "]\n\n## 结论与建议\n建议跟踪后续。"],
+               "reviewer": ['{"passed":true,"comments":[]}']}
     async def response(**kwargs):
         content = scripts[usage_context.get()[1]].pop(0)
+        if callable(content):
+            content = content(kwargs["messages"])
         return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))], usage={"prompt_tokens": 10, "completion_tokens": 5})
     measured.side_effect = response
     async def scenario():

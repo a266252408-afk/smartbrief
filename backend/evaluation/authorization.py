@@ -127,6 +127,8 @@ class CallBudget:
         if (self.calls >= self.grant.max_model_calls or size > self.grant.max_input_bytes
                 or datetime.fromisoformat(self.grant.expires_at) <= datetime.now(timezone.utc)):
             raise EvaluationError('EVALUATION_CALL_BUDGET', '评测调用次数或输入预算耗尽')
+        from services.model_reasoning import reasoning_options
+        kwargs.update(max_tokens=self.grant.max_output_tokens, model=self.grant.model,
+                      **reasoning_options(self.grant.model))
         self.calls += 1
-        kwargs.update(max_tokens=self.grant.max_output_tokens, model=self.grant.model)
         return await self.create(**kwargs)

@@ -1,5 +1,6 @@
 """LangGraph 工作流测试（graph/workflow.py）。"""
 import asyncio
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -144,11 +145,11 @@ def test_run_task_reviewer_rejects_then_rewrites(repo_db, offline_evidence):
         patch.object(
             reviewer, "chat",
             new=AsyncMock(side_effect=[
-                FakeResp('{"passed": false, "comments": ["缺少数据", "字数不足"]}'),
+                FakeResp('{"passed": false, "comments": ["结构需重组"], "full_rewrite_required": true}'),
                 FakeResp('{"passed": true, "comments": []}'),
             ]),
         ),
-        patch.object(rewriter, "chat", new=AsyncMock(return_value=FakeResp("## 修改稿\n包含 2 个数据点与来源[S1]"))),
+        patch.object(rewriter, "chat", new=AsyncMock(return_value=FakeResp(json.dumps({"mode":"full", "reason":"结构重组", "content":"## 修改稿\n包含 2 个数据点与来源[S1]", "results":[]})))),
     ):
         final = run(run_task("t_a2a_1", "储能市场"))
     assert final["passed"] is True
@@ -159,7 +160,10 @@ def test_run_task_reviewer_rejects_then_rewrites(repo_db, offline_evidence):
     logs = task_repository.get_logs("t_a2a_1")
     contents = [log["content"] for log in logs]
     assert any("审核不通过" in c for c in contents)       # 打回日志存在
-    assert any("修改稿" in c for c in contents)           # 返工日志存在
+    assert any("返工回执" in c for c in contents)         # 日志仅记录决策摘要，原始提案保存在审核历史
+    saved_rewrite = task_repository.get_task('t_a2a_1')['review_history'][0]['rewrite']
+    assert saved_rewrite['applied'] is True
+    assert '修改稿' in json.loads(saved_rewrite['attempts'][0]['raw_response'])['content']
 
 
 def test_run_task_reviewer_force_pass_after_max_iterations(repo_db, offline_evidence):
@@ -181,20 +185,21 @@ def test_run_task_reviewer_force_pass_after_max_iterations(repo_db, offline_evid
     with (
         patch.object(planner, "chat", new=AsyncMock(return_value=FakeResp(plan_json))),
         patch.object(react_writer, "chat", new=AsyncMock(return_value=FakeResp("## 初稿\n数据不足[S1]"))),
-        # 三次审核都不通过（第 3 次触发强制输出，上限 3）
+        # 审核持续拒绝，第二轮硬错误数不降提前停止
         patch.object(
             reviewer, "chat",
-            new=AsyncMock(return_value=FakeResp('{"passed": false, "comments": ["始终缺数据"]}')),
+            new=AsyncMock(return_value=FakeResp('{"passed": false, "comments": ["结构仍需完善"], "full_rewrite_required": true}')),
         ),
-        patch.object(rewriter, "chat", new=AsyncMock(return_value=FakeResp("## 改了一版\n还是不够[S1]"))),
+        patch.object(rewriter, "chat", new=AsyncMock(side_effect=[FakeResp(json.dumps({"mode":"full", "reason":"结构重组", "content":text, "results":[]})) for text in ["## 改了一版\n还是不够[S1]", "## 又改一版\n仍需完善[S1]"]])),
     ):
         final = run(run_task("t_a2a_2", "手机市场"))
     assert final["passed"] is False                      # 强制输出仍未通过
     assert final["quality_status"] == "rejected"
     assert final["forced_output"] is True
     assert final["forced_pass"] is True                  # 标记强制
-    assert final["iteration"] == 3                       # 循环 3 次后退出
-    assert len(final["review_history"]) == 3             # 三轮审核记录按轮保留
+    assert final["iteration"] == 3                       # 无硬错误计数不能证明收敛，真实达到审核上限
+    assert final["review_history"][-1]["stop_reason"] == "MAX_ITERATIONS"
+    assert len(final["review_history"]) == 3             # 三轮审核全部保留
     assert "⚠️" in final["draft_content"]                # 草稿末尾带警告
     task = task_repository.get_task("t_a2a_2")
     assert task["forced_pass"] == 1
@@ -319,3 +324,62 @@ def test_scheduler_skips_timeout_writer_step():
         out = run(scheduler_mod.scheduler_node(state))
     assert out["completed_steps"] == [1]
     assert "撰写超时" in out["draft_content"]             # 占位文本兜底
+
+
+def _step_budget_error():
+    from services.usage_service import ModelCallError
+    error = ModelCallError("模型调用超时")
+    error.code = "MODEL_TIMEOUT"
+    error.step_budget_limited = True
+    return error
+
+
+def test_scheduler_degrades_on_step_budget_model_error():
+    """步预算截断的模型超时按步骤降级，不让整个图失败。"""
+    from agents import scheduler as scheduler_mod
+
+    async def budget_limited(task, step_id, logs, observations=None, deadline=None):
+        if observations is not None:
+            observations.append({"query": "q", "result": {
+                "source": "bing", "retrieved_at": "2026-10-26T08:00:00+00:00",
+                "results": [{"title": "报告", "snippet": "数据", "url": "https://example.com/a"}],
+            }})
+        raise _step_budget_error()
+
+    state = {
+        "task_id": "t_budget_research",
+        "plan": [{"id": 1, "agent": "researcher", "task": "搜市场", "depends_on": []}],
+        "completed_steps": [],
+        "react_logs": [],
+        "research_data": {},
+    }
+    with patch.object(scheduler_mod, "react_researcher_run", new=budget_limited):
+        out = run(scheduler_mod.scheduler_node(state))
+    assert out["completed_steps"] == [1]
+    assert out["research_data"]["step_1"]["skipped"] is True
+    assert len(out["research_data"]["step_1"]["observations"]) == 1
+    assert any("步预算" in log["content"] for log in out["react_logs"])
+
+
+def test_scheduler_degrades_on_writer_step_budget_error():
+    """写作步预算截断时保留占位章节，后续审核按缺口处理。"""
+    from agents import scheduler as scheduler_mod
+
+    async def budget_limited(task, step_id, logs, research_data, evidence=None):
+        raise _step_budget_error()
+
+    state = {
+        "task_id": "t_budget_writer",
+        "plan": [{"id": 1, "agent": "writer", "task": "写章节", "depends_on": []}],
+        "completed_steps": [],
+        "react_logs": [],
+        "research_data": {"step_1": {"observations": [{"query": "q", "result": {
+            "source": "bing", "retrieved_at": "2026-10-26T08:00:00+00:00",
+            "results": [{"title": "报告", "snippet": "数据", "url": "https://example.com/a"}],
+        }}]}},
+    }
+    with patch.object(scheduler_mod, "react_writer_run", new=budget_limited):
+        out = run(scheduler_mod.scheduler_node(state))
+    assert out["completed_steps"] == [1]
+    assert "撰写超时" in out["draft_content"]
+    assert any("步预算" in log["content"] for log in out["react_logs"])

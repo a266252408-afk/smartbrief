@@ -26,6 +26,7 @@ def test_real_twenty_case_offline_report(tmp_path, monkeypatch):
         assert origin['execution_mode'] == 'offline'
         assert origin['evaluation_id'] == record['eval_id']
         assert origin['evaluation_case_id'] == row['case_id']
+        assert origin['report_pipeline_version'] == 1  # synthetic-protocol-1固定旧输出契约。
     assert record['metadata']['mode'] == 'offline'
     assert record['metadata']['model'] == 'synthetic-protocol-1'
     assert record['metadata']['dataset_hash'] == load_suite()[1]

@@ -157,12 +157,13 @@ def test_research_repair_is_bounded_across_checkpoint_resume(tmp_path, offline_e
         assert snapshot.next == ("rewriter",)
         final = await build_graph(checkpointer=cp).ainvoke(None, config)
         assert final["quality_status"] == "rejected" and final["forced_output"]
-        assert len(final["review_history"]) == 3
+        assert len(final["review_history"]) == 2
+        assert final["review_history"][-1]["stop_reason"] == "REVIEW_NO_ACTIONABLE_FINDINGS"
         assert final["research_revision_count"] == 1
 
     asyncio.run(scenario())
     assert search.await_count == 2
-    assert len(scripts["rewriter"].calls) == 2
+    assert len(scripts["rewriter"].calls) == 1
 
 
 def test_log_finalization_preserves_event_times_and_legacy_logs(tmp_path):
@@ -196,6 +197,9 @@ def test_supplemental_search_unavailable_preserves_rejected_output(tmp_path, off
     scripts["react_writer"].outputs = ["行业数据待补充。"]
     scripts["react_researcher"].outputs = ['{"action":"web_search","query":"智能手表"}']
     scripts["rewriter"].outputs = ["仍无来源，数据待补充。"] * 2
+    scripts["reviewer"].outputs = [
+        '{"passed":false,"comments":["缺乏数据，请补充具体数据点及来源"]}'
+    ] * 3
     search = AsyncMock(side_effect=OSError("离线测试故障"))
     monkeypatch.setattr(react_researcher.mcp_manager, "call_tool", search)
     database.init_db(tmp_path / "unavailable.db")
@@ -206,8 +210,9 @@ def test_supplemental_search_unavailable_preserves_rejected_output(tmp_path, off
     assert task["execution_status"] == "completed" and task["quality_status"] == "rejected"
     assert task["forced_output"] and not task["evidence"]
     assert search.await_count == 1
-    assert len(task["review_history"]) == 3
-    assert not scripts["reviewer"].calls
+    assert len(task["review_history"]) == 2
+    assert task["review_history"][-1]["stop_reason"] == "REVIEW_NO_ACTIONABLE_FINDINGS"
+    assert len(scripts["reviewer"].calls) == 2
 
 
 def test_supplemental_timeout_retains_partial_evidence_and_cancellation_propagates(monkeypatch):

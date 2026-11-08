@@ -142,6 +142,8 @@ async def _wait_hard(awaitable, timeout):
 async def measured_call(create, kwargs, *, policy, attempt=1, price=None,
                         provider=None, model_role=None, logical_call_id=None):
     """每次调用前落占位、结束后记录；写入失败不得冒充完成。"""
+    from services.model_reasoning import reasoning_options
+    kwargs = {**kwargs, **reasoning_options(kwargs.get('model', ''))}
     context = usage_context.get()
     if context is None:
         try:

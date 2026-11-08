@@ -19,6 +19,7 @@ import os
 import re
 import urllib.error
 import urllib.request
+from services.evidence_excerpt import select_excerpt
 
 EXA_ENDPOINT = "https://api.exa.ai/search"
 REQUEST_TIMEOUT_SECONDS = 20
@@ -78,7 +79,9 @@ def _snippet(item: dict) -> str:
         text = " ".join(str(part) for part in highlights if part)
     if not text:
         text = str(item.get("summary") or item.get("text") or "")
-    return re.sub(r"\s+", " ", text).strip()[:SNIPPET_MAX_CHARS]
+    text = "\n\n".join(re.sub(r"\s+", " ", paragraph).strip()
+                       for paragraph in re.split(r"\n\s*\n", text))
+    return select_excerpt(text, SNIPPET_MAX_CHARS)
 
 
 def exa_search(
@@ -132,7 +135,11 @@ def exa_search(
         if not url:
             continue
         title = str(item.get("title") or "").strip() or url
-        result["results"].append({"title": title, "snippet": _snippet(item), "url": url})
+        snippet = _snippet(item)
+        row = {"title": title, "snippet": snippet, "url": url}
+        if not snippet and (item.get("highlights") or item.get("text") or item.get("summary")):
+            row["snippet_status"] = "片段超限，未取得完整事实"
+        result["results"].append(row)
 
     result["search_endpoint"] = EXA_ENDPOINT
     result["retrieved_at"] = datetime.now(timezone.utc).isoformat()

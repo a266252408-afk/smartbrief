@@ -47,6 +47,35 @@ def test_get_model_custom(monkeypatch):
     assert llm_client.get_model() == "custom-model"
 
 
+def test_get_model_review_and_rewrite_overrides(monkeypatch):
+    monkeypatch.setenv("OPENAI_MODEL", "base-model")
+    monkeypatch.setenv("REVIEW_OPENAI_MODEL", "strong-model")
+    monkeypatch.setenv("REWRITE_OPENAI_MODEL", "light-model")
+    assert llm_client.get_model("review") == "strong-model"
+    assert llm_client.get_model("rewrite") == "light-model"
+    assert llm_client.get_model() == "base-model"
+
+
+def test_get_model_role_falls_back_to_base(monkeypatch):
+    monkeypatch.setenv("OPENAI_MODEL", "base-model")
+    monkeypatch.delenv("REVIEW_OPENAI_MODEL", raising=False)
+    assert llm_client.get_model("review") == "base-model"
+
+
+def test_chat_uses_role_model(monkeypatch):
+    monkeypatch.setenv("OPENAI_MODEL", "base-model")
+    monkeypatch.setenv("REVIEW_OPENAI_MODEL", "strong-model")
+    create = AsyncMock(return_value="ok")
+    with patch.object(llm_client, "get_client") as get_client:
+        get_client.return_value = AsyncMock(
+            chat=AsyncMock(completions=AsyncMock(create=create))
+        )
+        asyncio.run(llm_client.chat(
+            [{"role": "user", "content": "hi"}], role="review"
+        ))
+        assert create.call_args.kwargs["model"] == "strong-model"
+
+
 def test_chat_with_tools_and_choice(monkeypatch):
     monkeypatch.setenv("OPENAI_MODEL", "gpt-4o-mini")
     create = AsyncMock(return_value="ok")

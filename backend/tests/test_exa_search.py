@@ -115,7 +115,7 @@ def test_text_used_when_highlights_missing(monkeypatch):
     assert exa.exa_search("q", 1)["results"][0]["snippet"] == "整页正文 中的一段"
 
 
-def test_snippet_truncated(monkeypatch):
+def test_snippet_preserves_unsplit_unit_within_storage_limit(monkeypatch):
     monkeypatch.setenv("EXA_API_KEY", "test-key")
     patch_post(
         monkeypatch,
@@ -124,7 +124,7 @@ def test_snippet_truncated(monkeypatch):
         ),
     )
     result = exa.exa_search("q", 1)
-    assert len(result["results"][0]["snippet"]) == exa.SNIPPET_MAX_CHARS
+    assert result["results"][0]["snippet"] == "字" * 800
 
 
 def test_invalid_items_skipped_and_title_falls_back_to_url(monkeypatch):

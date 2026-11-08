@@ -12,6 +12,10 @@ def run(coro):
     return asyncio.run(coro)
 
 
+def history_view(history):
+    return [{key: item[key] for key in ("round", "passed", "comments")} for item in history]
+
+
 class FakeMessage:
     def __init__(self, content):
         self.content = content
@@ -47,10 +51,10 @@ def test_parse_review_broken_falls_back_pass():
             parse_review(raw)
 
 
-def test_parse_review_comments_trimmed_and_capped():
+def test_parse_review_comments_trimmed_without_losing_actionable_items():
     content = '{"passed": false, "comments": ["  a  ", "b", "", "c", "d", "e", "f"]}'
     result = parse_review(content)
-    assert result["comments"] == ["a", "b", "c", "d", "e"]   # 去空白、去空串、最多 5 条
+    assert result["comments"] == ["a", "b", "c", "d", "e", "f"]   # 去空白、去空串，完整保留意见
 
 
 # ---------------------------------------------------------------- reviewer_node
@@ -75,7 +79,7 @@ def test_reviewer_node_passed():
     assert out["passed"] is True
     assert out["review_comments"] == []
     assert out["react_logs"]
-    assert out["review_history"] == [{"round": 1, "passed": True, "comments": []}]
+    assert history_view(out["review_history"]) == [{"round": 1, "passed": True, "comments": []}]
 
 
 def test_reviewer_node_rejected():
@@ -86,10 +90,11 @@ def test_reviewer_node_rejected():
         out = run(reviewer_node(_state()))
     assert out["passed"] is False
     assert out["iteration"] == 1                      # 打回 → 循环次数 +1
-    assert out["forced_pass"] is False
+    assert out["forced_pass"] is True
+    assert out["review_history"][-1]["stop_reason"] == "REVIEW_NO_ACTIONABLE_FINDINGS"
     assert out["review_comments"] == ["缺数据", "字数不足"]
     # 第 1 次审核记录入历史，日志 Observation 带意见原文（供详情页与日志对应）
-    assert out["review_history"] == [{"round": 1, "passed": False, "comments": ["缺数据", "字数不足"]}]
+    assert history_view(out["review_history"]) == [{"round": 1, "passed": False, "comments": ["缺数据", "字数不足"]}]
     assert any("缺数据" in log["content"] for log in out["react_logs"])
 
 
@@ -110,7 +115,7 @@ def test_reviewer_node_force_pass_after_max():
     assert out["forced_pass"] is True
     assert out["iteration"] == 3
     assert "⚠️" in out["draft_content"]               # 警告标记追加到草稿末尾
-    assert out["review_history"] == [{"round": 3, "passed": False, "comments": ["仍缺数据"]}]
+    assert history_view(out["review_history"]) == [{"round": 3, "passed": False, "comments": ["仍缺数据"]}]
 
 
 def test_reviewer_node_default_max_is_three():
@@ -156,7 +161,7 @@ def test_reviewer_node_llm_error_passes():
 def test_reviewer_prompt_accepts_internal_citation_ids_and_limited_sources():
     captured = {}
 
-    async def fake_chat(messages):
+    async def fake_chat(messages, **kwargs):
         captured['system'] = messages[0]['content']
         captured['user'] = messages[1]['content']
         return FakeResp('{"passed": true, "comments": []}')

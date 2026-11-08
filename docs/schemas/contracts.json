@@ -74,7 +74,119 @@
       "description": "T03已实现：执行与审核质量独立；v2任务/报告data与v1新增字段，forced_output不代表通过。"
     },
     "Evidence": {
-      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "pattern": "^S[1-9][0-9]*$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "task_id": {
+          "minLength": 1,
+          "title": "Task Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "web",
+            "document"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "excerpt": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Excerpt",
+          "type": "string"
+        },
+        "retrieved_at": {
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "document_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Document Id"
+        },
+        "chunk_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Chunk Id"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        },
+        "source_deleted": {
+          "default": false,
+          "title": "Source Deleted",
+          "type": "boolean"
+        },
+        "excerpt_status": {
+          "default": "unverified",
+          "enum": [
+            "unverified",
+            "boundary_selected",
+            "incomplete_tail"
+          ],
+          "title": "Excerpt Status",
+          "type": "string"
+        }
+      },
       "required": [
         "source_id",
         "task_id",
@@ -83,120 +195,8 @@
         "excerpt",
         "retrieved_at"
       ],
-      "properties": {
-        "source_id": {
-          "type": "string",
-          "pattern": "^S[1-9][0-9]*$"
-        },
-        "task_id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "kind": {
-          "enum": [
-            "web",
-            "document"
-          ]
-        },
-        "title": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 500
-        },
-        "excerpt": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 4000
-        },
-        "retrieved_at": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "url": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "pattern": "^https?://"
-        },
-        "document_id": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "chunk_id": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "page": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "minimum": 1
-        },
-        "score": {
-          "type": [
-            "number",
-            "null"
-          ]
-        },
-        "source_deleted": {
-          "type": "boolean"
-        }
-      },
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "kind": {
-                "const": "web"
-              }
-            }
-          },
-          "then": {
-            "required": [
-              "url"
-            ],
-            "properties": {
-              "url": {
-                "type": "string",
-                "pattern": "^https?://"
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "kind": {
-                "const": "document"
-              }
-            }
-          },
-          "then": {
-            "required": [
-              "document_id",
-              "chunk_id"
-            ],
-            "properties": {
-              "document_id": {
-                "type": "string",
-                "minLength": 1
-              },
-              "chunk_id": {
-                "type": "string",
-                "minLength": 1
-              }
-            }
-          }
-        }
-      ],
-      "additionalProperties": false,
-      "description": "T04-01已实现：任务内服务端编号，web URL限定无凭证HTTP(S)，不从历史报告反推来源。"
+      "title": "Evidence",
+      "type": "object"
     },
     "Citation": {
       "type": "object",
@@ -1840,97 +1840,108 @@
       "type": "object"
     },
     "TaskMetadata": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
         "demo": {
-          "type": "boolean",
-          "default": false
+          "default": false,
+          "title": "Demo",
+          "type": "boolean"
         },
         "generator_version": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Generator Version"
         },
         "demo_sample_id": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Demo Sample Id"
         },
         "demo_sample_version": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Demo Sample Version"
         },
         "execution_mode": {
-          "enum": [
-            "online",
-            "offline",
-            null
-          ]
+          "anyOf": [
+            {
+              "enum": [
+                "online",
+                "offline"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Execution Mode"
         },
         "evaluation_id": {
-          "type": [
-            "string",
-            "null"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "minLength": 1
+          "default": null,
+          "title": "Evaluation Id"
         },
         "evaluation_case_id": {
-          "type": [
-            "string",
-            "null"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "minLength": 1
+          "default": null,
+          "title": "Evaluation Case Id"
+        },
+        "report_pipeline_version": {
+          "anyOf": [
+            {
+              "enum": [
+                1,
+                2
+              ],
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Report Pipeline Version"
         }
       },
-      "additionalProperties": false,
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "demo": {
-                "const": true
-              }
-            },
-            "required": [
-              "demo"
-            ]
-          },
-          "then": {
-            "required": [
-              "demo_sample_id",
-              "demo_sample_version"
-            ]
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "execution_mode": {
-                "const": "offline"
-              }
-            },
-            "required": [
-              "execution_mode"
-            ]
-          },
-          "then": {
-            "required": [
-              "evaluation_case_id"
-            ],
-            "properties": {
-              "evaluation_case_id": {
-                "type": "string",
-                "minLength": 1
-              }
-            }
-          }
-        }
-      ],
-      "description": "T11已实现：generator_version记录生成版本；demo=true必须带样例标识与版本，演示数据不得冒充在线生成。 EVAL-ISOLATION-01：服务端执行模式及离线评测/案例归属；无字段的旧协议任务用系统主题前缀隔离。"
+      "title": "TaskMetadata",
+      "type": "object"
     },
     "DemoSample": {
       "type": "object",
@@ -7096,6 +7107,655 @@
         "estimated_cost_ceiling"
       ],
       "title": "GradingGrant",
+      "type": "object"
+    },
+    "Location": {
+      "additionalProperties": false,
+      "properties": {
+        "paragraph": {
+          "minimum": 1,
+          "title": "Paragraph",
+          "type": "integer"
+        },
+        "sentence": {
+          "minimum": 1,
+          "title": "Sentence",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "paragraph",
+        "sentence"
+      ],
+      "title": "Location",
+      "type": "object"
+    },
+    "ReportEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "report",
+          "title": "Kind",
+          "type": "string"
+        },
+        "quote": {
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "quote"
+      ],
+      "title": "ReportEvidence",
+      "type": "object"
+    },
+    "SourceEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "source",
+          "default": "source",
+          "title": "Kind",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "quote": {
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "quote"
+      ],
+      "title": "SourceEvidence",
+      "type": "object"
+    },
+    "ReviewFinding": {
+      "additionalProperties": false,
+      "properties": {
+        "finding_id": {
+          "minLength": 1,
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "problem": {
+          "minLength": 1,
+          "title": "Problem",
+          "type": "string"
+        },
+        "expected": {
+          "minLength": 1,
+          "title": "Expected",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "hard",
+            "soft"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceEvidence"
+            },
+            {
+              "$ref": "#/$defs/ReportEvidence"
+            }
+          ],
+          "title": "Evidence"
+        },
+        "location": {
+          "$ref": "#/$defs/Location"
+        },
+        "scope": {
+          "default": "paragraph",
+          "enum": [
+            "paragraph",
+            "full"
+          ],
+          "title": "Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "finding_id",
+        "problem",
+        "expected",
+        "severity",
+        "evidence",
+        "location"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "RewriteProgramRestriction": {
+      "type": "object",
+      "description": "程序决策记录，不证明候选修改是否正确；缺失表示旧记录未知。",
+      "required": [
+        "observed",
+        "outcome",
+        "codes",
+        "quality_effect"
+      ],
+      "properties": {
+        "observed": {
+          "type": "boolean"
+        },
+        "outcome": {
+          "enum": [
+            "candidate_applied_after_restriction",
+            "partial_candidate_applied",
+            "candidate_blocked",
+            "candidate_applied",
+            "no_change_proposed",
+            "model_call_failed",
+            "context_blocked",
+            "citation_obligations_updated"
+          ]
+        },
+        "codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "quality_effect": {
+          "const": "unknown_until_review"
+        }
+      }
+    },
+    "RewriteAudit": {
+      "type": "object",
+      "description": "存于review_history的返工回执；向后兼容旧记录，无数据库列迁移。",
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string"
+        },
+        "changed": {
+          "type": "boolean"
+        },
+        "program_restriction": {
+          "$ref": "#/$defs/RewriteProgramRestriction"
+        },
+        "attempts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "description": "请求范围、完整证据摘要、响应原文/长度/截断/SHA256、接受/拒绝提案与稳定原因码"
+          }
+        },
+        "verification": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RewriteVerification"
+          }
+        },
+        "model_results": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "description": "模型自报，不能代表程序确认已解决"
+        },
+        "citation_lifecycle": {
+          "$ref": "#/$defs/CitationLifecycle"
+        },
+        "citation_changes_applied": {
+          "type": "boolean",
+          "description": "声明删除回执改变了引用义务；changed继续仅表示正文变化"
+        },
+        "claim_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ClaimBinding"
+          }
+        },
+        "fact_registry": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/BoundFact"
+          }
+        }
+      }
+    },
+    "ReviewProgress": {
+      "type": "object",
+      "description": "问题身份的变化，非数量相等即不收敛；只有完整复审可提前停止。",
+      "properties": {
+        "resolved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "introduced": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "persisting": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "current_review_complete": {
+          "type": "boolean"
+        },
+        "stopped": {
+          "type": "boolean"
+        },
+        "basis": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "resolved",
+        "introduced",
+        "persisting",
+        "current_review_complete",
+        "stopped",
+        "basis"
+      ]
+    },
+    "CitationLifecycle": {
+      "type": "object",
+      "description": "只有明确删除原定量声明才退休引用；不确定语义保守保留。",
+      "required": [
+        "required_ids",
+        "retired_ids",
+        "retired_claims"
+      ],
+      "properties": {
+        "required_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "retired_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "retired_claims": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "retained_claims": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": "跨轮保留原声明，支持删除回执核验；旧记录可缺省"
+        }
+      }
+    },
+    "FactIndex": {
+      "type": "object",
+      "description": "启发式来源索引，不证明事实真伪；与Writer可见来源集合一致。",
+      "properties": {
+        "source_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "metric": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "period": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "geography": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "measure": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "year": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "statistical_object": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "RewriteFullResult": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "full",
+          "title": "Mode",
+          "type": "string"
+        },
+        "content": {
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/$defs/Receipt"
+          },
+          "title": "Results",
+          "type": "array"
+        },
+        "citation_changes": {
+          "items": {
+            "$ref": "#/$defs/CitationChange"
+          },
+          "title": "Citation Changes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "mode",
+        "content",
+        "reason",
+        "results"
+      ],
+      "title": "FullResult",
+      "type": "object"
+    },
+    "RewritePatchResult": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "patch",
+          "title": "Mode",
+          "type": "string"
+        },
+        "patches": {
+          "items": {
+            "$ref": "#/$defs/Patch"
+          },
+          "title": "Patches",
+          "type": "array"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/$defs/Receipt"
+          },
+          "title": "Results",
+          "type": "array"
+        },
+        "citation_changes": {
+          "items": {
+            "$ref": "#/$defs/CitationChange"
+          },
+          "title": "Citation Changes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "mode",
+        "patches",
+        "results"
+      ],
+      "title": "PatchResult",
+      "type": "object"
+    },
+    "CitationChange": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "original_claim": {
+          "minLength": 1,
+          "title": "Original Claim",
+          "type": "string"
+        },
+        "action": {
+          "const": "deleted",
+          "title": "Action",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "original_claim",
+        "action"
+      ],
+      "title": "CitationChange",
+      "type": "object"
+    },
+    "RewriteVerification": {
+      "type": "object",
+      "required": [
+        "finding_id",
+        "reported_status",
+        "status",
+        "reason"
+      ],
+      "properties": {
+        "finding_id": {
+          "type": "string"
+        },
+        "reported_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "enum": [
+            "resolved",
+            "unresolved",
+            "unverified"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "Receipt": {
+      "additionalProperties": false,
+      "properties": {
+        "finding_id": {
+          "minLength": 1,
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "fixed",
+            "skipped",
+            "cannot_fix"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "finding_id",
+        "status"
+      ],
+      "title": "Receipt",
+      "type": "object"
+    },
+    "Patch": {
+      "additionalProperties": false,
+      "properties": {
+        "paragraph": {
+          "minimum": 1,
+          "title": "Paragraph",
+          "type": "integer"
+        },
+        "digest": {
+          "minLength": 1,
+          "title": "Digest",
+          "type": "string"
+        },
+        "replacement": {
+          "title": "Replacement",
+          "type": "string"
+        },
+        "finding_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Finding Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "paragraph",
+        "digest",
+        "replacement",
+        "finding_ids"
+      ],
+      "title": "Patch",
+      "type": "object"
+    },
+    "BoundFact": {
+      "additionalProperties": false,
+      "properties": {
+        "fact_id": {
+          "pattern": "^F[a-f0-9]{24}$",
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        },
+        "quote": {
+          "title": "Quote",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/Evidence"
+        },
+        "measurements": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Measurements",
+          "type": "array"
+        }
+      },
+      "required": [
+        "fact_id",
+        "task_id",
+        "source_id",
+        "quote",
+        "source"
+      ],
+      "title": "BoundFact",
+      "type": "object"
+    },
+    "ClaimBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "paragraph": {
+          "minimum": 1,
+          "title": "Paragraph",
+          "type": "integer"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "fact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fact Ids",
+          "type": "array"
+        },
+        "source_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "paragraph",
+        "text",
+        "fact_ids",
+        "source_ids"
+      ],
+      "title": "ClaimBinding",
       "type": "object"
     }
   }

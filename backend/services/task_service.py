@@ -104,9 +104,9 @@ class TaskService:
             from app_version import APP_VERSION
             from evaluation.context import evaluation_context
             context = evaluation_context.get()
-            metadata = dict(generator_version=APP_VERSION, execution_mode='online')
+            metadata = dict(generator_version=APP_VERSION, execution_mode='online', report_pipeline_version=2)
             if context is not None:
-                metadata.update(execution_mode='offline', evaluation_id=context.evaluation_id,
+                metadata.update(execution_mode='offline', report_pipeline_version=1, evaluation_id=context.evaluation_id,
                                 evaluation_case_id=context.case['case_id'])
             result = controls.create_job(body.topic,body.document_ids,key=digest,metadata=metadata)
             result = TaskAccepted.model_validate(result).model_dump()

@@ -113,12 +113,16 @@ def test_disabled_management_and_current_source_invalidation(client):
 
 def test_regeneration_preserves_original_and_creates_real_task(client, offline_evidence, monkeypatch):
     import time
+    import re
     monkeypatch.setattr(memory,"_MEMORY_ENABLED",True)
     original = seed()
     doc = store.ingest_file(b"new selected material", "new.txt")
     repo.update_task("old",document_ids=[doc["document_id"]])
     offline_evidence["planner"].outputs = ['[{"id":1,"agent":"writer","task":"新报告","depends_on":[]}]']
-    offline_evidence["react_writer"].outputs = ['# 新报告\n\n新任务声明。[S1]']
+    offline_evidence["react_writer"].outputs = [lambda messages:
+        "# 新报告\n\n## 执行摘要\n建议核对资料。\n\n## 正文\nnew selected material["
+        + re.search(r"^\[(F[a-f0-9]+)\]", messages[-1]["content"], re.M)[1]
+        + "]\n\n## 结论与建议\n建议后续跟踪。"]
     offline_evidence["reviewer"].outputs = ['{"passed":true,"comments":[]}']
     assert client.post("/api/v2/tasks/old/regenerate",headers=READ_HEADERS).status_code == 403
     response = client.post("/api/v2/tasks/old/regenerate")

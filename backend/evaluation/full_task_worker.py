@@ -104,7 +104,7 @@ async def execute(directory, case_id, group):
             external = AsyncOpenAI(base_url=grant.base_url, api_key=os.environ['OPENAI_API_KEY'], max_retries=0,
                                    http_client=httpx.AsyncClient(follow_redirects=False))
             create = CallBudget(grant, external.chat.completions.create)
-            stack.enter_context(patch.object(client, 'get_model', lambda: grant.model))
+            stack.enter_context(patch.object(client, 'get_model', lambda *args, **kwargs: grant.model))
             stack.enter_context(patch.object(client, 'get_client', lambda: sdk(create)))
         else:
             stack.enter_context(patch.object(client, 'get_client', lambda: sdk(supplied)))

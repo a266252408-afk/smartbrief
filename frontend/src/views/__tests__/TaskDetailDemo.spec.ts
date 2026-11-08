@@ -41,6 +41,28 @@ afterEach(() => {
 })
 
 describe('任务详情演示数据保护', () => {
+  it.each([{ stop_reason: 'NO_CONVERGENCE' }, { convergence_stopped: true }])('旧收敛记录缺少身份数据时不套用新规则 %j', async stop => {
+    vi.mocked(fetchTaskStatus).mockResolvedValue({ ...structuredClone(base),
+      status: 'completed', execution_status: 'completed', quality_status: 'rejected',
+      forced_output: true, metadata: {},
+      review_history: [{ round: 2, passed: false, comments: ['旧记录'], ...stop }] })
+    wrapper = mount(TaskDetail, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    expect(wrapper.text()).toContain('旧版收敛规则提前结束')
+    expect(wrapper.text()).not.toContain('完整复审确认旧硬问题均未解决')
+  })
+  it('按问题身份展示进展，不完整审核不宣称没有改善', async () => {
+    vi.mocked(fetchTaskStatus).mockResolvedValue({ ...structuredClone(base),
+      status: 'completed', execution_status: 'completed', quality_status: 'rejected', metadata: {},
+      review_history: [{ round: 2, passed: false, comments: ['继续核对'],
+        convergence: { resolved: ['old'], introduced: ['new'], persisting: [],
+          current_review_complete: false, stopped: false, basis: 'continue_or_pass' } }] })
+    wrapper = mount(TaskDetail, { global: { plugins: [ElementPlus] } })
+    await flushPromises()
+    expect(wrapper.get('[data-testid="review-progress"]').text()).toContain('旧硬问题已解决 1 项')
+    expect(wrapper.get('[data-testid="review-progress"]').text()).toContain('新问题 1 项')
+    expect(wrapper.get('[data-testid="review-progress"]').text()).toContain('不完整，不能据此提前判定不收敛')
+  })
   it.each([false, true])('离线任务隐藏恢复和重生成入口（旧记录=%s）', async legacy => {
     vi.mocked(fetchTaskStatus).mockResolvedValue({ ...structuredClone(base),
       task_id: 'offline', topic: legacy ? '[离线协议] 测试主题' : '测试主题',

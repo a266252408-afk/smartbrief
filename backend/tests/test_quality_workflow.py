@@ -1,5 +1,6 @@
 """使用真实LangGraph/仓储，仅替换模型边界验证质量终态。"""
 import asyncio
+import json
 import pytest
 from db import database, task_repository as repo
 from graph.workflow import run_task
@@ -8,14 +9,15 @@ from tests.fakes import ScriptedLLM
 
 @pytest.mark.parametrize("review,writer,rewrite,execution,quality,forced", [
     ('{"passed":true,"comments":[]}', '## 有效草稿', '## 修改稿', 'completed', 'passed', False),
-    ('{"passed":false,"comments":["缺数据"]}', '## 有效草稿', '## 修改稿', 'completed', 'rejected', True),
+    ('{"passed":false,"comments":["修改措辞"]}', '## 有效草稿', '## 修改稿', 'completed', 'rejected', True),
     ('not json', '## 有效草稿', '## 修改稿', 'completed', 'unavailable', False),
     (RuntimeError('fixture failure'), '## 有效草稿', '## 修改稿', 'completed', 'unavailable', False),
     ('{"passed":"false","comments":[]}', '## 有效草稿', '## 修改稿', 'completed', 'unavailable', False),
     ('{"passed":true,"comments":[]}', '', '## 修改稿', 'failed', 'not_run', False),
     ('{"passed":true,"comments":[]}', RuntimeError('writer failure'), '## 修改稿', 'failed', 'not_run', False),
-    ('{"passed":false,"comments":["缺数据"]}', '## 有效草稿', RuntimeError('rewrite failure'), 'failed', 'not_run', False),
-    ('{"passed":false,"comments":["缺数据"]}', '## 有效草稿', '', 'failed', 'not_run', False),
+    # 无可执行目标时审核直接拒绝，不应调用返工；模型失败另由返工行为用例验证。
+    ('{"passed":false,"comments":["修改措辞"]}', '## 有效草稿', RuntimeError('rewrite failure'), 'completed', 'rejected', True),
+    ('{"passed":false,"comments":["修改措辞"]}', '## 有效草稿', '', 'completed', 'rejected', True),
 ])
 def test_real_graph_outcomes(tmp_path, monkeypatch, offline_evidence, review, writer, rewrite, execution, quality, forced):
     from agents import planner, react_writer, reviewer, rewriter
@@ -42,15 +44,55 @@ def test_real_graph_outcomes(tmp_path, monkeypatch, offline_evidence, review, wr
     assert bool(task['passed']) is (quality == 'passed')
     assert remember.await_count == int(quality == 'passed')
     assert task['error_code'] is None if quality == 'passed' else bool(task['error_code'])
+    if execution == 'failed':
+        assert task['error']
     assert repo.get_logs('t')
     if quality == 'rejected':
         assert task['forced_pass'] == 1
         assert all(r['passed'] is False for r in task['review_history'])
+        assert task['review_history'][-1]['stop_reason'] == 'REVIEW_NO_ACTIONABLE_FINDINGS'
+        assert not rewriter.chat.__self__.calls
 
 
 @pytest.mark.parametrize('raw', ['[]', '{}', 'null', '{"passed":1,"comments":[]}', '{"passed":false,"comments":[]}', '{"passed":true,"comments":[1]}', '{"passed":true,"comments":[],"extra":1}', 'prefix {"passed":true,"comments":[]}'])
 def test_review_rejects_unsafe_shapes(raw):
     from agents.reviewer import parse_review
+    with pytest.raises(ValueError):
+        parse_review(raw)
+
+
+def test_parse_review_accepts_structured_findings():
+    from services.report_quality import parse_review
+    raw = json.dumps({
+        "passed": False,
+        "comments": ["请修正单位"],
+        "findings": [{
+            "finding_id": "BIND-0001",
+            "problem": "单位量级错误",
+            "evidence": {"source_id": "S11", "quote": "USD 46.39 billion"},
+            "location": {"paragraph": 2, "sentence": 1},
+            "expected": "改写为 463.9 亿美元",
+            "severity": "hard",
+        }],
+        "possible_rule_issue": None,
+        "full_rewrite_required": False,
+    })
+    parsed = parse_review(raw)
+    assert parsed["findings"][0]["finding_id"] == "BIND-0001"
+    assert parsed["findings"][0]["location"] == {"paragraph": 2, "sentence": 1}
+    assert parsed["possible_rule_issue"] is None
+    assert parsed["full_rewrite_required"] is False
+
+
+@pytest.mark.parametrize("finding", [
+    {"finding_id": "BIND-1", "problem": "x", "evidence": {"source_id": "S1", "quote": "q"}, "location": {"paragraph": 1, "sentence": 1}, "severity": "hard"},
+    {"finding_id": "BIND-1", "problem": "x", "evidence": {"source_id": "S1"}, "location": {"paragraph": 1, "sentence": 1}, "expected": "y", "severity": "hard"},
+    {"finding_id": "BIND-1", "problem": "x", "evidence": {"source_id": "S1", "quote": "q"}, "location": {"paragraph": 0, "sentence": 1}, "expected": "y", "severity": "hard"},
+    {"finding_id": "BIND-1", "problem": "x", "evidence": {"source_id": "S1", "quote": "q"}, "location": {"paragraph": 1, "sentence": 1}, "expected": "y", "severity": "bad"},
+])
+def test_parse_review_rejects_invalid_finding(finding):
+    from services.report_quality import parse_review
+    raw = json.dumps({"passed": False, "comments": ["x"], "findings": [finding]})
     with pytest.raises(ValueError):
         parse_review(raw)
 

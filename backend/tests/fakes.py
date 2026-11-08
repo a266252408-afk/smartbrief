@@ -14,6 +14,8 @@ class ScriptedLLM:
         if not self.outputs:
             raise AssertionError("LLM 响应脚本已耗尽")
         output = self.outputs.pop(0)
+        if callable(output):
+            output = output(messages)
         if isinstance(output, Exception):
             raise output
         return SimpleNamespace(choices=[SimpleNamespace(

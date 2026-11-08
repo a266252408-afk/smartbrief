@@ -1,5 +1,6 @@
 """主备接管的真实预算账本与持久化边界；供应商仅使用离线替身。"""
 import asyncio
+from time import monotonic
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -9,6 +10,8 @@ from openai import APIConnectionError, BadRequestError, AuthenticationError
 
 from db import database, usage_repository, task_repository
 from llm import client
+from services.budget import ModelPolicy, completion_reserve_for
+from services.execution_context import model_deadline
 from services.usage_service import usage_scope, UsagePersistenceError
 
 real_backup_factory = client.get_backup_client
@@ -50,6 +53,68 @@ async def invoke(task_id):
 
 def connection_error():
     return APIConnectionError(request=httpx.Request('POST', 'https://primary.invalid'))
+
+
+def test_primary_and_backup_send_independent_limits(providers, monkeypatch):
+    primary, backup = providers
+    monkeypatch.setenv('MODEL_FAILOVER_TOTAL_SECONDS', '600')
+    monkeypatch.setenv('PRIMARY_MODEL_COMPLETION_RESERVE', '4000')
+    monkeypatch.setenv('PRIMARY_MODEL_TIMEOUT_SECONDS', '30')
+    monkeypatch.setenv('BACKUP_MODEL_COMPLETION_RESERVE', '8000')
+    monkeypatch.setenv('BACKUP_MODEL_TIMEOUT_SECONDS', '40')
+    primary.side_effect = connection_error()
+    asyncio.run(invoke('role-limits'))
+    assert primary.call_args.kwargs['max_tokens'] == 4000
+    assert primary.call_args.kwargs['timeout'] == 30
+    assert backup.call_args.kwargs['max_tokens'] == 8000
+    assert backup.call_args.kwargs['timeout'] == 40
+
+
+@usage_scope('writer', task=True)
+async def invoke_deadline(task_id, seconds):
+    token = model_deadline.set(monotonic() + seconds)
+    try:
+        return await client.chat([{'role': 'user', 'content': 'fixture'}])
+    finally:
+        model_deadline.reset(token)
+
+
+def test_glm_output_reserve_is_capped(monkeypatch):
+    policy = ModelPolicy(completion_reserve=32768)
+    assert completion_reserve_for('GLM-5.3-Flash', policy) == 16384
+    assert completion_reserve_for('qwen3.7-flash', policy) == 32768
+    monkeypatch.setenv('GLM_MODEL_MAX_OUTPUT_TOKENS', '8192')
+    assert completion_reserve_for('GLM-5.3-Flash', policy) == 8192
+
+
+def test_step_budgets_are_raised():
+    from agents.scheduler import AGENT_STEP_TIMEOUT_SECONDS, WRITER_STEP_TIMEOUT_SECONDS
+    assert AGENT_STEP_TIMEOUT_SECONDS >= 300
+    assert WRITER_STEP_TIMEOUT_SECONDS >= 900
+
+
+def test_step_budget_timeout_uses_transient_backup_without_binding(providers):
+    primary, backup = providers
+    primary.side_effect = asyncio.TimeoutError()
+    asyncio.run(invoke_deadline('budget-limited', 0.2))
+    assert backup.await_count == 1
+    from db.model_route_repository import get_route
+    assert get_route('budget-limited') is None
+    # 下一次调用仍先试探主模型，而不是永久固定备用。
+    primary.side_effect = None
+    asyncio.run(invoke_deadline('budget-limited', 10))
+    assert primary.await_count == 2
+
+
+def test_replace_logs_persists_without_running_state(tmp_path):
+    database.init_db(tmp_path / 'paused-logs.db')
+    task_repository.create_task('paused-logs', '主题')
+    task_repository.update_task('paused-logs', status='paused', execution_status='paused')
+    task_repository.replace_logs('paused-logs', [
+        {'type': 'Thought', 'content': '停止在 writer', 'step_id': 4},
+    ])
+    logs = task_repository.get_logs('paused-logs')
+    assert logs and logs[0]['content'] == '停止在 writer'
 
 
 def test_switch_stays_on_backup_after_recovery_and_reopen(providers):
@@ -123,6 +188,28 @@ def test_both_unavailable_pause_workflow_without_losing_checkpoint(providers):
     assert task['execution_status'] == 'paused' and task['error_code'] == 'MODEL_UNAVAILABLE'
     assert resumable_mode('paused-model') == 'checkpoint'
     assert primary.await_count == backup.await_count == 1
+
+
+def test_paused_task_persists_progress_logs(providers):
+    from graph.workflow import run_task
+    from services.model_routing import ModelUnavailable
+    primary, backup = providers
+    calls = {'count': 0}
+
+    async def flaky(**kwargs):
+        calls['count'] += 1
+        if calls['count'] == 1:
+            return response()
+        raise connection_error()
+
+    primary.side_effect = flaky
+    backup.side_effect = connection_error()
+    task_repository.create_task('paused-with-logs', '依赖不可用')
+    with pytest.raises(ModelUnavailable):
+        asyncio.run(run_task('paused-with-logs', '依赖不可用'))
+    task = task_repository.get_task('paused-with-logs')
+    assert task['execution_status'] == 'paused'
+    assert task_repository.get_logs('paused-with-logs')
 
 
 @pytest.mark.parametrize('name,value', [
@@ -305,6 +392,7 @@ def test_budget_exhausted_by_failed_primary_blocks_backup(providers, monkeypatch
     from services.budget import BudgetExceeded
     primary, backup = providers
     monkeypatch.setenv('MAX_TASK_TOKENS', '3000')
+    monkeypatch.setenv('MODEL_COMPLETION_RESERVE', '2000')
     primary.side_effect = connection_error()
     with pytest.raises(BudgetExceeded):
         asyncio.run(invoke('budget-after-failure'))
@@ -336,17 +424,29 @@ def test_service_resumes_model_pause_on_backup_only(providers):
         assert paused['status'] == 'paused' and paused['error_code'] == 'MODEL_UNAVAILABLE'
         primary.side_effect = None
         backup.side_effect = None
-        # 恢复到真实模型入口；规划与补研究提供可控响应，搜索不联网。
-        scripted = ScriptedLLM(['[{"id":1,"agent":"writer","task":"写","depends_on":[]}]', '{"action":"done"}'])
+        # 恢复到真实模型入口；规划、审核与补研究提供可控响应，搜索不联网。
+        scripted = ScriptedLLM([
+            '[{"id":1,"agent":"writer","task":"写","depends_on":[]}]',
+            '{"passed": false, "comments": ["缺乏数据，请补充具体数据点及来源"]}',
+            '{"action":"done"}',
+            '{"passed": false, "comments": ["仍缺数据"]}',  # 收敛门禁在第二轮停止
+        ])
         async def restored(**kwargs):
-            return await scripted.chat(kwargs['messages'])
+            try:
+                return await scripted.chat(kwargs['messages'])
+            except AssertionError:
+                # Phase 3 起审核每轮都会调用模型；脚本耗尽时用固定拒绝响应收尾，
+                # 仍由确定性规则保持 rejected/forced，不伪造质量通过。
+                return await ScriptedLLM(
+                    ['{"passed": false, "comments": ["仍缺数据"]}']
+                ).chat(kwargs['messages'])
         backup.side_effect = restored
         await service.resume(task_id)
         final = await service.wait(task_id)
         await service.close()
         assert final['status'] == 'completed'
         assert final['quality_status'] == 'rejected' and final['forced_output']
-        assert primary.await_count == 1 and backup.await_count == 3
+        assert primary.await_count == 1 and backup.await_count >= 3
         assert not scripted.outputs
     # 零证据写作和审核保持缺口拒绝；补研究明确done，不发搜索。
     asyncio.run(scenario())

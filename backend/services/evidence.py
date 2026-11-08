@@ -1,9 +1,11 @@
 """非可信搜索结果转为任务内证据；不推断事实正确性。"""
 from datetime import datetime, timezone
+import re
 from typing import Literal
 from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator, model_validator
+from services.evidence_excerpt import select_excerpt
 
 
 def canonical_url(value: str) -> str:
@@ -35,6 +37,7 @@ class Evidence(BaseModel):
     page: int | None = Field(default=None, ge=1)
     score: float | None = Field(default=None, allow_inf_nan=False)
     source_deleted: StrictBool = False
+    excerpt_status: Literal["unverified", "boundary_selected", "incomplete_tail"] = "unverified"
 
     @field_validator("title", "excerpt")
     @classmethod
@@ -90,18 +93,25 @@ def normalize_evidence(task_id: str, research_data: dict, existing=None) -> list
             if not isinstance(result, dict) or "error" in result or not isinstance(result.get("results"), list):
                 continue
             for item in result["results"]:
-                if not isinstance(item, dict):
+                if not isinstance(item, dict) or not isinstance(item.get("snippet", ""), str):
                     continue
                 try:
                     model = Evidence(
                         source_id=f"S{next_id}", task_id=task_id, kind="web",
-                        title=item.get("title", "")[:500], excerpt=item.get("snippet", "")[:4000],
+                        title=item.get("title", "")[:500], excerpt=select_excerpt(item.get("snippet", ""), 4000),
+                        excerpt_status=("incomplete_tail" if re.search(r"\d[\d.,]*$", item.get("snippet", "").strip())
+                                        else "boundary_selected" if len(item.get("snippet", "")) > 4000 else "unverified"),
                         url=item.get("url"),
                         retrieved_at=result.get("retrieved_at") or datetime.now(timezone.utc).isoformat(),
                     )
                 except (ValueError, TypeError):
                     continue
                 if model.url in urls:
+                    for index, old in enumerate(sources):
+                        if (old.get("url") == model.url and old.get("excerpt_status") == "incomplete_tail"
+                                and model.excerpt.startswith(old["excerpt"]) and model.excerpt != old["excerpt"]):
+                            sources[index] = dict(model.model_dump(), source_id=old["source_id"])
+                            break
                     continue
                 sources.append(model.model_dump())
                 urls.add(model.url)

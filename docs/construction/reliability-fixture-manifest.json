@@ -1,0 +1,209 @@
+{
+  "version": "1.1",
+  "files": {
+    "backend/tests/fixtures/review_reliability/task_b96a.json": "7b5ebd84bb92e8371999cbcc244898810eb668d7cad6f3e0927282fc2732a29f",
+    "backend/tests/fixtures/review_reliability/task_d2f7.json": "578ef6be97130db9e40fe8c3f4094945c94d76ef7e65baada2ae5617d2c102c6",
+    "backend/tests/fixtures/review_reliability/task_ddb648.json": "3709cb01b5c3dc861fc36071d7012d7053725217a8b607691ecca52371373ae5",
+    "backend/tests/fixtures/reference_audit/ebike.json": "df8c0455a5388bfe496d4f40d16aa141e2ad24309c8e8359d9c396d4211821d3",
+    "backend/tests/fixtures/reference_audit/review_contract.json": "bdf29364365a64fa3cfd5e05e1c2ff4a9b04a8c6938e73f55f194e490080b9cb",
+    "backend/tests/fixtures/reference_audit/rewrite_failed.json": "8cc89312fc698e587ab00ba49c8873623835558778f5899f8c5860d544e707c6",
+    "backend/tests/fixtures/reference_audit/smart_fridge.json": "57f361d3cb28032b86cec5c0cf8dfdea4ff16fb536b6500a24a3b4dea3dbcf11",
+    "backend/tests/fixtures/reference_audit/task42.json": "82f8ebb6972b980385f82c6f3b857c08fc7f880073748299cbbb98359163b487",
+    "backend/tests/fixtures/reference_audit/task_a56.json": "34c6b143518da9b09baea557584175be99d089258fe63c0efe0a32ce0e42378a",
+    "backend/tests/fixtures/reference_audit/task_e10c.json": "aae3caf352d184a8bb81bed492928d85c24c3211136dc8451271764fcd3a1ccd"
+  },
+  "coverage": {
+    "task_b96a": {
+      "task_id": "task_b96a7290f0804d09aeb32983cc1004f2",
+      "provenance": {
+        "kind": "checkpoint_and_persisted_record",
+        "method": "SQLite mode=ro；公开网页资料",
+        "collected_at": "2026-11-08",
+        "raw_writer_response": "not_persisted",
+        "redacted_fields": [
+          "response_id",
+          "run_token",
+          "memory_hits",
+          "regenerated_from"
+        ]
+      },
+      "keys": [
+        "task_id",
+        "provenance",
+        "topic",
+        "evidence",
+        "draft_content",
+        "review_history",
+        "recorded",
+        "writer_logs",
+        "checkpoints",
+        "usage",
+        "route"
+      ],
+      "original_response": "部分返工响应可用；Writer原响应未持久化"
+    },
+    "task_d2f7": {
+      "task_id": "task_d2f7e2c790974118977cafe9bb87f805",
+      "provenance": {
+        "kind": "checkpoint_and_persisted_record",
+        "method": "SQLite mode=ro；公开网页资料",
+        "collected_at": "2026-11-08",
+        "raw_writer_response": "not_persisted",
+        "redacted_fields": [
+          "response_id",
+          "run_token",
+          "memory_hits",
+          "regenerated_from"
+        ]
+      },
+      "keys": [
+        "task_id",
+        "provenance",
+        "topic",
+        "evidence",
+        "draft_content",
+        "review_history",
+        "recorded",
+        "writer_logs",
+        "checkpoints",
+        "usage",
+        "route"
+      ],
+      "original_response": "部分返工响应可用；Writer原响应未持久化"
+    },
+    "task_ddb648": {
+      "task_id": "task_ddb648b8e91f4bd6a432d9c779e10550",
+      "provenance": {
+        "kind": "checkpoint_and_persisted_record",
+        "method": "SQLite mode=ro；公开网页资料",
+        "collected_at": "2026-11-08",
+        "raw_writer_response": "not_persisted",
+        "redacted_fields": [
+          "response_id",
+          "run_token",
+          "memory_hits",
+          "regenerated_from"
+        ]
+      },
+      "keys": [
+        "task_id",
+        "provenance",
+        "topic",
+        "evidence",
+        "draft_content",
+        "review_history",
+        "recorded",
+        "writer_logs",
+        "checkpoints",
+        "usage",
+        "route"
+      ],
+      "original_response": "部分返工响应可用；Writer原响应未持久化"
+    },
+    "ebike": {
+      "task_id": null,
+      "provenance": "历史冻结记录，参见原夹具README",
+      "keys": [
+        "schema_version",
+        "fixture_id",
+        "captured_at",
+        "capture_note",
+        "source_task",
+        "evidence",
+        "draft_content",
+        "final_report",
+        "draft_equals_final",
+        "recorded",
+        "known_cases",
+        "known_gaps"
+      ],
+      "original_response": "按实际保存字段；不保证完整原始链路"
+    },
+    "review_contract": {
+      "task_id": "task_729de66825ed4e58959ca5c9257a58be",
+      "provenance": "历史冻结记录，参见原夹具README",
+      "keys": [
+        "task_id",
+        "topic",
+        "draft_content",
+        "evidence",
+        "review_history"
+      ],
+      "original_response": "按实际保存字段；不保证完整原始链路"
+    },
+    "rewrite_failed": {
+      "task_id": "task_77f047b847db4756898613a958694780",
+      "provenance": "历史冻结记录，参见原夹具README",
+      "keys": [
+        "task_id",
+        "topic",
+        "draft_content",
+        "evidence",
+        "findings",
+        "responses"
+      ],
+      "original_response": "按实际保存字段；不保证完整原始链路"
+    },
+    "smart_fridge": {
+      "task_id": null,
+      "provenance": "历史冻结记录，参见原夹具README",
+      "keys": [
+        "schema_version",
+        "fixture_id",
+        "captured_at",
+        "capture_note",
+        "source_task",
+        "evidence",
+        "draft_content",
+        "final_report",
+        "draft_equals_final",
+        "recorded",
+        "known_cases",
+        "known_gaps"
+      ],
+      "original_response": "按实际保存字段；不保证完整原始链路"
+    },
+    "task42": {
+      "task_id": null,
+      "provenance": "task_42c9c683197d4fb3af783accdd5d3a77数据库只读检查点；无模型调用。",
+      "keys": [
+        "plan",
+        "draft_content",
+        "draft_sections",
+        "evidence",
+        "review_history",
+        "required_citations",
+        "rewritten",
+        "provenance"
+      ],
+      "original_response": "按实际保存字段；不保证完整原始链路"
+    },
+    "task_a56": {
+      "task_id": null,
+      "provenance": {
+        "task_id": "task_a56b119e7b6542269372055bc5aaadae",
+        "read_only_extracted_on": "2026-11-05",
+        "description": "真实任务三轮送审稿、来源、审核和返工原文；不包含密钥或用户私有资料；后续测试修正稿为离线构造"
+      },
+      "keys": [
+        "provenance",
+        "evidence",
+        "drafts",
+        "reviews"
+      ],
+      "original_response": "按实际保存字段；不保证完整原始链路"
+    },
+    "task_e10c": {
+      "task_id": "task_e10c8ab77ee84d7abff597825cbd18fe",
+      "provenance": "SQLite mode=ro，真实检查点与逐次提案，2026-11-06",
+      "keys": [
+        "task_id",
+        "provenance",
+        "evidence",
+        "drafts",
+        "patch"
+      ],
+      "original_response": "按实际保存字段；不保证完整原始链路"
+    }
+  }
+}

@@ -302,6 +302,7 @@ def test_resume_does_not_reset_usage_budget(monkeypatch):
     from db import usage_repository
     from llm import client
     from memory import long_term_memory
+    monkeypatch.setenv("MAX_TASK_TOKENS", "20000")
     database.init_db()
     task_repository.create_task("budget","预算不重置")
     task_repository.update_task("budget",status="failed")

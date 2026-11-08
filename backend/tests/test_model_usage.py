@@ -1,5 +1,6 @@
 """真实模型封装→服务→SQLite的离线行为验证。"""
 import asyncio
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -144,8 +145,8 @@ def test_real_graph_agent_attribution_and_failure(setup_usage, monkeypatch, fail
         "planner": ['[{"id":1,"agent":"researcher","task":"搜","depends_on":[]},{"id":2,"agent":"writer","task":"写","depends_on":[1]}]'],
         "researcher": ['{"action":"web_search","query":"测试"}', '{"action":"done"}'],
         "writer": ["## 离线报告[S1]"],
-        "reviewer": ['{"passed":false,"comments":["补充说明"]}', '{"passed":true,"comments":[]}'],
-        "rewriter": ["## 离线修订报告[S1]"],
+        "reviewer": ['{"passed":false,"comments":["结构需重组"],"full_rewrite_required":true}', '{"passed":true,"comments":[]}'],
+        "rewriter": [json.dumps({'mode':'full','reason':'统一结构','content':'## 离线修订报告[S1]','results':[]})],
     }
     async def response(**kwargs):
         agent = usage_context.get()[1]

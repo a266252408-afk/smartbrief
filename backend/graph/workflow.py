@@ -54,7 +54,7 @@ def build_graph(checkpointer=None, *, interrupt_before=None):
         {"passed": END, "rewrite": "rewriter", "research": "research_revision"},
     )
     graph.add_edge("research_revision", "rewriter")
-    graph.add_edge("rewriter", "reviewer")           # 返工完 → 再次审核（条件循环）
+    graph.add_conditional_edges("rewriter", lambda state: "end" if state.get("forced_output") else "review", {"end": END, "review": "reviewer"})           # 返工完 → 再次审核（条件循环）
     return graph.compile(checkpointer=checkpointer,interrupt_before=interrupt_before)
 
 
@@ -92,6 +92,9 @@ def _initial_state(task_id: str, topic: str) -> AgentState:
         # A2A 审核循环
         "review_comments": [],        # 初始无审核意见
         "review_history": [],         # 初始无各轮审核记录
+        "findings": [],               # 初始无结构化 findings
+        "possible_rule_issue": None,  # 审核 agent 的规则误判记录
+        "full_rewrite_required": False,  # 审核 agent 是否要求整篇重写
         "iteration": 0,               # 初始循环次数 0
         "max_iterations": 3,          # 循环上限 3 次（最多返工 2 次，第 3 次仍不过则强制输出）
         "passed": None,               # 尚未审核
@@ -111,6 +114,19 @@ async def _remember_task(task_id: str, topic: str, final_report: str) -> None:
         await asyncio.to_thread(long_term_memory.remember, topic, final_report, task_id)
     except Exception:  # pragma: no cover - 真实异常路径
         logger.warning("任务 %s 写入长期记忆不可用（报告保留）", task_id)
+
+
+async def _checkpoint_logs(task_id: str, checkpoint: str | None = None) -> list:
+    """从检查点取回日志；模型不可用导致任务暂停时，UI 仍能看到停在哪一步。"""
+    try:
+        opener = cp_mod.open_checkpointer(checkpoint) if checkpoint else cp_mod.open_checkpointer()
+        async with opener as (cp, _kind):
+            graph = build_graph(checkpointer=cp)
+            snapshot = await graph.aget_state({"configurable": {"thread_id": task_id}})
+            return (snapshot.values or {}).get("react_logs") or []
+    except Exception:
+        logger.warning("任务 %s 检查点日志读取失败", task_id)
+        return []
 
 
 @usage_scope("workflow", task=True)
@@ -140,9 +156,13 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
     """
     initial = _initial_state(task_id, topic)
     final = {}
+    checkpoint = None
     try:
         from services.retrieval_service import retrieve_documents
         task = task_repository.get_task(task_id)
+        initial["report_pipeline_version"] = ((task or {}).get("metadata") or {}).get("report_pipeline_version", 1)
+        initial["fact_registry"] = {}
+        initial["claim_bindings"] = []
         initial["document_ids"] = (task or {}).get("document_ids", [])
         initial["regenerated_from"] = (task or {}).get("regenerated_from")
         # 短期记忆 Checkpointer：以 async with 进入 SqliteSaver 连接生命周期
@@ -188,6 +208,7 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
             quality_status=final.get("quality_status", "unknown"),
             forced_output=bool(final.get("forced_output", final.get("forced_pass"))),
             error_code=final.get("error_code"),
+            error=final.get("error"),
             plan=final.get("plan", []),
             current_step_index=final.get("current_step_index", 0),
             completed_steps=final.get("completed_steps", []),
@@ -222,6 +243,12 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
         from services.execution_context import ExecutionPersistenceError
         from services.model_routing import ModelUnavailable
         if isinstance(exc, ModelUnavailable):
+            logs = (final or {}).get("react_logs") or await _checkpoint_logs(task_id, checkpoint)
+            if logs:
+                try:
+                    task_repository.replace_logs(task_id, logs)
+                except Exception:
+                    logger.warning("任务 %s 暂停日志持久化失败", task_id)
             task_repository.update_task(task_id, status="paused", quality_status="pending", passed=False,
                                         error_code=exc.code, error="模型暂不可用，已保留Agent检查点，可稍后恢复")
             raise

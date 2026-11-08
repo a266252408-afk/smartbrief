@@ -24,6 +24,7 @@ export interface Evidence {
   page?: number | null
   score?: number | null
   source_deleted: boolean
+  excerpt_status?: 'unverified' | 'boundary_selected' | 'incomplete_tail'
 }
 
 export interface Citation {
@@ -42,6 +43,7 @@ export interface TaskMetadata {
   execution_mode?: 'online' | 'offline' | null
   evaluation_id?: string | null
   evaluation_case_id?: string | null
+  report_pipeline_version?: 1 | 2 | null
 }
 
 /** 任务摘要（列表项） */
@@ -70,12 +72,81 @@ export interface ReactLog {
   created_at: string
 }
 
+/** 返工诊断记录的是程序决策，不能据此推断被拦截提案质量。 */
+export interface RewriteVerification {
+  finding_id: string
+  reported_status?: string | null
+  status: 'resolved' | 'unresolved' | 'unverified'
+  reason: string
+}
+export interface RewriteAttempt {
+  verification?: RewriteVerification[]
+  mode: string
+  decision?: string
+  code?: string
+  message?: string
+  request?: { scope: string; allowed_paragraphs: number[]; reason?: string | null;
+    evidence_ids?: string[]; missing_evidence_ids?: string[]; evidence_context?: string }
+  accepted?: Array<{ paragraph: number; replacement: string }>
+  rejected?: Array<{ index: number; code: string; message: string; proposal?: unknown }>
+  raw_response?: string
+  raw_truncated?: boolean
+  raw_length?: number
+}
+export interface RewriteAudit {
+  claim_bindings?: ClaimBinding[]
+  fact_registry?: Record<string, BoundFact>
+  citation_changes_applied?: boolean
+  verification?: RewriteVerification[]
+  model_results?: Array<{ finding_id: string; status: string; reason?: string }>
+  citation_lifecycle?: { required_ids: string[]; retired_ids: string[];
+    retired_claims: Array<{ source_id: string; claims: string[]; reason: string; review_required?: boolean }>;
+    retained_claims?: Record<string, string[]> }
+  mode: string
+  changed?: boolean
+  failures?: string[]
+  attempts?: RewriteAttempt[]
+  program_restriction?: { observed: boolean; outcome: string; codes: string[]; quality_effect: string }
+}
+
 /** 单轮审核记录（review_history 元素） */
 export interface ReviewRound {
+  report_pipeline_version?: number
+  claim_bindings?: ClaimBinding[]
+  fact_registry?: Record<string, BoundFact>
+  dispute_review?: { status: 'unresolved' | 'reviewed'; initial_findings: unknown[];
+    result?: unknown; error?: string }
+  policy_corrections?: Array<{ review: unknown; violations: Array<{ code: string; text: string }> }>
+  citation_retirements?: Array<{ source_id: string; claims: string[]; reason: string; review_required?: boolean }>
+  convergence?: { resolved: string[]; introduced: string[]; persisting: string[];
+    current_review_complete: boolean; stopped: boolean; basis: string }
+  review_complete?: boolean
+  action_plan?: { scope: string; finding_ids: string[]; comments: string[] }
+  rejected_findings?: Array<{ code: string; finding: unknown }>
+  stop_reason?: string | null
+  convergence_stopped?: boolean
+  review_diagnostics?: { code?: string; message?: string }
+  rewrite?: RewriteAudit
+
   round: number
   passed: boolean | null
   quality_status?: QualityStatus
   comments: string[]
+}
+
+export interface ClaimBinding {
+  paragraph: number
+  text: string
+  fact_ids: string[]
+  source_ids: string[]
+}
+export interface BoundFact {
+  fact_id: string
+  task_id: string
+  source_id: string
+  quote: string
+  source: Evidence
+  measurements: Array<Record<string, unknown>>
 }
 
 /** 长期记忆命中：Planner 规划前检索到的相似历史报告 */

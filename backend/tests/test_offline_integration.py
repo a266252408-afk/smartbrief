@@ -1,6 +1,7 @@
 """从真实 v1 入口贯穿工作流、MCP 和 SQLite，付费边界使用固定脚本。"""
 import json
 import time
+import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -33,7 +34,10 @@ def test_generate_real_graph_and_persisted_api_state(offline_services, invalid_p
             {"id": 2, "agent": "writer", "task": "离线撰写", "depends_on": [1]}
         ])]
         scripts["react_researcher"].outputs = ['{"action":"web_search","query":"固定资料"}', '{"action":"done"}']
-        scripts["react_writer"].outputs = ["## 离线报告\n本文仅为测试夹具。[S1]"]
+        scripts["react_writer"].outputs = [lambda messages:
+            "# 离线集成验收报告\n\n## 执行摘要\n资料用于流程测试。\n\n## 离线报告\n"
+            "本条为测试夹具，不是实际研究证据。[" + re.search(r"\[(F[a-f0-9]+)\]", messages[-1]["content"])[1]
+            + "]\n\n## 结论与建议\n建议核对真实资料。"]
         scripts["reviewer"].outputs = ['{"passed":true,"comments":[]}']
     with TestClient(app, headers=ADMIN_HEADERS) as client:
         task_repository.create_task("unrelated", "独立任务")
@@ -50,7 +54,9 @@ def test_generate_real_graph_and_persisted_api_state(offline_services, invalid_p
             assert not persisted["final_report"]
         else:
             assert data["status"] == "completed"
-            assert data["final_report"] == persisted["final_report"] == "## 离线报告\n本文仅为测试夹具。[S1]"
+            expected = ("# 离线集成验收报告\n\n## 执行摘要\n资料用于流程测试。\n\n## 离线报告\n"
+                        "本条为测试夹具，不是实际研究证据。[S1]\n\n## 结论与建议\n建议核对真实资料。")
+            assert data["final_report"] == persisted["final_report"] == expected
             assert len(data["plan"]) == 2
             assert persisted["research_data"]["step_1"]["observations"][0]["result"]["source"] == "fixture"
             assert any(row["log_type"] == "Action" for row in task_repository.get_logs(task_id))
