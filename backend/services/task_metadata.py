@@ -14,6 +14,13 @@ class TaskMetadata(BaseModel):
     evaluation_case_id: str | None = None
     report_pipeline_version: Literal[1, 2, 3] | None = None
 
+    @field_validator('report_pipeline_version',mode='before')
+    @classmethod
+    def exact_pipeline(cls,value):
+        if value is not None and type(value) is not int:
+            raise ValueError('报告版本必须是整数')
+        return value
+
     @field_validator("generator_version", "demo_sample_id", "demo_sample_version", "evaluation_id", "evaluation_case_id")
     @classmethod
     def nonblank(cls, value):

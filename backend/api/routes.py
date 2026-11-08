@@ -17,7 +17,7 @@ from rag import store as rag_store
 from skills.skills_manager import manager as skill_manager, MAX_ZIP_SIZE
 from tools import builtin_tools
 from services.file_security import MAX_DOCUMENT_BYTES
-from services.retrieval_service import DocumentSelection
+from services.task_service import TaskCreateRequest
 
 router = APIRouter(prefix="/api/v1", tags=["chat"])
 
@@ -32,7 +32,7 @@ class ChatRequest(BaseModel):
 
 
 
-class GenerateRequest(DocumentSelection):
+class GenerateRequest(TaskCreateRequest):
     topic: str = Field(..., min_length=1, max_length=200, description="研究主题")
 
 
@@ -322,7 +322,7 @@ async def generate_task(req: GenerateRequest):
     topic = req.topic.strip()
     from services.task_service import get_task_service, TaskControlError
     try:
-        result = await get_task_service().submit(topic, req.document_ids)
+        result = await get_task_service().submit(topic, req.document_ids,report_pipeline_version=req.report_pipeline_version)
     except TaskControlError as exc:
         raise HTTPException(status_code=exc.status, detail=str(exc)) from None
     return {key: result[key] for key in ("task_id", "status", "topic")}
@@ -628,6 +628,13 @@ async def task_report(task_id: str):
     from services.task_sources import get_sources
     from services.retrieval_service import get_retrievals
     content = task.get("final_report") or task.get("draft_content") or ""
+    if (task.get('metadata') or {}).get('report_pipeline_version') == 3:
+        from services.report_document import validate_document,render_document
+        try:
+            validate_document(task.get('report_document'),task_id)
+            content=render_document(task['report_document'])
+        except ValueError:
+            raise HTTPException(status_code=409,detail='结构化报告文档不可用，不能导出旧缓存') from None
     logs = task_repository.get_logs(task_id)
     react_loops = sum(1 for log in logs if log.get("log_type") == "Action")
     created_at = task.get("created_at") or ""

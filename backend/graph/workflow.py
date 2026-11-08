@@ -189,6 +189,13 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
                     mode = "restart"
                 task_repository.update_task(task_id,resume_mode=mode)
             if mode == "checkpoint":
+                stored_version=snapshot.values.get('report_pipeline_version',1)
+                if stored_version!=initial['report_pipeline_version']:
+                    from services.report_document import DocumentError
+                    raise DocumentError('检查点报告协议版本与任务元数据不一致，拒绝切换')
+                if stored_version==3 and snapshot.values.get('report_document') is not None:
+                    from services.report_document import validate_document
+                    validate_document(snapshot.values['report_document'],task_id)
                 # 断点续跑：不传 input，LangGraph 从最近快照继续未完成的节点
                 final = await graph.ainvoke(None, config)
             else:

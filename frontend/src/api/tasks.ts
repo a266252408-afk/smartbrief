@@ -89,7 +89,8 @@ export interface RewriteAttempt {
   message?: string
   request?: { scope: string; allowed_paragraphs: number[]; reason?: string | null;
     evidence_ids?: string[]; missing_evidence_ids?: string[]; evidence_context?: string }
-  accepted?: Array<{ paragraph: number; replacement: string }>
+  accepted?: Array<{ paragraph?: number; replacement?: string; target?: string; block_id?: string;
+    operation?: 'replace' | 'remove' | 'full' }>
   rejected?: Array<{ index: number; code: string; message: string; proposal?: unknown;
     errors?: ProtocolDiagnostic[]; stage?: 'protocol' | 'content' }>
   raw_response?: string
@@ -315,8 +316,9 @@ async function taskAction<T>(path: string, body: object = {}): Promise<T> {
 }
 
 /** 提交研究任务（返回 task_id，立即返回） */
-export async function submitTask(topic: string, documentIds: string[] = []): Promise<GenerateResult> {
-  return taskAction<GenerateResult>('/tasks', documentIds.length ? { topic, document_ids: documentIds } : { topic })
+export async function submitTask(topic: string, documentIds: string[] = [], reportPipelineVersion: 2 | 3 = 2): Promise<GenerateResult> {
+  const body = documentIds.length ? { topic, document_ids: documentIds } : { topic }
+  return taskAction<GenerateResult>('/tasks', reportPipelineVersion === 3 ? { ...body, report_pipeline_version: 3 } : body)
 }
 
 /** 任务列表（分页 + 状态过滤 + 主题搜索 + 时间排序） */

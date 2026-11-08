@@ -377,6 +377,9 @@ async def rewriter_node(state: dict) -> dict:
     """
     state = dict(state)
     state["evidence"] = await asyncio.to_thread(refresh_document_sources, state.get("evidence", []))
+    if state.get('report_pipeline_version') == 3:
+        from services.document_rewrite import rewrite_document
+        return await rewrite_document(chat,state)
     draft = state.get("draft_content") or ""
     comments = state.get("review_comments", [])
     findings = list(state.get("findings") or [])

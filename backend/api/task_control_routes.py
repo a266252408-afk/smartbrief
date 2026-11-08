@@ -43,7 +43,7 @@ async def create(request: Request):
     except ValueError:
         return failure(request, 422, "INVALID_TASK_REQUEST", "主题或文档选择无效")
     try:
-        result = await get_task_service().submit(body.topic, body.document_ids,key=request.headers.get("Idempotency-Key"))
+        result = await get_task_service().submit(body.topic, body.document_ids,key=request.headers.get("Idempotency-Key"),report_pipeline_version=body.report_pipeline_version)
     except TaskControlError as exc:
         return failure(request, exc.status, exc.code, str(exc))
     return JSONResponse({"data":result,"meta":{"request_id":request.state.request_id}},status_code=202)

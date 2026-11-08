@@ -252,9 +252,9 @@ def validate_document(document, task_id=None):
     return doc.model_dump()
 
 
-def render_document(document):
+def render_parts(document):
     doc = ReportDocument.model_validate(validate_document(document))
-    parts = ["# " + doc.title]
+    parts = [(None, "# " + doc.title)]
     ordered = sorted(
         enumerate(doc.sections),
         key=lambda pair: (
@@ -266,7 +266,7 @@ def render_document(document):
         title = {"summary": "执行摘要", "conclusion": "结论与建议"}.get(
             section.role, section.title
         )
-        parts.append("## " + title)
+        parts.append((None, "## " + title))
         for block in section.blocks:
             text = block.text
             for claim in sorted(block.claims, key=lambda c: c.start, reverse=True):
@@ -275,12 +275,33 @@ def render_document(document):
                     + "".join("[" + sid + "]" for sid in claim.source_ids)
                     + text[claim.end :]
                 )
-            parts.append(text)
+            parts.append((block.block_id, text))
     if doc.sources:
-        parts.append("## 来源附录")
+        parts.append((None, "## 来源附录"))
         for sid, s in sorted(doc.sources.items()):
             locator = s.get("url") or f"文档 {s['document_id']}" + (
                 f"，第{s['page']}页" if s.get("page") else ""
             )
-            parts.append(f"- [{sid}] {s['title']} — {locator}")
-    return "\n\n".join(parts)
+            parts.append((None, f"- [{sid}] {s['title']} — {locator}"))
+    return parts
+
+
+def render_document(document):
+    return "\n\n".join(text for _, text in render_parts(document))
+
+
+def narrative_view(document):
+    """保留段落分隔，代码与来源附录不参与正文事实判定。"""
+    body = render_document(document)
+
+    def mask(match):
+        return re.sub(r"[^\s]", "·", match.group(0))
+
+    body = re.sub(
+        r"(?ms)^```[^\n]*\n.*?^```[ \t]*$|^~~~[^\n]*\n.*?^~~~[ \t]*$", mask, body
+    )
+    body = re.sub(r"(`+)[^\n]*?\1", mask, body)
+    marker = body.find("\n\n## 来源附录\n\n")
+    if marker >= 0:
+        body = body[:marker] + re.sub(r"[^\s]", "·", body[marker:])
+    return body

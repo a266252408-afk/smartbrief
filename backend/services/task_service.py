@@ -1,5 +1,5 @@
 """单worker任务队列服务；生命周期与句柄归属集中管理。"""
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator, field_validator
 from typing import Literal
 import asyncio
 import logging
@@ -51,6 +51,14 @@ class TaskAccepted(BaseModel):
 class TaskCreateRequest(DocumentSelection):
     model_config = ConfigDict(extra="forbid", strict=True, str_strip_whitespace=True)
     topic: str = Field(min_length=1, max_length=200)
+    report_pipeline_version: Literal[2,3] = 2
+
+    @field_validator('report_pipeline_version',mode='before')
+    @classmethod
+    def exact_version(cls,value):
+        if type(value) is not int:
+            raise ValueError('报告版本必须为整数2或3')
+        return value
 
 
 class TaskCancelled(BaseModel):
@@ -92,21 +100,21 @@ class TaskService:
         for task_id in controls.queued_ids():
             self.schedule(task_id)
 
-    async def submit(self, topic, document_ids=None, *, key=None):
+    async def submit(self, topic, document_ids=None, *, key=None, report_pipeline_version=2):
         if self.closing:
             raise TaskControlError("TASK_SERVICE_STOPPED", "任务服务正在关闭")
         digest = key_digest(key)
         try:
-            body = TaskCreateRequest(topic=topic, document_ids=document_ids or [])
+            body = TaskCreateRequest(topic=topic, document_ids=document_ids or [],report_pipeline_version=report_pipeline_version)
         except ValueError:
             raise TaskControlError("INVALID_TASK_REQUEST", "主题或文档选择无效", 422) from None
         try:
             from app_version import APP_VERSION
             from evaluation.context import evaluation_context
             context = evaluation_context.get()
-            metadata = dict(generator_version=APP_VERSION, execution_mode='online', report_pipeline_version=2)
+            metadata = dict(generator_version=APP_VERSION, execution_mode='online', report_pipeline_version=body.report_pipeline_version)
             if context is not None:
-                metadata.update(execution_mode='offline', report_pipeline_version=1, evaluation_id=context.evaluation_id,
+                metadata.update(execution_mode='offline', report_pipeline_version=3 if body.report_pipeline_version==3 else 1, evaluation_id=context.evaluation_id,
                                 evaluation_case_id=context.case['case_id'])
             result = controls.create_job(body.topic,body.document_ids,key=digest,metadata=metadata)
             result = TaskAccepted.model_validate(result).model_dump()

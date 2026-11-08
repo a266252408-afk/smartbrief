@@ -234,6 +234,13 @@ async def _review(draft: str, evidence: list, *, binding_issues=None, structure_
 @usage_scope("reviewer", state=True)
 async def reviewer_node(state: dict) -> dict:
     draft = state.get("draft_content") or ""
+    if state.get('report_pipeline_version') == 3 and state.get('report_document'):
+        from services.report_document import validate_document,render_document,narrative_view
+        validate_document(state['report_document'],state['task_id'])
+        draft=render_document(state['report_document'])
+        checked_draft=narrative_view(state['report_document'])
+    else:
+        checked_draft=draft
     logs = EventLogs(state.get("react_logs", []))
     history = list(state.get("review_history", []))
     iteration = int(state.get("iteration", 0))
@@ -258,14 +265,14 @@ async def reviewer_node(state: dict) -> dict:
     policy = freeze_policy(state) if state.get("report_pipeline_version", 1) >= 2 else None
     content_index = index_document(state["task_id"], draft, state.get("content_index")) if policy else None
     evidence = await asyncio.to_thread(refresh_document_sources, state.get("evidence", []))
-    check = check_citations(state.get("task_id", ""), draft, evidence, state.get("required_citations", []))
+    check = check_citations(state.get("task_id", ""), checked_draft, evidence, state.get("required_citations", []))
     binding = check.get("binding_issues", [])
     hard_binding = [issue for issue in binding if issue.get("kind") == "unbound_number" and (not policy or is_confirmed_blocker(issue))]
     hard_ranges = [issue for issue in binding if issue.get("kind") == "merged_fact_range" and (not policy or is_confirmed_blocker(issue))]
-    structure = structure_gaps(draft)
+    structure = structure_gaps(checked_draft)
     if state.get("report_pipeline_version", 1) >= 2:
-        structure.extend(repeated_passages(draft))
-    duplicates = duplicate_metrics(draft)
+        structure.extend(repeated_passages(checked_draft))
+    duplicates = duplicate_metrics(checked_draft)
     binding_errors = [_binding_error_text(issue) for issue in hard_binding + hard_ranges]
     deterministic_findings = build_findings(draft, evidence, binding) + reference_findings(draft, check)
     if state.get("report_pipeline_version", 1) >= 2:
@@ -283,7 +290,7 @@ async def reviewer_node(state: dict) -> dict:
             })
     # 重复章节与嵌入第二份报告可直接定位为全局装配问题。
     headings = {}
-    for paragraph in paragraph_table(draft):
+    for paragraph in paragraph_table(checked_draft):
         for line in paragraph['text'].splitlines():
             if not re.match(r'^##\s+', line):
                 continue
@@ -311,12 +318,14 @@ async def reviewer_node(state: dict) -> dict:
     deterministic_findings = attach_identities(draft, deterministic_findings, content_index, evidence)
     # 逐轮累计保留要求；Rewriter 只会执行本轮证据上下文里可见的部分，不可见的编号不会卡住返工。
     required = sorted(set(state.get("required_citations", [])) | {c["source_id"] for c in check["citations"] if c["valid"]})
-    cited = reference_ids(draft)
+    cited = reference_ids(checked_draft)
     common = {"evidence": evidence, "citations": check["citations"],
               "citation_errors": check["errors"] + binding_errors,
               "citation_issues": check.get("issues", []), "binding_issues": binding,
               "claim_issues": binding, "structure_issues": structure, "duplicate_issues": duplicates,
               "required_citations": required}
+    if state.get('report_pipeline_version') == 3:
+        common['draft_content']=draft
     if policy is not None:
         common["review_policy"] = policy
         common["content_index"] = content_index

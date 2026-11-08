@@ -969,14 +969,22 @@
           },
           "maxItems": 20,
           "title": "Document Ids",
-          "type": "array",
-          "uniqueItems": true
+          "type": "array"
         },
         "topic": {
           "maxLength": 200,
           "minLength": 1,
           "title": "Topic",
           "type": "string"
+        },
+        "report_pipeline_version": {
+          "default": 2,
+          "enum": [
+            2,
+            3
+          ],
+          "title": "Report Pipeline Version",
+          "type": "integer"
         }
       },
       "required": [
@@ -8509,6 +8517,94 @@
           "pattern": "^[a-f0-9]{64}$"
         }
       }
+    },
+    "DocumentAction": {
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "minLength": 1,
+          "title": "Target",
+          "type": "string"
+        },
+        "operation": {
+          "enum": [
+            "replace",
+            "remove"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelBlock"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "target",
+        "operation"
+      ],
+      "title": "DocumentAction",
+      "type": "object"
+    },
+    "DocumentActions": {
+      "additionalProperties": false,
+      "properties": {
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/DocumentAction"
+          },
+          "minItems": 1,
+          "title": "Actions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "actions"
+      ],
+      "title": "DocumentActions",
+      "type": "object"
+    },
+    "GenerateRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "document_ids": {
+          "items": {
+            "pattern": "^[a-f0-9]{32}$",
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Document Ids",
+          "type": "array"
+        },
+        "topic": {
+          "description": "研究主题",
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Topic",
+          "type": "string"
+        },
+        "report_pipeline_version": {
+          "default": 2,
+          "enum": [
+            2,
+            3
+          ],
+          "title": "Report Pipeline Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "topic"
+      ],
+      "title": "GenerateRequest",
+      "type": "object"
     }
   }
 }

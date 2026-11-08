@@ -57,6 +57,8 @@ def create_job(topic=None, document_ids=None, *, key=None, source_id=None, metad
     from services.task_regeneration import TaskNotTerminal
     action = "regenerate" if source_id is not None else "create"
     body = {} if source_id is not None else {"topic":topic,"document_ids":document_ids or []}
+    if source_id is None and (metadata or {}).get('report_pipeline_version') == 3:
+        body['report_pipeline_version']=3
     target = source_id or ""
     with get_connection() as conn:
         conn.execute("BEGIN IMMEDIATE")
