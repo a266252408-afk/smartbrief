@@ -17,11 +17,11 @@ from services.citations import Citation
 
 _JSON_FIELDS = ("plan", "completed_steps", "research_data", "review_comments",
                 "review_history", "memory_hits", "document_ids", "retrievals", "evidence", "citations",
-                "citation_errors", "metadata")
+                "citation_errors", "metadata", "report_document")
 # 允许更新的字段白名单：防止调用方误传脏字段（如 task_id / created_at）
 _ALLOWED_UPDATE = {"status", "topic", "plan", "current_step_index", "completed_steps",
                    "resume_mode",
-                   "research_data", "draft_content", "final_report", "error",
+                   "research_data", "draft_content", "final_report", "report_document", "error",
                    "review_comments", "review_history", "iteration", "max_iterations",
                    "passed", "forced_pass", "memory_hits", "document_ids", "retrievals", "evidence", "citations", "citation_errors",
                    "metadata", "execution_status", "quality_status", "forced_output", "error_code"}
@@ -83,6 +83,7 @@ def _row_to_task(row) -> dict | None:
     task["retrievals"] = json.loads(task.get("retrievals") or "[]")
     task["evidence"] = _loads(task.get("evidence"), [])
     task["metadata"] = _loads(task.get("metadata"), {})
+    task['report_document'] = json.loads(task['report_document']) if task.get('report_document') is not None else None
     if "forced_output" in task:
         task["forced_output"] = bool(task["forced_output"])
     return task
@@ -125,6 +126,9 @@ def update_task(task_id: str, *, _connection=None, _require_running=False, **fie
     updates = {k: v for k, v in fields.items() if k in _ALLOWED_UPDATE}   # 白名单过滤
     if not updates:
         return
+    if updates.get('report_document') is not None:
+        from services.report_document import validate_document
+        updates['report_document']=validate_document(updates['report_document'],task_id)
     if "status" in updates or "execution_status" in updates:
         status = updates.get("execution_status", updates.get("status"))
         if "status" in updates and updates["status"] != status:

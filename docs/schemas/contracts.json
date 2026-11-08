@@ -1928,7 +1928,8 @@
             {
               "enum": [
                 1,
-                2
+                2,
+                3
               ],
               "type": "integer"
             },
@@ -8088,6 +8089,325 @@
         "target"
       ],
       "title": "NormalizationTrace",
+      "type": "object"
+    },
+    "ModelBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "transition",
+            "fact",
+            "analysis",
+            "recommendation"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "claims": {
+          "items": {
+            "$ref": "#/$defs/ModelClaim"
+          },
+          "title": "Claims",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "text"
+      ],
+      "title": "ModelBlock",
+      "type": "object"
+    },
+    "ModelClaim": {
+      "additionalProperties": false,
+      "properties": {
+        "quote": {
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        },
+        "facts": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Facts",
+          "type": "array"
+        },
+        "premises": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Premises",
+          "type": "array"
+        }
+      },
+      "required": [
+        "quote"
+      ],
+      "title": "ModelClaim",
+      "type": "object"
+    },
+    "ModelSection": {
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "enum": [
+            "summary",
+            "body",
+            "conclusion"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "blocks": {
+          "items": {
+            "$ref": "#/$defs/ModelBlock"
+          },
+          "minItems": 1,
+          "title": "Blocks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "role",
+        "title",
+        "blocks"
+      ],
+      "title": "ModelSection",
+      "type": "object"
+    },
+    "ModelDocument": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "sections": {
+          "items": {
+            "$ref": "#/$defs/ModelSection"
+          },
+          "minItems": 1,
+          "title": "Sections",
+          "type": "array"
+        }
+      },
+      "required": [
+        "title",
+        "sections"
+      ],
+      "title": "ModelDocument",
+      "type": "object"
+    },
+    "DocumentBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "block_id": {
+          "minLength": 1,
+          "title": "Block Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "transition",
+            "fact",
+            "analysis",
+            "recommendation"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "claims": {
+          "items": {
+            "$ref": "#/$defs/DocumentClaim"
+          },
+          "title": "Claims",
+          "type": "array"
+        }
+      },
+      "required": [
+        "block_id",
+        "kind",
+        "text",
+        "claims"
+      ],
+      "title": "DocumentBlock",
+      "type": "object"
+    },
+    "DocumentClaim": {
+      "additionalProperties": false,
+      "properties": {
+        "claim_id": {
+          "minLength": 1,
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "quote": {
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        },
+        "start": {
+          "minimum": 0,
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "minimum": 1,
+          "title": "End",
+          "type": "integer"
+        },
+        "fact_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Fact Ids",
+          "type": "array"
+        },
+        "premise_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Premise Ids",
+          "type": "array"
+        },
+        "source_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Source Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "claim_id",
+        "quote",
+        "start",
+        "end",
+        "fact_ids",
+        "premise_ids",
+        "source_ids"
+      ],
+      "title": "DocumentClaim",
+      "type": "object"
+    },
+    "DocumentSection": {
+      "additionalProperties": false,
+      "properties": {
+        "section_id": {
+          "minLength": 1,
+          "title": "Section Id",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "summary",
+            "body",
+            "conclusion"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "blocks": {
+          "items": {
+            "$ref": "#/$defs/DocumentBlock"
+          },
+          "minItems": 1,
+          "title": "Blocks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "section_id",
+        "role",
+        "title",
+        "blocks"
+      ],
+      "title": "DocumentSection",
+      "type": "object"
+    },
+    "ReportDocument": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 3,
+          "default": 3,
+          "title": "Version",
+          "type": "integer"
+        },
+        "task_id": {
+          "minLength": 1,
+          "title": "Task Id",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "registry_revision": {
+          "minLength": 1,
+          "title": "Registry Revision",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "sections": {
+          "items": {
+            "$ref": "#/$defs/DocumentSection"
+          },
+          "minItems": 1,
+          "title": "Sections",
+          "type": "array"
+        },
+        "sources": {
+          "additionalProperties": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Sources",
+          "type": "object"
+        }
+      },
+      "required": [
+        "task_id",
+        "revision",
+        "registry_revision",
+        "title",
+        "sections",
+        "sources"
+      ],
+      "title": "ReportDocument",
       "type": "object"
     }
   }

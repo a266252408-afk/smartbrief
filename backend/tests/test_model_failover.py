@@ -375,7 +375,7 @@ def test_v3_upgrade_retains_reports_and_creates_empty_binding_table(providers):
     assert task_repository.get_task('old')['topic'] == '旧任务'
     with database.get_connection() as conn:
         assert conn.execute('SELECT count(*) FROM task_model_routes').fetchone()[0] == 0
-        assert conn.execute('PRAGMA user_version').fetchone()[0] == 4
+        assert conn.execute('PRAGMA user_version').fetchone()[0] == database.SCHEMA_VERSION
 
 
 @pytest.mark.parametrize('status', [408, 429, 500, 503, 403, 404])

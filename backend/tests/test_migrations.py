@@ -12,7 +12,7 @@ def test_version_ledger_is_idempotent_and_preserves_report(tmp_path):
     with sqlite3.connect(path) as conn:
         conn.execute("INSERT INTO tasks(task_id,topic,final_report,quality_status) VALUES('t','主题','原报告','unknown')")
         first = conn.execute('SELECT * FROM schema_migrations').fetchall()
-        assert [r[0] for r in first] == [1, 2, 3, 4]
+        assert [r[0] for r in first] == [1, 2, 3, 4, 5]
         assert conn.execute('PRAGMA user_version').fetchone()[0] == database.SCHEMA_VERSION
         assert conn.execute('SELECT metadata FROM tasks WHERE task_id=?', ('t',)).fetchone()[0] == '{}'
     database.init_db(path)

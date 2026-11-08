@@ -43,7 +43,7 @@ export interface TaskMetadata {
   execution_mode?: 'online' | 'offline' | null
   evaluation_id?: string | null
   evaluation_case_id?: string | null
-  report_pipeline_version?: 1 | 2 | null
+  report_pipeline_version?: 1 | 2 | 3 | null
 }
 
 /** 任务摘要（列表项） */
@@ -238,6 +238,7 @@ export interface TaskStatus extends TaskSummary {
   research_data: Record<string, unknown>
   draft_content: string
   final_report: string | null
+  report_document?: ReportDocument | null
   error: string | null
   react_logs: ReactLog[]
   // A2A 审核循环
@@ -457,4 +458,19 @@ export interface TaskResumed {
 
 export async function cancelTask(taskId: string): Promise<TaskCancelled> {
   return taskAction<TaskCancelled>(`/tasks/${encodeURIComponent(taskId)}/cancel`)
+}
+export interface DocumentClaim {
+  claim_id: string; quote: string; start: number; end: number;
+  fact_ids: string[]; premise_ids: string[]; source_ids: string[]
+}
+export interface DocumentBlock {
+  block_id: string; kind: 'transition' | 'fact' | 'analysis' | 'recommendation';
+  text: string; claims: DocumentClaim[]
+}
+export interface DocumentSection {
+  section_id: string; role: 'summary' | 'body' | 'conclusion'; title: string; blocks: DocumentBlock[]
+}
+export interface ReportDocument {
+  version: 3; task_id: string; revision: number; registry_revision: string;
+  title: string; sections: DocumentSection[]; sources: Record<string, Evidence>
 }

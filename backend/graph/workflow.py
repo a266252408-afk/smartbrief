@@ -65,6 +65,7 @@ def _initial_state(task_id: str, topic: str) -> AgentState:
     日志为空、数据为空 —— 跑完图之后这些字段会被节点逐步填充。
     """
     return {
+        'report_document': None,
         "regenerated_from": None,
         "document_ids": [],
         "retrievals": [],
@@ -223,6 +224,7 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
             citation_errors=final.get("citation_errors", []),
             draft_content=final.get("draft_content", ""),
             final_report=final_report,
+            report_document=final.get('report_document'),
             # A2A 审核循环结果
             review_comments=final.get("review_comments", []),
             review_history=final.get("review_history", []),

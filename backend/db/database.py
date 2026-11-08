@@ -17,7 +17,7 @@ from data_paths import runtime_path
 
 # 业务 SQLite 库文件（backend/data.db）
 DB_PATH = runtime_path('data.db')
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 # 建表 SQL（幂等：IF NOT EXISTS 保证重复执行不报错）
 _SCHEMA = """
@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     research_data       TEXT,          -- JSON 对象（各步骤研究结果）
     draft_content       TEXT,          -- 报告草稿（Markdown）
     final_report        TEXT,          -- 最终报告（先复用草稿）
+    report_document     TEXT,          -- v3结构化文档，旧任务保持NULL
     error               TEXT,          -- 任务失败原因（status=failed 时填充）
     review_comments     TEXT,          -- JSON 数组（Reviewer 最后一次审核意见）
     review_history      TEXT,          -- JSON 数组（A2A 各轮审核记录 [{"round","passed","comments"}]，按轮保留）
@@ -120,6 +121,7 @@ CREATE TABLE IF NOT EXISTS evaluation_reports (
 # 注意：加列必须同步修改 _SCHEMA、task_repository 的 _JSON_FIELDS/_ALLOWED_UPDATE、
 # workflow.run_task 落库与前端类型，五处缺一不可（见 CLAUDE.md 约定 12）。
 _MIGRATIONS = [
+    "ALTER TABLE tasks ADD COLUMN report_document TEXT",
     "ALTER TABLE evaluation_reports ADD COLUMN metadata TEXT",
     "ALTER TABLE tasks ADD COLUMN resume_requested INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE tasks ADD COLUMN resume_mode TEXT",
@@ -172,7 +174,7 @@ def init_db(db_path: Path | None = None) -> None:
         conn.executescript('BEGIN IMMEDIATE;\n' + _SCHEMA)
         conn.execute('CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)')
         recorded = {row[0] for row in conn.execute('SELECT version FROM schema_migrations')}
-        if recorded - {1, 2, 3, 4}:
+        if recorded - {1, 2, 3, 4, 5}:
             raise RuntimeError('迁移账本版本高于当前代码')
         for sql in _MIGRATIONS:             # 旧库补列（已存在则跳过）
             try:
@@ -182,6 +184,6 @@ def init_db(db_path: Path | None = None) -> None:
                     raise
         migrate_quality(conn)
         for number, name in ((1, '兼容旧库及双状态迁移'), (2, '完整持久化基线与版本账本'),
-                             (3, '任务元数据与演示标识'), (4, '任务主备模型绑定')):
+                             (3, '任务元数据与演示标识'), (4, '任务主备模型绑定'), (5, '结构化报告文档')):
             conn.execute('INSERT OR IGNORE INTO schema_migrations(version,name) VALUES (?,?)', (number, name))
         conn.execute(f'PRAGMA user_version={SCHEMA_VERSION}')
