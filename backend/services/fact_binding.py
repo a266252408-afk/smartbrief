@@ -93,6 +93,22 @@ def binding_prompt(registry):
             + "\n".join(f"[{key}] {value['quote']}" for key, value in registry.items()))
 
 
+def _embedded_fact(text):
+    return bool(re.search(r'排名第[一二三四五六七八九十0-9]+|位居第[一二三四五六七八九十0-9]+|仅次于|(?:份额|规模|销量|收入).{0,8}(?:最高|最大|第一)', text))
+
+
+def _organizational_transition(text):
+    """匹配完整组织句及其分析维度，不按句首前缀放行外部事实。"""
+    value = (text or '').strip()
+    if _embedded_fact(value) or re.search(r'已经|已达|达到|突破|(?:持续|显著|快速)增长|同比|环比', value):
+        return False
+    without_count = re.sub(r'[一二三四五六七八九十0-9]+个方面', '方面', value)
+    if quantitative_tokens(without_count):
+        return False
+    return bool(re.fullmatch(
+        r'(?:下文|以下|本文|本报告|接下来)(?:将|会)?(?:从[\u4e00-\u9fff、，,与和及\s]{2,60}方面(?:展开|进行)分析|依次讨论[\u4e00-\u9fff、，,与和及\s]{2,60})[。.!！]?', without_count))
+
+
 def render_bound_text(body, task_id, registry, *, previous=""):
     fenced = re.split(r"(?ms)(^```[^\n]*\n.*?^```[ \t]*$|^~~~[^\n]*\n.*?^~~~[ \t]*$)", body)
     if len(fenced) > 1:
@@ -121,6 +137,11 @@ def render_bound_text(body, task_id, registry, *, previous=""):
                 preserved = bool(statement and statement in previous_claims)
                 if re.search(r"\[S\d+\]", sentence) and not preserved:
                     raise BindingError("新声明必须提供事实编号", sentence)
+                if _organizational_transition(statement):
+                    rendered.append(sentence)
+                    continue
+                if _embedded_fact(statement) and not preserved:
+                    raise BindingError("排序事实声明缺少事实编号", sentence)
                 if quantitative_tokens(statement) and not preserved:
                     raise BindingError("定量声明缺少事实编号", sentence)
                 if statement and not preserved and not re.match(
@@ -172,7 +193,8 @@ def render_bound_text(body, task_id, registry, *, previous=""):
             if roles == {"forecast"} and not (FORECAST.search(claim_text) or "有望" in claim_text):
                 raise BindingError("预测事实必须保留预测或预计标签", sentence)
             check = check_citations(task_id, clean, list(sources.values()))
-            if check["errors"] or any(i.get("severity") == "hard" for i in check["binding_issues"]):
+            from services.review_rules import is_confirmed_blocker
+            if check["errors"] or any(is_confirmed_blocker(i) or (i.get("kind") in {"unbound_number", "merged_fact_range"} and i.get("severity") == "hard") for i in check["binding_issues"]):
                 raise BindingError("声明与绑定事实不一致", sentence)
             objects = set().union(*(set(object_context(f["quote"]) or object_context(f["source"].get("title", "")))
                                     for f in facts))

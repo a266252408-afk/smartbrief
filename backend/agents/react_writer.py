@@ -22,7 +22,7 @@ from services.citations import (
     rebind_citations,
     reference_ids,
 )
-from services.report_quality import structure_gaps, repeated_passages
+from services.report_quality import structure_gaps
 
 MAX_SELF_REPAIR = 1
 _FULL_REPORT_TASK = re.compile(
@@ -99,17 +99,24 @@ def _mechanical_findings(content: str, evidence, task: str, *, detect_repetition
         check = check_citations(task_id, content, evidence)
     except ValueError:
         return []
+    from services.review_rules import is_confirmed_blocker
     findings = [
         issue for issue in check.get("binding_issues", [])
-        if issue.get("severity") == 'hard' or issue.get("kind") == "merged_fact_range"
+        if (is_confirmed_blocker(issue) if detect_repetition else
+            issue.get("severity") == 'hard' or issue.get("kind") == "merged_fact_range")
     ]
     findings.extend({'kind': 'citation_integrity', 'reason': error,
                      'expected': '只使用已提供来源编号；补充声明对应引用或删除无支持声明'}
                     for error in check['errors'])
     if detect_repetition or (_FULL_REPORT_TASK.search(task) and not _BODY_ONLY_TASK.search(task)):
-        findings.extend(structure_gaps(content))
+        structural = structure_gaps(content)
         if detect_repetition:
-            findings.extend(repeated_passages(content))
+            from services.review_rules import assess_issue
+            structural = [issue for issue in structural if is_confirmed_blocker(assess_issue(
+                dict(issue, kind='required_structure', structure_kind=issue['kind'],
+                     has_section_headings=bool(re.search(r'(?m)^#{2,6}\s+', content))), evidence))]
+        findings.extend(structural)
+        # 语义重复只交给审核核验，不在写作自检中当机械错误直接删改。
     return findings
 
 
@@ -298,6 +305,7 @@ async def react_writer_run(task: str, step_id: int, logs: list, research_data: d
             from services.review_policy import policy_text
             messages.append({"role": "user", "content": policy_text(binding_context["review_policy"])})
         messages.append({"role": "user", "content": binding_prompt(registry)})
+    binding_repair_attempted = False
     try:
         resp = await chat(messages)                  # 行动：调用 LLM 生成文本
         choice = resp.choices[0]
@@ -315,6 +323,7 @@ async def react_writer_run(task: str, step_id: int, logs: list, research_data: d
             try:
                 content, claims = render_bound_text(content, task_id, registry)
             except BindingError as exc:
+                binding_repair_attempted = True
                 logs.append({
                     "type": "Observation", "step_id": step_id,
                     "content": f"事实绑定未通过：{exc.reason}；句子：{exc.sentence[:200]}",
@@ -348,10 +357,10 @@ async def react_writer_run(task: str, step_id: int, logs: list, research_data: d
         if findings:
             logs.append({
                 "type": "Observation",
-                "content": f"写作自检：机械问题 {len(findings)} 条，准备定点修复",
+                "content": f"写作自检：机械问题 {len(findings)} 条",
                 "step_id": step_id,
             })
-            if MAX_SELF_REPAIR > 0:
+            if MAX_SELF_REPAIR > 0 and not binding_repair_attempted:
                 candidate = await _self_repair(content, findings, messages)
                 if candidate:
                     if binding_context is not None:

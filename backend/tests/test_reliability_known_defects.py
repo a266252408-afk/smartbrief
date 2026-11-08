@@ -5,7 +5,6 @@ from services.report_quality import structure_gaps
 from services.candidate_acceptance import validate_candidate
 
 
-@pytest.mark.xfail(strict=True, reason="R00已复现；R01负责修复")
 def test_d01_organizational_transition_needs_no_fact_reference():
     text = '下文将从需求、竞争和风险三个方面展开分析。'
     assert render_bound_text(text, 'task_baseline', {})[0] == text
@@ -16,7 +15,6 @@ def test_d01_numeric_statement_disguised_as_transition_is_rejected():
         render_bound_text('下文将说明市场预计增长20%。', 'task_baseline', {})
 
 
-@pytest.mark.xfail(strict=True, reason="R00已复现；R01负责修复")
 def test_d02_equivalent_section_titles_are_recognized():
     body = '# 行业报告\n\n## 核心摘要\n\n资料不足，结论尚待核实。\n\n## 主要结论\n\n建议继续收集资料。'
     assert not structure_gaps(body)

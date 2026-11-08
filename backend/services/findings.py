@@ -88,8 +88,22 @@ def _evidence_for_issue(issue: dict, known: dict) -> tuple[dict | None, list[dic
                       if source_id in known]
     if not source_ids:
         return None, []
-    evidence = {"source_id": source_ids[0], "quote": _quote(known[source_ids[0]], numbers,
-                                                            literal=kind == "merged_fact_range")}
+    if kind == 'unsupported_wording':
+        anchors = re.findall(r'客单价|均价|售价|报价|金额|营收|收入', issue.get('sentence', ''))
+        source_ids.sort(key=lambda sid: not any(a in known[sid].get('excerpt', '') for a in anchors))
+    excerpt = known[source_ids[0]].get('excerpt', '')
+    quote = issue.get('quote')
+    if not quote or quote not in (known[source_ids[0]].get('title', '') + '\n' + excerpt):
+        quote = _quote(known[source_ids[0]], numbers, literal=kind == 'merged_fact_range')
+    if kind == 'unsupported_wording':
+        anchors = re.findall(r'客单价|均价|售价|报价|金额|营收|收入', issue.get('sentence', ''))
+        for passage in split_sentences(excerpt):
+            common = next((a for a in anchors if a in passage), None)
+            if common:
+                start = max(0, passage.index(common)-60)
+                quote = passage[start:start+240]
+                break
+    evidence = {'source_id': source_ids[0], 'quote': quote}
     evidence_sources = [
         {"source_id": source_id,
          "quote": _quote(known[source_id], numbers, literal=kind == "merged_fact_range")}
@@ -169,6 +183,8 @@ def build_findings(body: str, sources, issues) -> list[dict]:
     counters = {}
     findings = []
     for issue in issues or []:
+        from services.review_rules import assess_issue
+        issue = issue if issue.get("origin") == "program" else assess_issue(issue, sources)
         kind = issue.get("kind")
         if kind == "unbound_source":
             continue
@@ -178,6 +194,7 @@ def build_findings(body: str, sources, issues) -> list[dict]:
         prefix = _FINDING_PREFIX.get(kind, "FIND")
         counters[prefix] = counters.get(prefix, 0) + 1
         finding = {
+            **{k: issue[k] for k in ("origin", "decision", "material", "decision_reason")},
             "finding_id": f"{prefix}-{counters[prefix]:04d}",
             "rule": kind,
             "kind": kind,
@@ -254,7 +271,15 @@ def merge_findings(deterministic: list[dict], model_findings: list[dict],
             "candidate_sources": item.get("candidate_sources") or [],
             "scope": item.get('scope', 'paragraph'),
         }
-    return list(merged.values()), rejected
+    from services.review_rules import assess_issue, assess_model_finding
+    program_ids = {f['finding_id'] for f in deterministic}
+    result = []
+    for key, finding in merged.items():
+        if key in program_ids:
+            result.append(finding if finding.get('origin') == 'program' else assess_issue(finding, sources))
+        else:
+            result.append(assess_model_finding(finding))
+    return result, rejected
 
 
 def finding_block(findings: list[dict], limit: int | None = None) -> str:

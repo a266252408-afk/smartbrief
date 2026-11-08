@@ -42,10 +42,11 @@ def test_ddb6_replay_uses_full_rewriter_registry_and_saved_responses():
         render_bound_text(full['content'], data['task_id'], registry, previous=data['draft_content'])
 
 
-def test_ddb6_baseline_wording_false_positive_and_real_source_scope():
+def test_ddb6_amount_wording_is_normalized_without_rewriting_history():
     data = json.loads((FIXTURES / 'task_ddb648.json').read_text(encoding='utf-8'))
     check = check_citations(data['task_id'], data['draft_content'], data['evidence'])
     assert not check['errors']
-    assert any(i['kind'] == 'unsupported_wording' and '8万元' in i.get('sentence', '') for i in check['binding_issues'])
+    assert not any(i['kind'] == 'unsupported_wording' and '8万元' in i.get('sentence', '') for i in check['binding_issues'])
+    assert data['recorded']['quality_status'] == 'rejected'
     assert any('删除 10 条' in log['content'] for log in data['writer_logs'])
     assert data['provenance']['raw_writer_response'] == 'not_persisted'

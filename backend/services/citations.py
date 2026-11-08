@@ -583,6 +583,25 @@ def _comparison_issues(body: str, known: dict) -> list[dict]:
     return issues
 
 
+def _money_threshold_supported(term, sentence, excerpts):
+    """只处理明确同一金额指标中的万元省略；不补币种、不把用户数当金额。"""
+    match = re.fullmatch(r'(\d[\d,.]*)\s*(万|千)元\s*(以上|以下)', term)
+    if not match or re.search(r'美元|美金|USD|欧元|日元|港元|\$', sentence, re.I):
+        return False
+    metric = r'客单价|均价|售价|报价|金额|营收|收入'
+    names = re.findall(metric, sentence)
+    if not names:
+        return False
+    omitted = ''.join(match.groups())
+    for excerpt in excerpts:
+        for clause in re.split(r'[，,。；;\n]', excerpt):
+            if re.search(r'美元|美金|USD|欧元|日元|港元|\$', clause, re.I):
+                continue
+            if any(re.search(re.escape(name) + r'[^\d，,。；;]{0,16}' + re.escape(omitted), re.sub(r'\s+', '', clause)) for name in names):
+                return True
+    return False
+
+
 def _wording_issues(body: str, known: dict) -> list[dict]:
     """机制词与金额阈值不是数字，但同样必须有来源；来源没有就不能补写。"""
     issues = []
@@ -599,7 +618,8 @@ def _wording_issues(body: str, known: dict) -> list[dict]:
             if not excerpts:
                 continue
             compact = re.sub(r"\s+", "", " ".join(excerpts))
-            missing = sorted(term for term in terms if re.sub(r"\s+", "", term) not in compact)
+            missing = sorted(term for term in terms if re.sub(r"\s+", "", term) not in compact
+                             and not _money_threshold_supported(term, sentence, excerpts))
             if not missing:
                 continue
             issues.append({
@@ -774,6 +794,8 @@ def check_citations(task_id: str, body: str, sources: list, required=()) -> dict
         + merged_range_issues(body, facts)
         + semantic_issues(body, list(known.values()))
     )
+    from services.review_rules import assess_issue
+    binding_issues = [assess_issue(issue, list(known.values())) for issue in binding_issues]
     return {
         "valid": not errors,
         "citations": records,

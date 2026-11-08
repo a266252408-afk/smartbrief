@@ -14,6 +14,7 @@ from services.evidence_ranking import review_evidence_block
 from services.findings import build_findings, finding_block, merge_findings, reference_findings
 from services.event_logs import EventLogs
 from services.review_policy import report_metrics, policy_violations, freeze_policy, policy_text, decide_quality
+from services.review_rules import assess_issue, is_confirmed_blocker, material_pending
 
 REVIEW_STEP_ID = 0
 
@@ -182,8 +183,14 @@ async def _review(draft: str, evidence: list, *, binding_issues=None, structure_
     error_lines = [f"- {error}" for error in (check_errors or [])]
     error_text = "\n\n确定性来源映射错误：\n" + "\n".join(error_lines) if error_lines else ""
     evidence_block = review_evidence_block(draft, evidence, required_ids=required_ids)
+    system_prompt = SYSTEM_PROMPT
+    if policy:
+        system_prompt = system_prompt.replace(
+            '不得推翻确定性 hard 结论，也不得删除给定 finding；若认为规则误判，写入 possible_rule_issue，但保留 finding 与 passed=false',
+            '不得豁免来源归属等confirmed完整性事实。suspected/unresolved为待核验疑点，不等同已确认错误；对照完整来源核验，不得仅因规则未知就拒绝。程序保留原记录，若有实质错误给出准确hard意见，普通文风用soft')
+        finding_text = finding_text.replace('确定性规则 findings（finding_id 固定，不得删除或推翻 hard 结论）', '程序预检 findings（confirmed才为已确认；suspected/unresolved必须核验）')
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT + ("\n" + policy_text(policy) if policy else "")},
+        {"role": "system", "content": system_prompt + ("\n" + policy_text(policy) if policy else "")},
         {
             "role": "user",
             "content": (
@@ -246,8 +253,8 @@ async def reviewer_node(state: dict) -> dict:
     evidence = await asyncio.to_thread(refresh_document_sources, state.get("evidence", []))
     check = check_citations(state.get("task_id", ""), draft, evidence, state.get("required_citations", []))
     binding = check.get("binding_issues", [])
-    hard_binding = [issue for issue in binding if issue.get("kind") == "unbound_number"]
-    hard_ranges = [issue for issue in binding if issue.get("kind") == "merged_fact_range"]
+    hard_binding = [issue for issue in binding if issue.get("kind") == "unbound_number" and (not policy or is_confirmed_blocker(issue))]
+    hard_ranges = [issue for issue in binding if issue.get("kind") == "merged_fact_range" and (not policy or is_confirmed_blocker(issue))]
     structure = structure_gaps(draft)
     if state.get("report_pipeline_version", 1) >= 2:
         structure.extend(repeated_passages(draft))
@@ -262,6 +269,7 @@ async def reviewer_node(state: dict) -> dict:
             deterministic_findings.append({
                 "finding_id": "STRUCT-REQUIRED-" + issue["kind"], "rule": "required_structure",
                 "kind": "required_structure", "severity": "hard", "problem": issue["message"],
+                "structure_kind": issue["kind"], "has_section_headings": bool(re.search(r"(?m)^#{2,6}\s+", draft)),
                 "expected": "补齐唯一报告标题、执行摘要与结论，修正重复章节和返工协议；保持有效事实引用",
                 "evidence": {"kind": "report", "quote": first_paragraph},
                 "location": {"paragraph": 1, "sentence": 1}, "scope": "full",
@@ -291,6 +299,8 @@ async def reviewer_node(state: dict) -> dict:
                 'expected':'删除无支持声明或补充支持该声明的来源引用',
                 'location':{'paragraph':n,'sentence':1},
                 'evidence':{'kind':'report','quote':table[n-1]['text']}})
+    if policy:
+        deterministic_findings = [f if f.get("origin") == "program" else assess_issue(f, evidence) for f in deterministic_findings]
     # 逐轮累计保留要求；Rewriter 只会执行本轮证据上下文里可见的部分，不可见的编号不会卡住返工。
     required = sorted(set(state.get("required_citations", [])) | {c["source_id"] for c in check["citations"] if c["valid"]})
     cited = reference_ids(draft)
@@ -339,7 +349,7 @@ async def reviewer_node(state: dict) -> dict:
         prefix = '审核调用失败' if diagnostic['code'] == 'REVIEW_CALL_FAILED' else '审核返回无效'
         comments.insert(0, f"{prefix} [{diagnostic['code']}]：{diagnostic['message']}")
         fault_decision = decide_quality(usable=True, review_complete=False,
-            confirmed_blockers=[f['finding_id'] for f in deterministic_findings if f.get('severity') == 'hard'] + check['errors']) if policy else dict(quality_status='unavailable')
+            confirmed_blockers=[f['finding_id'] for f in deterministic_findings if is_confirmed_blocker(f)] + check['errors']) if policy else dict(quality_status='unavailable')
         fault_quality = fault_decision['quality_status']
         history.append({"round": round_no, "passed": False if fault_quality == 'rejected' else None, "comments": comments,
                         "review_complete": False, "review_policy": policy,
@@ -368,13 +378,15 @@ async def reviewer_node(state: dict) -> dict:
         logs.append({"type": "Observation",
                      "content": f"审核 agent 的 {len(rejected_findings)} 条 finding 证据不在来源中，已丢弃",
                      "step_id": 0})
-    hard_findings = [finding for finding in findings if finding.get("severity") == "hard"]
+    hard_findings = [finding for finding in findings if (is_confirmed_blocker(finding) if policy else finding.get("severity") == "hard")]
+    pending_material = bool(policy and (any(material_pending(f) for f in findings) or
+                                       any(i["kind"] == "duplicate_passage" for i in structure)))
     passed = bool(review["passed"] and check["valid"] and not hard_findings and not rejected_findings)
     decision = None
     if policy is not None:
         decision = decide_quality(usable=True,
-            review_complete=not bool(review.get('review_diagnostics') or rejected_findings) and bool(review['passed'] or hard_findings or check['errors']),
-            confirmed_blockers=[f['finding_id'] for f in hard_findings] + check['errors'])
+            review_complete=not bool(review.get('review_diagnostics') or rejected_findings or pending_material) and bool(review['passed'] or hard_findings or check['errors']),
+            confirmed_blockers=[f['finding_id'] for f in hard_findings] + check['errors'], unresolved_material=pending_material)
         passed = decision['passed']
     comments = list(review.get("comments") or [])
     finding_comments = [f"{finding['problem']}：{finding['expected']}" for finding in hard_findings]
@@ -383,13 +395,13 @@ async def reviewer_node(state: dict) -> dict:
     ))
     if not passed:
         if review["passed"]:
-            comments.insert(0, "确定性规则未通过，质量不能判为通过")
+            comments.insert(0, "仍有实质事实疑点待核验，暂不能判为通过" if pending_material and not hard_findings and not check["errors"] else "确定性规则未通过，质量不能判为通过")
         for text in deterministic_comments:
             if text not in comments:
                 comments.insert(0, text)
     possible_rule_issue = review.get("possible_rule_issue")
     full_rewrite_required = bool(review.get("full_rewrite_required") or
-                                 any(f.get('scope') == 'full' for f in findings))
+                                 any(f.get('scope') == 'full' and (not policy or is_confirmed_blocker(f)) for f in findings))
     if possible_rule_issue:
         logs.append({"type": "Observation",
                      "content": f"审核 agent 提出规则误判（仅记录，不改变判定）：{possible_rule_issue}",

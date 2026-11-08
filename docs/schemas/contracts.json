@@ -7891,6 +7891,46 @@
       ],
       "title": "ReviewPolicy",
       "type": "object"
+    },
+    "RuleAssessment": {
+      "additionalProperties": false,
+      "properties": {
+        "origin": {
+          "enum": [
+            "program",
+            "model"
+          ],
+          "title": "Origin",
+          "type": "string"
+        },
+        "decision": {
+          "enum": [
+            "confirmed",
+            "suspected",
+            "dismissed",
+            "unresolved"
+          ],
+          "title": "Decision",
+          "type": "string"
+        },
+        "material": {
+          "title": "Material",
+          "type": "boolean"
+        },
+        "decision_reason": {
+          "minLength": 1,
+          "title": "Decision Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "origin",
+        "decision",
+        "material",
+        "decision_reason"
+      ],
+      "title": "RuleAssessment",
+      "type": "object"
     }
   }
 }

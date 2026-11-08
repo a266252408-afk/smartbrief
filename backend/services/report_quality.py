@@ -180,6 +180,25 @@ def repair_structure(draft, topic: str | None = None) -> str:
     return "\n\n".join(chunk for chunk in chunks if chunk)
 
 
+def _required_heading_role(title):
+    title = re.sub(r'^[一二三四五六七八九十0-9]+[、.．]\s*', '', title.strip())
+    name = re.split(r'[：:]', title, maxsplit=1)[0].strip()
+    return {'摘要': 'summary', '执行摘要': 'summary', '核心摘要': 'summary',
+            '结论': 'conclusion', '总结': 'conclusion', '主要结论': 'conclusion',
+            '核心结论': 'conclusion', '研究结论': 'conclusion', '结论与建议': 'conclusion'}.get(name)
+
+
+def _section_has_content(lines, index, level):
+    content = []
+    for line in lines[index+1:]:
+        heading = re.match(r'^(#{1,6})\s+', line)
+        if heading and len(heading[1]) <= level:
+            break
+        if not heading:
+            content.append(line)
+    return bool(re.sub(r'[\s#>*`~|\-:]+', '', '\n'.join(content)))
+
+
 def structure_gaps(draft) -> list[dict]:
     """报告骨架检查：标题、摘要、结论与章节编号。只提示，不改写内容。"""
     if not isinstance(draft, str) or not draft.strip():
@@ -192,10 +211,16 @@ def structure_gaps(draft) -> list[dict]:
     if not has_title:
         issues.append({"kind": "missing_title",
                        "message": "缺少报告标题：首行应是一级标题，不能直接以“第一章”开头"})
-    if not re.search(r"(?m)^#{1,6}\s*(?:[一二三四五六七八九十0-9]+[、.．]\s*)?(?:执行)?摘要", draft):
-        issues.append({"kind": "missing_summary", "message": "缺少执行摘要"})
-    if not re.search(r"(?m)^#{1,6}\s*(?:[一二三四五六七八九十0-9]+[、.．]\s*)?(?:结论|总结|结论与建议|研究结论)", draft):
-        issues.append({"kind": "missing_conclusion", "message": "缺少结论与建议"})
+    role_content = {'summary': [], 'conclusion': []}
+    for index, line in enumerate(lines):
+        match = re.match(r'^(#{1,6})\s+(.+)$', line)
+        if match and (role := _required_heading_role(match[2])):
+            role_content[role].append(_section_has_content(lines, index, len(match[1])))
+    for role, label in [('summary', '执行摘要'), ('conclusion', '结论与建议')]:
+        if not role_content[role]:
+            issues.append({'kind': 'missing_' + role, 'message': '缺少' + label})
+        elif not any(role_content[role]):
+            issues.append({'kind': 'empty_' + role, 'message': label + '没有实际正文'})
     chapters = [re.sub(r"^##\s*", "", line).strip() for line in lines if re.match(r"^##\s+\S", line)]
     numbers = [match.group(1) for chapter in chapters
                if (match := re.match(r"第\s*([一二三四五六七八九十0-9]+)\s*章", chapter))]

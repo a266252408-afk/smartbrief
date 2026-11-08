@@ -110,6 +110,22 @@ export interface RewriteAudit {
 }
 
 /** 单轮审核记录（review_history 元素） */
+export interface RuleAssessment {
+  origin: 'program' | 'model'
+  decision: 'confirmed' | 'suspected' | 'dismissed' | 'unresolved'
+  material: boolean
+  decision_reason: string
+}
+export interface ReviewFinding extends Partial<RuleAssessment> {
+  finding_id: string
+  rule?: string
+  severity: 'hard' | 'soft' | 'info'
+  problem: string
+  expected: string
+  evidence: { kind?: 'source' | 'report'; source_id?: string; quote: string }
+  location: { paragraph: number; sentence: number }
+}
+
 export interface ReviewPolicy {
   version: 'review-policy-1'
   task_id: string
@@ -121,6 +137,7 @@ export interface ReviewPolicy {
 }
 
 export interface ReviewRound {
+  findings?: Array<Partial<ReviewFinding>>
   review_policy?: ReviewPolicy | null
   report_pipeline_version?: number
   claim_bindings?: ClaimBinding[]

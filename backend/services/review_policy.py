@@ -26,8 +26,11 @@ def policy_violations(review, body, *, policy=None, deterministic_findings=(), c
                 errors.append({'code':'UNLISTED_FORMAT_REQUIREMENT', 'text':text})
     if policy is not None:
         reported_hard = any(f.get('severity') == 'hard' for f in review.get('findings', []))
-        hard = reported_hard or any(f.get('severity') == 'hard' for f in deterministic_findings)
-        if (review.get('passed') and reported_hard) or (not review.get('passed') and not hard and not check_errors):
+        from services.review_rules import is_confirmed_blocker, material_pending, assess_model_finding
+        hard = reported_hard or any(is_confirmed_blocker(f) for f in deterministic_findings)
+        pending = any(material_pending(f) for f in deterministic_findings) or any(
+            material_pending(assess_model_finding(f)) for f in review.get('findings', []))
+        if (review.get('passed') and reported_hard) or (not review.get('passed') and not hard and not pending and not check_errors):
             errors.append({'code': 'BOOLEAN_FINDING_CONFLICT', 'text': '布尔判定须与具体阻塞问题一致；不能仅以soft建议拒绝、携带hard却自报通过，或删除原意见后默认通过'})
     return errors
 
