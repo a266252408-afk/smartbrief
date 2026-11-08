@@ -200,7 +200,7 @@ def citation_issue(error, task_id):
                 target_id='R'+_hash(task_id)[:24],identity_certainty='global' if category!='unknown_integrity' else 'unverified')
 
 
-def index_candidate(task_id, before, after, previous, *, patch=False):
+def index_candidate(task_id, before, after, previous, *, patch=False, edits=None):
     """按已执行补丁上下文和唯一原文生成映射；段落收缩时不猜旧坐标。"""
     from services.rewrite_patches import paragraph_table
     current = index_document(task_id, before, previous)
@@ -214,7 +214,21 @@ def index_candidate(task_id, before, after, previous, *, patch=False):
         new_text[row['text'].replace('\r\n','\n')].append(row)
     mapping = {blocks[0]['target_id']:new_text[text][0]['paragraph'] for text,blocks in old_text.items()
                if len(blocks)==len(new_text[text])==1}
-    if len(rows)==len(current['blocks']):
+    if edits is not None:
+        parts=re.split(r'(\n\s*\n)',before)
+        replacements={edit['paragraph']:edit['replacement'] for edit in edits}
+        for paragraph,replacement in replacements.items():
+            parts[(paragraph-1)*2]=replacement
+        if ''.join(parts)!=after:
+            raise ValueError('补丁动作与实际候选不一致，不能猜目标映射')
+        owners=[(block,replacements.get(block['paragraph'],block['text'])) for block in current['blocks']]
+        owners=[(block,text) for block,text in owners if text.strip()]
+        visible=[row for row in rows if row['text'].strip()]
+        if len(owners)!=len(visible) or any(text.strip()!=row['text'].strip() for (_,text),row in zip(owners,visible)):
+            raise ValueError('补丁段落映射无法唯一确定')
+        # 已执行动作是明确归属证据，优先于碰巧相同的旧文本。
+        mapping={block['target_id']:row['paragraph'] for (block,_),row in zip(owners,visible)}
+    elif len(rows)==len(current['blocks']):
         used=set(mapping.values())
         for block in current['blocks']:
             if block['target_id'] not in mapping and block['paragraph'] not in used:

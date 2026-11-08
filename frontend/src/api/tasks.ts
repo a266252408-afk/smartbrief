@@ -104,6 +104,7 @@ export interface RewriteAudit {
     retained_claims?: Record<string, string[]> }
   mode: string
   content_index?: ContentIndex
+  target_mapping?: Record<string, number | null>
   changed?: boolean
   failures?: string[]
   attempts?: RewriteAttempt[]

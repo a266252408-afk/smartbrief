@@ -24,7 +24,9 @@ def verify_findings(body, evidence, findings, model_results, required=(), task_i
         target = known_targets.get(finding.get('target_id'))
         available = {s['source_id'] for s in evidence if s.get('source_id') and not s.get('source_deleted')}
         missing_sources = set(conflict_fields(finding)['sources']) - available
-        uncertain = strict_identity and (not target or target['certainty'] == 'unverified' or bool(missing_sources))
+        uncertain = strict_identity and (not target or target['certainty'] == 'unverified' or bool(missing_sources)
+            or rule in {'unverified_comparison','unsupported_wording','avoidable_gap'}
+            or finding.get('decision') in {'suspected','unresolved'})
         status = 'unverified' if rule not in rules or uncertain else 'unresolved' if matches else 'resolved'
         report = reported.get(finding['finding_id'], {})
         row = {'finding_id':finding['finding_id'], 'reported_status':report.get('status'),

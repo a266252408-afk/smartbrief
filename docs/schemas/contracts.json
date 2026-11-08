@@ -8013,6 +8013,24 @@
       ],
       "title": "ContentIndex",
       "type": "object"
+    },
+    "RewriteTargetMapping": {
+      "description": "R02-02 程序执行补丁后的原目标到当前段落映射；null表示删除。",
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^B[a-f0-9]{24}$"
+      },
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 1
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
     }
   }
 }

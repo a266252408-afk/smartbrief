@@ -5,6 +5,9 @@ import re
 
 def rejection_code(message):
     """稳定诊断码用于区分范围限制、格式错误和质量校验。"""
+    if getattr(message, "code", None):
+        return message.code
+    message = str(message)
     for token, code in [('被点名段落', 'SCOPE_RESTRICTED'), ('digest', 'VERSION_MISMATCH'),
                         ('完整段落', 'PARAGRAPH_FORMAT'), ('新增引用', 'CITATION_REJECTED'),
                         ('新增硬错误', 'QUALITY_REJECTED'), ('没有实际修改', 'NO_CHANGE')]:
@@ -71,12 +74,14 @@ def receipt_diagnostics(payload, findings):
         return [str(exc)]
 
 
-def apply_partial_patches(body, payload, findings, validate_candidate=None):
+def apply_partial_patches(body, payload, findings, validate_candidate=None, normalize_proposal=None):
     """按原稿坐标逐条验证；坏补丁不影响已接受补丁。"""
     from services.review_contracts import Patch
     if not isinstance(payload, dict) or payload.get('mode') != 'patch' or not isinstance(payload.get('patches'), list):
         raise ValueError('补丁模式无效')
     candidate = body
+    base_parts = re.split(r'(\n\s*\n)', body)
+    replacements = {}
     accepted, rejected, covered, seen = [], [], set(), set()
     for index, item in enumerate(payload['patches']):
         try:
@@ -85,20 +90,28 @@ def apply_partial_patches(body, payload, findings, validate_candidate=None):
             n = data['paragraph']
             if n in seen:
                 raise ValueError('同段落补丁重复')
+            if normalize_proposal is not None:
+                data = normalize_proposal(data)
             one = {'mode':'patch','patches':[data], 'results':[
                 {'finding_id':f['finding_id'],'status':'fixed' if f['finding_id'] in data['finding_ids'] else 'skipped',
                  'reason':'由程序按补丁覆盖范围生成'} for f in findings]}
-            proposed = apply_patch(candidate, one, findings)
+            # 版本和范围始终对原稿校验，不让已接受的删除移动后续目标。
+            apply_patch(body, one, findings)
+            proposed_parts = list(base_parts)
+            for paragraph, replacement in {**replacements, n:data['replacement']}.items():
+                proposed_parts[(paragraph-1)*2] = replacement
+            proposed = ''.join(proposed_parts)
             if proposed == candidate:
                 raise ValueError('补丁没有实际修改')
             if validate_candidate is not None:
                 validate_candidate(candidate, proposed, data)
             candidate = proposed
+            replacements[n] = data['replacement']
             seen.add(n)
             accepted.append(data)
             covered.update(data['finding_ids'])
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
-            rejected.append({'index':index, 'message':str(exc), 'code':rejection_code(str(exc)),
+            rejected.append({'index':index, 'message':str(exc), 'code':rejection_code(exc),
                              'proposal':item})
     from services.review_contracts import Receipt
     reported = {}

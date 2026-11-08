@@ -117,7 +117,9 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
             break
         mode = 'patch' if feedback else 'full' if force_full or attempt >= 2 else 'patch'
         instruction = {
-            'mode': mode, 'paragraphs': paragraph_table(best), 'findings': active_findings,
+            'mode': mode, 'paragraphs': paragraph_table(best), 'findings': [
+                {k:f[k] for k in ('finding_id','problem','expected','severity','scope','location','evidence','evidence_sources','numbers','cited','rule') if k in f}
+                for f in active_findings],
             'verification_feedback': feedback,
             'citation_obligations': citation_lifecycle(draft, best, required, original_claims=originals)['retained_claims'],
             'failures': failures,
@@ -158,22 +160,30 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
                 if mode == "full":
                     payload["content"], candidate_bindings = render_bound_text(
                         payload.get("content", ""), state["task_id"], registry, previous=best)
-                else:
-                    for proposal in payload.get("patches", []):
-                        proposal["replacement"], rows = render_bound_text(
-                            proposal.get("replacement", ""), state["task_id"], registry, previous=best)
-                        candidate_bindings.extend(rows)
             if isinstance(payload, dict):
                 proposed_changes = payload.get('citation_changes', [])
                 if isinstance(proposed_changes, list):
                     changes.extend(c for c in proposed_changes if isinstance(c, dict))
+            binding_rows = {}
+            deterministic_rules = {'unbound_number','merged_fact_range','period_mismatch','percentage_point_mismatch',
+                'comparison_basis_mismatch','geography_mismatch','invalid_reference','missing_citation','required_structure'}
+            def normalize_proposal(edit):
+                text, rows = render_bound_text(edit['replacement'], state['task_id'], registry, previous=best)
+                binding_rows[edit['paragraph']] = rows
+                return dict(edit, replacement=text)
             def validate_edit(before, after, edit):
                 before_check = checked(before)
                 after_check = checked(after)
-                validate_candidate(before, after, before_check, after_check)
+                targets = [f for f in active_findings if f['finding_id'] in edit['finding_ids']]
+                pure = bool(targets and all(f.get('rule') in deterministic_rules for f in targets))
+                validate_candidate(before, after, before_check, after_check,
+                    pipeline_version=2 if bound else 1, require_progress=bound and pure)
             if mode == 'patch':
-                partial = apply_partial_patches(best, payload, active_findings, validate_edit)
+                partial = apply_partial_patches(best, payload, active_findings, validate_edit,
+                    normalize_proposal=normalize_proposal if bound else None)
                 candidate = partial.pop('body')
+                if bound:
+                    candidate_bindings.extend(row for edit in partial['accepted'] for row in binding_rows.get(edit['paragraph'], []))
                 audit.update(accepted=partial['accepted'], rejected=partial['rejected'])
                 if candidate == best and payload.get('patches'):
                     raise ValueError('没有有效补丁：' + json.dumps(partial['rejected'], ensure_ascii=False))
@@ -188,9 +198,9 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
                 candidate = validated.content
                 if not usable_draft(candidate):
                     raise ValueError('full 正文不可用')
-                if bound and structure_gaps(candidate):
-                    raise ValueError("全文候选结构不完整")
-                validate_candidate(best, candidate, checked(best), checked(candidate), full=True)
+                pure = bool(findings and all(f.get('rule') in deterministic_rules for f in findings))
+                validate_candidate(best, candidate, checked(best), checked(candidate), full=True,
+                    pipeline_version=2 if bound else 1, require_progress=bound and pure)
                 receipt = {'mode':mode, 'results':[], 'failures':failures,
                            'receipt_errors':receipt_errors, 'reason':validated.reason}
             check = checked(candidate)
@@ -198,7 +208,7 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
             previous_hard_count = sum(hard_problem_counts(previous_check).values())
             hard_rules = {i.get('kind') for i in previous_check.get('binding_issues', [])
                           if i.get('severity') == 'hard'}
-            if mode == 'full' and previous_hard_count and findings and all(
+            if not bound and mode == 'full' and previous_hard_count and findings and all(
                     f.get('rule') in hard_rules for f in findings):
                 if sum(hard_problem_counts(check).values()) >= previous_hard_count:
                     raise ValueError('全文候选未解决目标硬问题')
@@ -209,7 +219,11 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
             life = citation_lifecycle(draft, candidate, required, changes=changes, original_claims=originals)
             candidate_index = None
             if bound:
-                candidate_index = index_candidate(state['task_id'], best, candidate, best_index, patch=mode == 'patch')
+                candidate_index = index_candidate(state['task_id'], best, candidate, best_index, patch=mode == 'patch',
+                    edits=receipt.get('accepted', []) if mode == 'patch' else None)
+                if mode == 'patch':
+                    positions={b['target_id']:b['paragraph'] for b in candidate_index['blocks']}
+                    receipt['target_mapping']={b['target_id']:positions.get(b['target_id']) for b in best_index['blocks']}
             verification, correction_targets = verify_findings(candidate, evidence, findings, model_results, life['required_ids'], state.get('task_id', ''), content_index=candidate_index, strict_identity=bound)
             receipt.update(model_results=model_results, verification=verification)
             audit.update(model_results=model_results, verification=verification)
@@ -228,6 +242,9 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
             if feedback:
                 break
             if mode == 'patch' and receipt['rejected']:
+                if bound:
+                    failures.append('部分局部提案未采用；保留有效修改与未解决目标，不因局部失败自动全文重写')
+                    break
                 force_full = True
                 full_reason = '局部补丁部分被程序拦截，升级全文修复'
                 failures.append(full_reason)
@@ -238,7 +255,7 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
         except Exception as exc:
             changes = previous_changes
             raw = getattr(getattr((getattr(response, 'choices', None) or [None])[0], 'message', None), 'content', '') or ''
-            code = (rejection_code(str(exc)) if response is not None else 'MODEL_CALL_FAILED')
+            code = (rejection_code(exc) if response is not None else 'MODEL_CALL_FAILED')
             if audit.get('finish_reason') == 'length':
                 code = 'OUTPUT_TRUNCATED'
             audit.update(decision='rejected', code=code, message=str(exc))

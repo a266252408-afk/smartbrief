@@ -43,6 +43,8 @@ def _resolve_fact_key(key: str, registry: dict) -> str:
 class BindingError(ValueError):
     """事实绑定校验失败；记录违规句子，供写手定向修复，而不是丢弃整稿。"""
 
+    code = "FACT_BINDING_REJECTED"
+
     def __init__(self, reason: str, sentence: str = ""):
         super().__init__(reason)
         self.reason = reason
