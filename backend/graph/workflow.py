@@ -161,6 +161,9 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
         from services.retrieval_service import retrieve_documents
         task = task_repository.get_task(task_id)
         initial["report_pipeline_version"] = ((task or {}).get("metadata") or {}).get("report_pipeline_version", 1)
+        if initial["report_pipeline_version"] >= 2:
+            from services.review_policy import freeze_policy
+            initial["review_policy"] = freeze_policy(initial)
         initial["fact_registry"] = {}
         initial["claim_bindings"] = []
         initial["document_ids"] = (task or {}).get("document_ids", [])

@@ -294,6 +294,9 @@ async def react_writer_run(task: str, step_id: int, logs: list, research_data: d
         messages[0]["content"] = messages[0]["content"].replace(
             "只使用给定source_id，关键声明以[S1]等编号引用，不得生成或重分配来源",
             "关键声明只使用给定fact_id，以[F…]引用；source_id由程序渲染，不得自行标注[S编号]")
+        if binding_context.get("review_policy"):
+            from services.review_policy import policy_text
+            messages.append({"role": "user", "content": policy_text(binding_context["review_policy"])})
         messages.append({"role": "user", "content": binding_prompt(registry)})
     try:
         resp = await chat(messages)                  # 行动：调用 LLM 生成文本

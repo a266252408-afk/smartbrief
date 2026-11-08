@@ -63,6 +63,22 @@ def test_v2_real_graph_persists_bound_report(offline_evidence, monkeypatch):
     history = task["review_history"][0]
     assert len(history["claim_bindings"]) == 2
     assert all(key in history["fact_registry"] for c in history["claim_bindings"] for key in c["fact_ids"])
+    from services.review_policy import policy_text
+    policy = history['review_policy']
+    assert policy['task_id'] == 'bound-graph'
+    assert policy['required_questions'] == ['市场研究']
+    for agent in ('react_writer', 'reviewer'):
+        messages = offline_evidence[agent].calls[0][0]
+        assert policy_text(policy) in '\n'.join(m['content'] for m in messages)
+    async def saved_policy():
+        from memory.checkpointer import open_checkpointer
+        from graph.workflow import build_graph
+        async with open_checkpointer() as (cp, kind):
+            assert kind == 'sqlite'
+            snapshot = await build_graph(checkpointer=cp).aget_state({'configurable': {'thread_id': 'bound-graph'}})
+            return snapshot.values['review_policy']
+    assert asyncio.run(saved_policy()) == policy
+
 
 
 def test_summary_can_repeat_one_fact_but_not_two_verbatim_sentences():

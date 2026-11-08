@@ -33,6 +33,7 @@ from services.event_logs import EventLogs
 from services.rewrite_verification import verify_findings
 from services.candidate_acceptance import validate_candidate, hard_problem_counts
 from services.fact_binding import build_registry, binding_prompt, render_bound_text, locate_bindings
+from services.review_policy import policy_text, freeze_policy
 from agents.react_writer import _summarize_research, FACTUAL_DISCIPLINE   # 复用：研究数据 → Markdown 摘要、事实口径
 
 # 返工日志统一归类到 step_id=0（A2A 阶段无 Plan 步骤）
@@ -505,7 +506,7 @@ async def rewriter_node(state: dict) -> dict:
         finding_hint = ("\n\n结构化审核 findings（逐条处理，保留 finding_id）：\n"
                         + finding_lines)
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": SYSTEM_PROMPT + ("\n" + policy_text(freeze_policy(state)) if state.get("report_pipeline_version", 1) >= 2 else "")},
         {
             "role": "user",
             "content": f"研究主题：{topic}\n\n"

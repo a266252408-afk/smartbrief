@@ -20,6 +20,7 @@ from agents.react_researcher import react_researcher_run
 from agents.react_writer import react_writer_run
 from services.fact_binding import build_registry, locate_bindings
 from services.report_plan import is_assembly_step as _is_assembly, normalize_report_plan
+from services.review_policy import freeze_policy
 
 # 单个 Agent 步骤执行超时上限（超过则跳过该步骤，不让工作流卡死）。
 # Researcher 预算按 3 轮 ReAct 估算：慢搜索可达 30s，慢模型单轮 18~27s，
@@ -177,6 +178,8 @@ async def scheduler_node(state: dict, *, single_step: bool = False) -> dict:
                                           if _is_assembly(step, plan) else {})
                         binding_context = {"task_id": state["task_id"], "claims": []}
                         if bound:
+                            binding_context["review_policy"] = freeze_policy(state)
+                        if bound:
                             assembly_input["binding_context"] = binding_context
                         section = await asyncio.wait_for(
                             run_before_deadline(
@@ -229,6 +232,7 @@ async def scheduler_node(state: dict, *, single_step: bool = False) -> dict:
     draft_content = repair_structure(repaired["body"], state.get("topic"))
 
     return {
+        **({"review_policy": freeze_policy(state)} if bound else {}),
         "fact_registry": build_registry(
             state.get("task_id", ""), evidence_items) if bound else state.get("fact_registry", {}),
         "claim_bindings": locate_bindings(draft_content, bindings),

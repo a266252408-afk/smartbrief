@@ -7757,6 +7757,140 @@
       ],
       "title": "ClaimBinding",
       "type": "object"
+    },
+    "DataRequirements": {
+      "additionalProperties": false,
+      "properties": {
+        "minimum_points": {
+          "const": 2,
+          "default": 2,
+          "title": "Minimum Points",
+          "type": "integer"
+        },
+        "evidence_required": {
+          "const": true,
+          "default": true,
+          "title": "Evidence Required",
+          "type": "boolean"
+        },
+        "core_questions_required": {
+          "const": true,
+          "default": true,
+          "title": "Core Questions Required",
+          "type": "boolean"
+        }
+      },
+      "title": "DataRequirements",
+      "type": "object"
+    },
+    "LengthGuidance": {
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "const": 1000,
+          "default": 1000,
+          "title": "Target",
+          "type": "integer"
+        },
+        "evidence_gap_may_be_shorter": {
+          "const": true,
+          "default": true,
+          "title": "Evidence Gap May Be Shorter",
+          "type": "boolean"
+        }
+      },
+      "title": "LengthGuidance",
+      "type": "object"
+    },
+    "ReviewPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": "review-policy-1",
+          "default": "review-policy-1",
+          "title": "Version",
+          "type": "string"
+        },
+        "task_id": {
+          "minLength": 1,
+          "title": "Task Id",
+          "type": "string"
+        },
+        "required_sections": {
+          "default": [
+            "summary",
+            "body",
+            "conclusion"
+          ],
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "const": "summary",
+              "type": "string"
+            },
+            {
+              "const": "body",
+              "type": "string"
+            },
+            {
+              "const": "conclusion",
+              "type": "string"
+            }
+          ],
+          "title": "Required Sections",
+          "type": "array"
+        },
+        "required_questions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Questions",
+          "type": "array"
+        },
+        "data_requirements": {
+          "$ref": "#/$defs/DataRequirements"
+        },
+        "length_guidance": {
+          "$ref": "#/$defs/LengthGuidance"
+        },
+        "blocking_rules": {
+          "default": [
+            "reference_integrity",
+            "confirmed_fact_conflict",
+            "core_evidence_gap",
+            "required_structure"
+          ],
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "const": "reference_integrity",
+              "type": "string"
+            },
+            {
+              "const": "confirmed_fact_conflict",
+              "type": "string"
+            },
+            {
+              "const": "core_evidence_gap",
+              "type": "string"
+            },
+            {
+              "const": "required_structure",
+              "type": "string"
+            }
+          ],
+          "title": "Blocking Rules",
+          "type": "array"
+        }
+      },
+      "required": [
+        "task_id",
+        "required_questions"
+      ],
+      "title": "ReviewPolicy",
+      "type": "object"
     }
   }
 }

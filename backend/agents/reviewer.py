@@ -13,7 +13,7 @@ from services.citations import check_citations, reference_ids
 from services.evidence_ranking import review_evidence_block
 from services.findings import build_findings, finding_block, merge_findings, reference_findings
 from services.event_logs import EventLogs
-from services.review_policy import report_metrics, policy_violations
+from services.review_policy import report_metrics, policy_violations, freeze_policy, policy_text, decide_quality
 
 REVIEW_STEP_ID = 0
 
@@ -131,7 +131,7 @@ def _binding_error_text(issue: dict) -> str:
 
 async def _review(draft: str, evidence: list, *, binding_issues=None, structure_issues=None,
                   duplicate_issues=None, required_ids=None, deterministic_findings=None,
-                  check_errors=None, citation_retirements=None) -> dict:
+                  check_errors=None, citation_retirements=None, policy=None) -> dict:
     ids = sorted({source.get("source_id") for source in evidence if source.get("source_id")})
     source_chars = sum(len(source.get("excerpt", "") or "") for source in evidence)
     guidance = f"可用来源编号：{'、'.join(ids) or '无'}；给定资料摘要约 {source_chars} 字。"
@@ -183,7 +183,7 @@ async def _review(draft: str, evidence: list, *, binding_issues=None, structure_
     error_text = "\n\n确定性来源映射错误：\n" + "\n".join(error_lines) if error_lines else ""
     evidence_block = review_evidence_block(draft, evidence, required_ids=required_ids)
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": SYSTEM_PROMPT + ("\n" + policy_text(policy) if policy else "")},
         {
             "role": "user",
             "content": (
@@ -197,17 +197,17 @@ async def _review(draft: str, evidence: list, *, binding_issues=None, structure_
     for attempt in range(2):
         resp = await chat(messages, role="review", output_contract=ReviewResult)
         result = _parse_response(resp)
-        violations = policy_violations(result, original_draft)
+        violations = policy_violations(result, original_draft, policy=policy, deterministic_findings=deterministic_findings or [], check_errors=check_errors or [])
         if not violations:
             break
         corrections.append({'review': result, 'violations': violations})
         if attempt:
             raise ReviewResponseError({'stage':'review_policy', 'code':'REVIEW_POLICY_INVALID',
-                'message':'审核重复违反程序字数统计或既定格式标准，未将其转交写作返工',
+                'message':'审核重复违反冻结标准或布尔判定与阻塞问题不一致，未将其转交正文返工',
                 'policy_corrections':corrections})
         messages = messages + [{'role':'assistant','content':json.dumps(result, ensure_ascii=False)},
             {'role':'user','content':'请纠正以下审核标准错误并重新给出完整审核JSON；不得新增每章小结、独立标题页等硬要求。'
-             '按程序字数判断长度；仍须检查真实事实错误，不得为纠错直接放行：' + json.dumps(violations, ensure_ascii=False)}]
+             '按程序字数判断长度；仅soft建议不得拒绝，有实质事实错误必须准确标明阻塞问题及证据；保留建议，不得为纠错直接放行：' + json.dumps(violations, ensure_ascii=False)}]
     if corrections:
         result['policy_corrections'] = corrections
     known_ids = {s.get('source_id') for s in evidence if not s.get('source_deleted')}
@@ -242,6 +242,7 @@ async def reviewer_node(state: dict) -> dict:
         logs.append(dict(type='Observation',content='本轮评测关闭审核；质量未执行，不作为通过',step_id=0))
         return dict(quality_status='not_run',passed=False,forced_pass=False,forced_output=False,
                     error_code='REVIEW_DISABLED',react_logs=logs)
+    policy = freeze_policy(state) if state.get("report_pipeline_version", 1) >= 2 else None
     evidence = await asyncio.to_thread(refresh_document_sources, state.get("evidence", []))
     check = check_citations(state.get("task_id", ""), draft, evidence, state.get("required_citations", []))
     binding = check.get("binding_issues", [])
@@ -298,6 +299,8 @@ async def reviewer_node(state: dict) -> dict:
               "citation_issues": check.get("issues", []), "binding_issues": binding,
               "claim_issues": binding, "structure_issues": structure, "duplicate_issues": duplicates,
               "required_citations": required}
+    if policy is not None:
+        common["review_policy"] = policy
     logs.extend([
         {"type": "Thought", "content": f"开始审核草稿（第 {round_no} 次审核）", "step_id": 0},
         {"type": "Action", "content": "llm_gen(query=按审核标准评审报告草稿)", "step_id": 0},
@@ -306,6 +309,7 @@ async def reviewer_node(state: dict) -> dict:
         # 硬规则失败时也调用审核 agent：agent 只补充问题与可执行建议，不能推翻确定性结论。
         review = await _review(
             draft, evidence,
+            policy=policy,
             binding_issues=binding,
             structure_issues=structure,
             duplicate_issues=duplicates,
@@ -334,14 +338,18 @@ async def reviewer_node(state: dict) -> dict:
         ))[:5] or ["审核调用失败或返回结构无效，质量不可用"]
         prefix = '审核调用失败' if diagnostic['code'] == 'REVIEW_CALL_FAILED' else '审核返回无效'
         comments.insert(0, f"{prefix} [{diagnostic['code']}]：{diagnostic['message']}")
-        history.append({"round": round_no, "passed": None, "comments": comments,
-                        "quality_status": "unavailable",
+        fault_decision = decide_quality(usable=True, review_complete=False,
+            confirmed_blockers=[f['finding_id'] for f in deterministic_findings if f.get('severity') == 'hard'] + check['errors']) if policy else dict(quality_status='unavailable')
+        fault_quality = fault_decision['quality_status']
+        history.append({"round": round_no, "passed": False if fault_quality == 'rejected' else None, "comments": comments,
+                        "review_complete": False, "review_policy": policy,
+                        "quality_status": fault_quality,
                         "review_diagnostics": diagnostic,
                         "findings": deterministic_findings, "possible_rule_issue": None,
                         "full_rewrite_required": False})
         logs.append({"type": "Observation", "content": comments[0], "step_id": 0})
-        return common | {"passed": False, "quality_status": "unavailable", "forced_pass": False,
-                "forced_output": False, "error_code": "REVIEW_UNAVAILABLE",
+        return common | {"passed": False, "quality_status": fault_quality, "forced_pass": fault_quality == "rejected",
+                "forced_output": fault_quality == "rejected", "error_code": "REVIEW_REJECTED" if fault_quality == "rejected" else "REVIEW_UNAVAILABLE",
                 "review_comments": comments, "review_history": history,
                 "findings": deterministic_findings, "possible_rule_issue": None,
                 "full_rewrite_required": False, "react_logs": logs}
@@ -352,7 +360,7 @@ async def reviewer_node(state: dict) -> dict:
             f.get("evidence", {}).get("source_id") for f in review.get("findings", [])}
         visible = [s for s in evidence if s["source_id"] in visible_ids]
         review, dispute_review = await resolve_disputes(
-            review, draft, visible, chat, _parse_response, policy_text=SYSTEM_PROMPT)
+            review, draft, visible, chat, _parse_response, policy_text=SYSTEM_PROMPT + ("\n" + policy_text(policy) if policy else ""))
     findings, rejected_findings = merge_findings(
         deterministic_findings, review.get("findings") or [], evidence, draft,
     )
@@ -362,6 +370,12 @@ async def reviewer_node(state: dict) -> dict:
                      "step_id": 0})
     hard_findings = [finding for finding in findings if finding.get("severity") == "hard"]
     passed = bool(review["passed"] and check["valid"] and not hard_findings and not rejected_findings)
+    decision = None
+    if policy is not None:
+        decision = decide_quality(usable=True,
+            review_complete=not bool(review.get('review_diagnostics') or rejected_findings) and bool(review['passed'] or hard_findings or check['errors']),
+            confirmed_blockers=[f['finding_id'] for f in hard_findings] + check['errors'])
+        passed = decision['passed']
     comments = list(review.get("comments") or [])
     finding_comments = [f"{finding['problem']}：{finding['expected']}" for finding in hard_findings]
     deterministic_comments = list(dict.fromkeys(
@@ -387,7 +401,7 @@ async def reviewer_node(state: dict) -> dict:
     # 引用结构错误也计入硬门禁；ID 为轮内编号，保存完整集合供追溯。
     hard_count = len(hard_findings) + len(check['errors'])
     from services.review_progress import review_progress
-    review_complete = not bool(review.get('review_diagnostics') or rejected_findings)
+    review_complete = decision['review_complete'] if decision else not bool(review.get('review_diagnostics') or rejected_findings)
     hard_set = hard_findings + [{'rule': 'citation', 'message': e} for e in check['errors']]
     progress = review_progress(history[-1] if history else None, hard_set, review_complete)
     convergence_stopped = not passed and progress['stopped']
@@ -419,6 +433,7 @@ async def reviewer_node(state: dict) -> dict:
         history[-1]['policy_corrections'] = review['policy_corrections']
     if state.get("report_pipeline_version", 1) >= 2:
         history[-1]["report_pipeline_version"] = 2
+        history[-1]["review_policy"] = policy
         history[-1]["claim_bindings"] = state.get("claim_bindings", [])
         history[-1]["fact_registry"] = state.get("fact_registry", {})
         if dispute_review:
@@ -432,7 +447,9 @@ async def reviewer_node(state: dict) -> dict:
     if not passed:
         iteration += 1
     forced = not passed and (iteration >= maximum or convergence_stopped or no_targets)
-    quality = "passed" if passed else "rejected"
+    quality = decision["quality_status"] if decision else "passed" if passed else "rejected"
+    if decision:
+        history[-1]["quality_status"] = quality
     text = f"第 {round_no} 次审核通过" if passed else f"第 {round_no} 次审核不通过：{'｜'.join(comments)}"
     if convergence_stopped:
         text += "；完整复审确认旧硬问题均未解决，提前停止并保留拒绝结果"
@@ -451,6 +468,8 @@ async def reviewer_node(state: dict) -> dict:
         error_code = "CLAIM_UNSUPPORTED"
     else:
         error_code = "REVIEW_REJECTED"
+    if quality == "unavailable":
+        error_code = "REVIEW_UNAVAILABLE"
     result = common | {"passed": passed, "forced_pass": forced, "forced_output": forced,
               "quality_status": quality, "error_code": error_code,
               "review_comments": comments, "review_history": history,

@@ -110,7 +110,18 @@ export interface RewriteAudit {
 }
 
 /** 单轮审核记录（review_history 元素） */
+export interface ReviewPolicy {
+  version: 'review-policy-1'
+  task_id: string
+  required_sections: ['summary', 'body', 'conclusion']
+  required_questions: string[]
+  data_requirements: { minimum_points: 2; evidence_required: true; core_questions_required: true }
+  length_guidance: { target: 1000; evidence_gap_may_be_shorter: true }
+  blocking_rules: string[]
+}
+
 export interface ReviewRound {
+  review_policy?: ReviewPolicy | null
   report_pipeline_version?: number
   claim_bindings?: ClaimBinding[]
   fact_registry?: Record<string, BoundFact>
