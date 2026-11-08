@@ -8605,6 +8605,143 @@
       ],
       "title": "GenerateRequest",
       "type": "object"
+    },
+    "ReviewValidationIssue": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "path",
+        "message"
+      ],
+      "title": "ReviewValidationIssue",
+      "type": "object"
+    },
+    "ReviewResponseAttempt": {
+      "additionalProperties": false,
+      "properties": {
+        "stage": {
+          "const": "response_validation",
+          "title": "Stage",
+          "type": "string"
+        },
+        "response_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Response Id"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Model"
+        },
+        "finish_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Finish Reason"
+        },
+        "raw_response": {
+          "title": "Raw Response",
+          "type": "string"
+        },
+        "raw_length": {
+          "minimum": 0,
+          "title": "Raw Length",
+          "type": "integer"
+        },
+        "raw_truncated": {
+          "title": "Raw Truncated",
+          "type": "boolean"
+        },
+        "raw_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Raw Sha256",
+          "type": "string"
+        },
+        "decision": {
+          "anyOf": [
+            {
+              "enum": [
+                "accepted",
+                "rejected"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Decision"
+        },
+        "code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Code"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        }
+      },
+      "required": [
+        "stage",
+        "response_id",
+        "model",
+        "finish_reason",
+        "raw_response",
+        "raw_length",
+        "raw_truncated",
+        "raw_sha256"
+      ],
+      "title": "ReviewResponseAttempt",
+      "type": "object"
     }
   }
 }

@@ -170,6 +170,7 @@ export interface ReviewPolicy {
 }
 
 export interface ReviewRound {
+  review_response_attempts?: ReviewResponseAttempt[]
   writer_attempts?: WriterAttempt[]
   report_document_revision?: number | null
   report_document_sha256?: string | null
@@ -483,4 +484,10 @@ export interface WriterAttempt {
   mode: 'document' | 'blocks'; decision: 'applied' | 'rejected'; message?: string;
   context: { task_id: string; registry_revision: string; aliases: Record<string, string> };
   raw_response?: string; raw_length?: number; raw_truncated?: boolean; raw_sha256?: string
+}
+export interface ReviewResponseAttempt {
+  stage: 'response_validation'; response_id: string | null; model: string | null;
+  finish_reason: string | null; raw_response: string; raw_length: number;
+  raw_truncated: boolean; raw_sha256: string; decision?: 'accepted' | 'rejected' | null;
+  code?: string | null; message?: string | null
 }

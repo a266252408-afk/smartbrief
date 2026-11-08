@@ -16,6 +16,7 @@ from services.event_logs import EventLogs
 from services.review_policy import report_metrics, policy_violations, freeze_policy, policy_text, decide_quality
 from services.review_rules import assess_issue, is_confirmed_blocker, material_pending
 from services.issue_identity import index_document, attach_identities, citation_issue
+from services.review_validation import finding_errors, response_audit
 
 REVIEW_STEP_ID = 0
 
@@ -202,22 +203,45 @@ async def _review(draft: str, evidence: list, *, binding_issues=None, structure_
         },
     ]
     corrections = []
+    response_attempts = []
     for attempt in range(2):
         resp = await chat(messages, role="review", output_contract=ReviewResult)
-        result = _parse_response(resp)
+        audit=response_audit(resp)
+        if policy:
+            response_attempts.append(audit)
+        try:
+            result = _parse_response(resp)
+            invalid=(finding_errors(result,original_draft,evidence,task_id=policy['task_id']) if policy else [])
+            diagnostic=result.get('review_diagnostics') if policy else None
+            if invalid:
+                diagnostic=dict(audit,code='REVIEW_FINDING_INVALID',message='审核意见原文、来源或位置无效',issues=invalid)
+            if diagnostic:
+                raise ReviewResponseError(diagnostic)
+        except ReviewResponseError as exc:
+            if not policy:
+                raise
+            audit.update(decision='rejected',code=exc.diagnostic['code'],message=exc.diagnostic['message'])
+            if attempt:
+                raise ReviewResponseError(dict(exc.diagnostic,review_response_attempts=response_attempts)) from exc
+            messages=messages+[dict(role='user',content='审核响应无效，请仅纠正原文/出处/坐标或格式并返回完整审核JSON，不改报告、不补造原文：'+json.dumps(exc.diagnostic,ensure_ascii=False))]
+            continue
         violations = policy_violations(result, original_draft, policy=policy, deterministic_findings=deterministic_findings or [], check_errors=check_errors or [])
         if not violations:
+            audit['decision']='accepted'
             break
+        audit.update(decision='rejected',code='REVIEW_POLICY_INVALID',message='审核违反冻结标准')
         corrections.append({'review': result, 'violations': violations})
         if attempt:
             raise ReviewResponseError({'stage':'review_policy', 'code':'REVIEW_POLICY_INVALID',
                 'message':'审核重复违反冻结标准或布尔判定与阻塞问题不一致，未将其转交正文返工',
-                'policy_corrections':corrections})
+                'policy_corrections':corrections,'review_response_attempts':response_attempts})
         messages = messages + [{'role':'assistant','content':json.dumps(result, ensure_ascii=False)},
             {'role':'user','content':'请纠正以下审核标准错误并重新给出完整审核JSON；不得新增每章小结、独立标题页等硬要求。'
              '按程序字数判断长度；仅soft建议不得拒绝，有实质事实错误必须准确标明阻塞问题及证据；保留建议，不得为纠错直接放行：' + json.dumps(violations, ensure_ascii=False)}]
     if corrections:
         result['policy_corrections'] = corrections
+    if policy:
+        result['review_response_attempts']=response_attempts
     known_ids = {s.get('source_id') for s in evidence if not s.get('source_deleted')}
     result['evidence_coverage'] = {
         'required_ids': sorted(required_ids or []),
@@ -375,6 +399,7 @@ async def reviewer_node(state: dict) -> dict:
                         "review_diagnostics": diagnostic,
                         "findings": deterministic_findings, "possible_rule_issue": None,
                         "full_rewrite_required": False})
+        history[-1]['review_response_attempts']=diagnostic.get('review_response_attempts',[])
         from services.document_writer import writer_provenance
         history[-1].update(writer_provenance(state))
         logs.append({"type": "Observation", "content": comments[0], "step_id": 0})
@@ -390,7 +415,7 @@ async def reviewer_node(state: dict) -> dict:
             f.get("evidence", {}).get("source_id") for f in review.get("findings", [])}
         visible = [s for s in evidence if s["source_id"] in visible_ids]
         review, dispute_review = await resolve_disputes(
-            review, draft, visible, chat, _parse_response, policy_text=SYSTEM_PROMPT + ("\n" + policy_text(policy) if policy else ""))
+            review, draft, visible, chat, _parse_response, policy_text=SYSTEM_PROMPT + ("\n" + policy_text(policy) if policy else ""),task_id=state.get('task_id'))
     findings, rejected_findings = merge_findings(
         deterministic_findings, review.get("findings") or [], evidence, draft,
     )
@@ -467,6 +492,8 @@ async def reviewer_node(state: dict) -> dict:
                     "full_rewrite_required": full_rewrite_required})
     if review.get('policy_corrections'):
         history[-1]['policy_corrections'] = review['policy_corrections']
+    if review.get('review_response_attempts'):
+        history[-1]['review_response_attempts']=review['review_response_attempts']
     if state.get("report_pipeline_version", 1) >= 2:
         history[-1]["report_pipeline_version"] = state.get('report_pipeline_version',2)
         history[-1]["review_policy"] = policy
