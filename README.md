@@ -159,3 +159,8 @@ T01～T12 已形成顺序验证快照，T13 负责 0.2.0 的最终本地验收�
 - 用量面板可查看主备、供应商、切换原因、Agent恢复位置及缓存读取/写入Token。缓存读取包含于输入总量，不重复扣预算；供应商字段缺失或无必要单价时保留未知。历史费用不根据新价格重算。
 - `MODEL_PRICES_JSON`优先使用`provider:model`键，也兼容模型键；普通输入/输出单价以每百万Token配置，缓存命中需`cache_read_per_million`。写入另计费时配置`cache_write_per_million`及`cache_write_mode`：`included`替换对应输入价格，`additional`叠加写入费，按供应商实际规则选择。金额是估算，不是供应商账单。
 - 数据版本升级为4（新增任务模型绑定表）。开发验收不修改真实库；首次运行新代码前按[回滚与备份说明](docs/runbooks/git-and-data-rollback.md)停写备份业务库与检查点。配置示例见`backend/.env.example`，密钥不要提交Git。
+
+
+### 结构化报告 v3（显式选择）
+
+默认新任务使用v2；创建API显式传入`report_pipeline_version: 3`可使用严格文档模型、程序引用渲染与按块返工。文档在schema5的可空`report_document`列保存，v1/v2旧任务继续按原版本读取/恢复。使用新代码前按[数据回滚手册](docs/runbooks/git-and-data-rollback.md)完成停写备份；本轮只验收隔离迁移，没有操作真实运行库。字段与模型职责见[v3契约对照](docs/construction/v3-model-contracts.md)。离线通过不代表主模型在线效果已验收。
