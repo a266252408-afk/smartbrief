@@ -35,6 +35,7 @@ from services.candidate_acceptance import validate_candidate, hard_problem_count
 from services.fact_binding import build_registry, binding_prompt, render_bound_text, locate_bindings
 from services.review_policy import policy_text, freeze_policy
 from services.issue_identity import index_document, index_candidate
+from services.rewrite_protocol import RewriteProtocolError, VersionMismatch, parse_rewrite, full_payload
 from agents.react_writer import _summarize_research, FACTUAL_DISCIPLINE   # 复用：研究数据 → Markdown 摘要、事实口径
 
 # 返工日志统一归类到 step_id=0（A2A 阶段无 Plan 步骤）
@@ -57,7 +58,7 @@ def _legacy_history(state, draft, response, candidate=None, error=None):
     history[-1]['rewrite'] = {
         'mode': 'legacy_full', 'changed': changed, 'applied': changed,
         'program_restriction': {'observed': blocked, 'outcome': outcome,
-                                'codes': [rejection_code(str(error))] if blocked else [],
+                                'codes': [rejection_code(error)] if blocked else [],
                                 'quality_effect': 'unknown_until_review'},
         'attempts': [{'mode': 'legacy_full', 'decision': 'rejected' if error else 'applied' if changed else 'no_change',
                       'message': str(error) if error else '',
@@ -110,17 +111,21 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
     force_full = bool(full_reason)
     feedback = []
     correction_used = False
+    protocol_used = False
+    protocol_feedback = []
+    protocol_mode = None
     active_findings = findings
     model_results = []
     for attempt in range(4):
-        if attempt == 3 and not feedback:
+        if attempt == 3 and not feedback and not protocol_feedback:
             break
-        mode = 'patch' if feedback else 'full' if force_full or attempt >= 2 else 'patch'
+        mode = protocol_mode if protocol_feedback else 'patch' if feedback else 'full' if force_full or attempt >= 2 else 'patch'
         instruction = {
             'mode': mode, 'paragraphs': paragraph_table(best), 'findings': [
                 {k:f[k] for k in ('finding_id','problem','expected','severity','scope','location','evidence','evidence_sources','numbers','cited','rule') if k in f}
                 for f in active_findings],
             'verification_feedback': feedback,
+            'protocol_feedback': protocol_feedback,
             'citation_obligations': citation_lifecycle(draft, best, required, original_claims=originals)['retained_claims'],
             'failures': failures,
             'full_reason': full_reason or ('补丁连续失败' if mode == 'full' else None),
@@ -132,6 +137,8 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
                         + ('允许合并、删除、拆分段落和全篇重组，依据全部审核意见修复，保持主题和有效事实引用。'
                            if mode == 'full' else '只修改点名段落；需要跨段重组时由系统升级全文模式。'),
         }
+        # 反馈只对应紧接的一次纠正，不占用后续内容重试的模式选择。
+        protocol_feedback = []
         audit = {'mode': mode, 'request': {
             'draft_sha256': hashlib.sha256(best.encode()).hexdigest(),
             'allowed_paragraphs': [] if mode == 'full' else sorted({
@@ -154,8 +161,11 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
                          finish_reason=getattr(response.choices[0], 'finish_reason', None))
             if audit['finish_reason'] == 'length':
                 raise ValueError('返工响应已截断')
-            payload = parse_json(raw)
+            payload = parse_rewrite(raw) if bound else parse_json(raw)
             candidate_bindings = []
+            # 先验证全文规范形状，再做事实绑定，缺正文不能变成空串。
+            if bound and mode == 'full':
+                full_payload(payload)
             if bound and isinstance(payload, dict):
                 if mode == "full":
                     payload["content"], candidate_bindings = render_bound_text(
@@ -180,12 +190,20 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
                     pipeline_version=2 if bound else 1, require_progress=bound and pure)
             if mode == 'patch':
                 partial = apply_partial_patches(best, payload, active_findings, validate_edit,
-                    normalize_proposal=normalize_proposal if bound else None)
+                    normalize_proposal=normalize_proposal if bound else None,
+                    pipeline_version=2 if bound else 1)
                 candidate = partial.pop('body')
                 if bound:
                     candidate_bindings.extend(row for edit in partial['accepted'] for row in binding_rows.get(edit['paragraph'], []))
                 audit.update(accepted=partial['accepted'], rejected=partial['rejected'])
+                if bound:
+                    audit['normalization'] = partial['normalization']
                 if candidate == best and payload.get('patches'):
+                    if bound and partial['rejected'] and all(r['code']=='VERSION_MISMATCH' for r in partial['rejected']):
+                        raise VersionMismatch([e for r in partial['rejected'] for e in r['errors']])
+                    if bound and partial['rejected'] and all(r['stage']=='protocol' for r in partial['rejected']):
+                        raise RewriteProtocolError(partial['rejected'][0]['code'],'没有规范有效的补丁',
+                            [e for r in partial['rejected'] for e in r['errors']])
                     raise ValueError('没有有效补丁：' + json.dumps(partial['rejected'], ensure_ascii=False))
                 receipt = dict(mode=mode, failures=failures, **partial)
             else:
@@ -259,12 +277,21 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
             if audit.get('finish_reason') == 'length':
                 code = 'OUTPUT_TRUNCATED'
             audit.update(decision='rejected', code=code, message=str(exc))
+            if isinstance(exc,(RewriteProtocolError,VersionMismatch)):
+                audit['errors'] = exc.errors
             if 'raw_response' not in audit:
                 audit.update(raw_response=raw[:64000], raw_length=len(raw), raw_truncated=len(raw) > 64000,
                              raw_sha256=hashlib.sha256(raw.encode()).hexdigest())
             attempts.append(audit)
             failures.append(str(exc))
             logs.append({'type': 'Observation', 'content': f'{mode} 校验失败，保留已接受的候选稿：{exc}', 'step_id': 0})
+            if bound and isinstance(exc,RewriteProtocolError):
+                if protocol_used:
+                    break
+                protocol_used = True
+                protocol_feedback = exc.errors
+                protocol_mode = mode
+                continue
             if feedback:
                 break
             if mode == 'full':

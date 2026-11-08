@@ -80,6 +80,8 @@ export interface RewriteVerification {
   reason: string
 }
 export interface RewriteAttempt {
+  errors?: ProtocolDiagnostic[]
+  normalization?: NormalizationTrace[]
   verification?: RewriteVerification[]
   mode: string
   decision?: string
@@ -88,12 +90,25 @@ export interface RewriteAttempt {
   request?: { scope: string; allowed_paragraphs: number[]; reason?: string | null;
     evidence_ids?: string[]; missing_evidence_ids?: string[]; evidence_context?: string }
   accepted?: Array<{ paragraph: number; replacement: string }>
-  rejected?: Array<{ index: number; code: string; message: string; proposal?: unknown }>
+  rejected?: Array<{ index: number; code: string; message: string; proposal?: unknown;
+    errors?: ProtocolDiagnostic[]; stage?: 'protocol' | 'content' }>
   raw_response?: string
   raw_truncated?: boolean
   raw_length?: number
 }
+export interface ProtocolDiagnostic {
+  path: string
+  type: string
+  message: string
+}
+export interface NormalizationTrace {
+  version: 1
+  path: string
+  action: 'text_to_replacement' | 'deduplicate_text'
+  target: string
+}
 export interface RewriteAudit {
+  normalization?: NormalizationTrace[]
   claim_bindings?: ClaimBinding[]
   fact_registry?: Record<string, BoundFact>
   citation_changes_applied?: boolean

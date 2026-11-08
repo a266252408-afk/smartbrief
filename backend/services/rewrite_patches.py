@@ -8,7 +8,7 @@ def rejection_code(message):
     if getattr(message, "code", None):
         return message.code
     message = str(message)
-    for token, code in [('被点名段落', 'SCOPE_RESTRICTED'), ('digest', 'VERSION_MISMATCH'),
+    for token, code in [('被点名段落', 'SCOPE_RESTRICTED'),
                         ('完整段落', 'PARAGRAPH_FORMAT'), ('新增引用', 'CITATION_REJECTED'),
                         ('新增硬错误', 'QUALITY_REJECTED'), ('没有实际修改', 'NO_CHANGE')]:
         if token in message:
@@ -51,7 +51,8 @@ def apply_patch(body, payload, findings):
         if type(n) is not int or n not in table or n in seen:
             raise ValueError('段落不存在或重复')
         if p.get('digest') != table[n]['digest']:
-            raise ValueError('段落 digest 不匹配')
+            from services.rewrite_protocol import VersionMismatch
+            raise VersionMismatch()
         if not ids or any(i not in known or known[i].get('location', {}).get('paragraph') != n for i in ids):
             raise ValueError('补丁必须指向被点名段落')
         replacement = p.get('replacement')
@@ -74,19 +75,23 @@ def receipt_diagnostics(payload, findings):
         return [str(exc)]
 
 
-def apply_partial_patches(body, payload, findings, validate_candidate=None, normalize_proposal=None):
+def apply_partial_patches(body, payload, findings, validate_candidate=None, normalize_proposal=None, *, pipeline_version=1):
     """按原稿坐标逐条验证；坏补丁不影响已接受补丁。"""
     from services.review_contracts import Patch
+    from services.rewrite_protocol import PatchEnvelope, validate, normalize_patch, RewriteProtocolError, VersionMismatch
+    if pipeline_version >= 2:
+        validate(PatchEnvelope, payload)
     if not isinstance(payload, dict) or payload.get('mode') != 'patch' or not isinstance(payload.get('patches'), list):
         raise ValueError('补丁模式无效')
     candidate = body
     base_parts = re.split(r'(\n\s*\n)', body)
     replacements = {}
     accepted, rejected, covered, seen = [], [], set(), set()
+    normalization = []
     for index, item in enumerate(payload['patches']):
         try:
-            # 输入段落表的 text 是上下文，不属于输出补丁契约。
-            data = Patch.model_validate(item).model_dump()
+            data = (normalize_patch(item,index,normalization) if pipeline_version >= 2
+                    else Patch.model_validate(item).model_dump())
             n = data['paragraph']
             if n in seen:
                 raise ValueError('同段落补丁重复')
@@ -111,8 +116,12 @@ def apply_partial_patches(body, payload, findings, validate_candidate=None, norm
             accepted.append(data)
             covered.update(data['finding_ids'])
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            details = getattr(exc,'errors',[]) if isinstance(exc,(RewriteProtocolError,VersionMismatch)) else []
+            if isinstance(exc,VersionMismatch):
+                details=[dict(e,path=f'/patches/{index}'+e['path']) for e in details]
             rejected.append({'index':index, 'message':str(exc), 'code':rejection_code(exc),
-                             'proposal':item})
+                             'proposal':item, 'errors':details,
+                             'stage':'protocol' if isinstance(exc,RewriteProtocolError) else 'content'})
     from services.review_contracts import Receipt
     reported = {}
     for item in payload.get('results', []) if isinstance(payload.get('results'), list) else []:
@@ -127,6 +136,7 @@ def apply_partial_patches(body, payload, findings, validate_candidate=None, norm
         if isinstance(item, dict) and item.get('status') == 'fixed' and item.get('finding_id') not in covered:
             receipt_errors.append('fixed 回执没有已接受的对应补丁：' + str(item.get('finding_id')))
     return {'body':candidate,'accepted':accepted,'rejected':rejected,
+            **({'normalization':normalization} if pipeline_version >= 2 else {}),
             'receipt_errors':receipt_errors,
             'results':[reported[f['finding_id']] if f['finding_id'] not in covered and f['finding_id'] in reported else {'finding_id':f['finding_id'], 'status':'fixed' if f['finding_id'] in covered else 'cannot_fix',
                         'reason':'有效补丁已应用，仍须复审' if f['finding_id'] in covered else '没有可接受的对应补丁'} for f in findings]}

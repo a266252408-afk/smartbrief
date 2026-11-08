@@ -8031,6 +8031,64 @@
           }
         ]
       }
+    },
+    "ProtocolDiagnostic": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "type",
+        "message"
+      ],
+      "title": "ProtocolDiagnostic",
+      "type": "object"
+    },
+    "NormalizationTrace": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "action": {
+          "enum": [
+            "text_to_replacement",
+            "deduplicate_text"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "action",
+        "target"
+      ],
+      "title": "NormalizationTrace",
+      "type": "object"
     }
   }
 }
