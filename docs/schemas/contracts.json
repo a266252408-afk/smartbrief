@@ -8409,6 +8409,106 @@
       ],
       "title": "ReportDocument",
       "type": "object"
+    },
+    "BlockEdit": {
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "minLength": 1,
+          "title": "Target",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/ModelBlock"
+        }
+      },
+      "required": [
+        "target",
+        "value"
+      ],
+      "title": "BlockEdit",
+      "type": "object"
+    },
+    "BlockCorrections": {
+      "additionalProperties": false,
+      "properties": {
+        "blocks": {
+          "items": {
+            "$ref": "#/$defs/BlockEdit"
+          },
+          "minItems": 1,
+          "title": "Blocks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "blocks"
+      ],
+      "title": "BlockCorrections",
+      "type": "object"
+    },
+    "WriterAttempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "decision",
+        "context"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "document",
+            "blocks"
+          ]
+        },
+        "decision": {
+          "enum": [
+            "applied",
+            "rejected"
+          ]
+        },
+        "context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "task_id",
+            "registry_revision",
+            "aliases"
+          ],
+          "properties": {
+            "task_id": {
+              "type": "string"
+            },
+            "registry_revision": {
+              "type": "string"
+            },
+            "aliases": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "message": {
+          "type": "string"
+        },
+        "raw_response": {
+          "type": "string"
+        },
+        "raw_length": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "raw_truncated": {
+          "type": "boolean"
+        },
+        "raw_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
     }
   }
 }

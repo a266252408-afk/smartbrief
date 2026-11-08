@@ -21,6 +21,7 @@ from agents.react_writer import react_writer_run
 from services.fact_binding import build_registry, locate_bindings
 from services.report_plan import is_assembly_step as _is_assembly, normalize_report_plan
 from services.review_policy import freeze_policy
+from services.report_document import DocumentError
 
 # 单个 Agent 步骤执行超时上限（超过则跳过该步骤，不让工作流卡死）。
 # Researcher 预算按 3 轮 ReAct 估算：慢搜索可达 30s，慢模型单轮 18~27s，
@@ -98,6 +99,8 @@ async def scheduler_node(state: dict, *, single_step: bool = False) -> dict:
     sections = dict(state.get("draft_sections", {}))
     bound = state.get("report_pipeline_version", 1) >= 2
     bindings = list(state.get("claim_bindings", []))
+    document=state.get('report_document')
+    writer_attempts=list(state.get('writer_attempts',[]))
 
     # 逐轮派发：每轮取所有就绪步骤；线性版串行执行（当前串行执行）
     pending = True
@@ -177,6 +180,8 @@ async def scheduler_node(state: dict, *, single_step: bool = False) -> dict:
                         assembly_input = ({'existing_draft': _assemble_sections(plan, sections)}
                                           if _is_assembly(step, plan) else {})
                         binding_context = {"task_id": state["task_id"], "claims": []}
+                        if state.get('report_pipeline_version') == 3:
+                            binding_context.update(pipeline_version=3,document=document)
                         if bound:
                             binding_context["review_policy"] = freeze_policy(state)
                         if bound:
@@ -190,6 +195,9 @@ async def scheduler_node(state: dict, *, single_step: bool = False) -> dict:
                         sections[str(step_id)] = section
                         if bound:
                             bindings.extend(binding_context["claims"])
+                            if state.get('report_pipeline_version') == 3:
+                                document=binding_context['document']
+                                writer_attempts.extend(binding_context['attempts'])
                         if assembly_input:
                             _append_log(logs, step_id, 'Observation', '报告装配：已提供现有正文，整稿替换先前章节拼接结果；原始章节保留')
                     except asyncio.TimeoutError:
@@ -201,6 +209,11 @@ async def scheduler_node(state: dict, *, single_step: bool = False) -> dict:
                         )
                         # 占位文案与 Rewriter 的"草稿为空/仅占位则重写"约定呼应，改动需两边同步
                         sections[str(step_id)] = f"（步骤 {step_id} 撰写超时，内容待补充）"
+                    except DocumentError as exc:
+                        degraded=True
+                        writer_attempts.extend(getattr(exc,'attempts',[]))
+                        sections[str(step_id)]='（章节撰写失败：结构化报告未获验证）'
+                        _append_log(logs,step_id,'Observation',str(exc))
                     except ModelCallError as exc:
                         if not getattr(exc, "step_budget_limited", False):
                             raise
@@ -230,8 +243,12 @@ async def scheduler_node(state: dict, *, single_step: bool = False) -> dict:
     if repaired["rebound"]:
         _append_log(logs, 0, "Observation", f"写作后确定性重挂引用 {repaired['rebound']} 处")
     draft_content = repair_structure(repaired["body"], state.get("topic"))
+    if state.get('report_pipeline_version') == 3 and document:
+        from services.report_document import render_document
+        draft_content=render_document(document)
 
     return {
+        **({'report_document':document,'writer_attempts':writer_attempts} if state.get('report_pipeline_version') == 3 else {}),
         **({"review_policy": freeze_policy(state)} if bound else {}),
         "fact_registry": build_registry(
             state.get("task_id", ""), evidence_items) if bound else state.get("fact_registry", {}),

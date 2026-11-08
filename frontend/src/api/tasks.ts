@@ -169,6 +169,9 @@ export interface ReviewPolicy {
 }
 
 export interface ReviewRound {
+  writer_attempts?: WriterAttempt[]
+  report_document_revision?: number | null
+  report_document_sha256?: string | null
   content_index?: ContentIndex
   issue_set?: Array<Partial<ReviewFinding>>
   findings?: Array<Partial<ReviewFinding>>
@@ -473,4 +476,9 @@ export interface DocumentSection {
 export interface ReportDocument {
   version: 3; task_id: string; revision: number; registry_revision: string;
   title: string; sections: DocumentSection[]; sources: Record<string, Evidence>
+}
+export interface WriterAttempt {
+  mode: 'document' | 'blocks'; decision: 'applied' | 'rejected'; message?: string;
+  context: { task_id: string; registry_revision: string; aliases: Record<string, string> };
+  raw_response?: string; raw_length?: number; raw_truncated?: boolean; raw_sha256?: string
 }

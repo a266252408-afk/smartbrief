@@ -66,6 +66,7 @@ def _initial_state(task_id: str, topic: str) -> AgentState:
     """
     return {
         'report_document': None,
+        'writer_attempts': [],
         "regenerated_from": None,
         "document_ids": [],
         "retrievals": [],

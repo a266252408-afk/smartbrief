@@ -1,7 +1,7 @@
 """v3最小报告文档：输入仅内容，身份/定位/引用由程序维护。"""
 
-from typing import Literal
-from pydantic import Field
+from typing import Literal, Annotated
+from pydantic import Field, StringConstraints, AfterValidator
 from services.review_contracts import Contract, Text
 import hashlib
 import json
@@ -11,15 +11,26 @@ from services.fact_binding import build_registry, render_bound_text, _embedded_f
 from services.citations import quantitative_tokens, split_sentences
 
 
+def _nonblank_content(value):
+    if not value.strip():
+        raise ValueError("内容不能只包含空白")
+    return value
+
+
+RawText = Annotated[
+    str, StringConstraints(strict=True, min_length=1), AfterValidator(_nonblank_content)
+]
+
+
 class ModelClaim(Contract):
-    quote: Text
+    quote: RawText
     facts: list[Text] = Field(default_factory=list)
     premises: list[Text] = Field(default_factory=list)
 
 
 class ModelBlock(Contract):
     kind: Literal["transition", "fact", "analysis", "recommendation"]
-    text: Text
+    text: RawText
     claims: list[ModelClaim] = Field(default_factory=list)
 
 
@@ -36,7 +47,7 @@ class ModelDocument(Contract):
 
 class DocumentClaim(Contract):
     claim_id: Text
-    quote: Text
+    quote: RawText
     start: int = Field(ge=0)
     end: int = Field(ge=1)
     fact_ids: list[Text]
@@ -47,7 +58,7 @@ class DocumentClaim(Contract):
 class DocumentBlock(Contract):
     block_id: Text
     kind: Literal["transition", "fact", "analysis", "recommendation"]
-    text: Text
+    text: RawText
     claims: list[DocumentClaim]
 
 

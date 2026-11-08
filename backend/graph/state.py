@@ -24,6 +24,7 @@ class AgentState(TypedDict):
     review_policy: Dict  # 任务开始冻结，随检查点恢复，不能临时增加审核要求
     report_pipeline_version: int
     report_document: Dict | None
+    writer_attempts: List[Dict]
     fact_registry: Dict
     claim_bindings: List[Dict]
     citations: List[Dict]

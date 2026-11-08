@@ -208,6 +208,18 @@ async def react_writer_run(task: str, step_id: int, logs: list, research_data: d
     :param research_data: 已收集的研究数据（供引用）
     :return: 生成的章节 Markdown 文本
     """
+    if binding_context is not None and binding_context.get('pipeline_version') == 3:
+        from services.document_writer import generate_document
+        from services.report_document import render_document
+        result = await generate_document(chat,binding_context['task_id'],task,evidence or [],
+            previous=binding_context.get('document'),policy=binding_context.get('review_policy'))
+        document=result['document']
+        binding_context['document']=document
+        binding_context['attempts']=result['attempts']
+        binding_context['claims']=[dict(text=c['quote'],paragraph=1,fact_ids=list(dict.fromkeys(c['fact_ids']+c['premise_ids'])),source_ids=c['source_ids'])
+            for s in document['sections'] for b in s['blocks'] for c in b['claims']]
+        logs.append(dict(type='Observation',step_id=step_id,content='结构化报告写作：'+json.dumps(dict(revision=document['revision'],attempts=result['attempts']),ensure_ascii=False)))
+        return render_document(document)
     # ---------- 撰写前检索 RAG 术语表 ----------
     term_texts: list = await _retrieve_terms(task)
 
