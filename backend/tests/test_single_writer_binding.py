@@ -76,8 +76,14 @@ def test_v2_real_graph_persists_bound_report(offline_evidence, monkeypatch):
         async with open_checkpointer() as (cp, kind):
             assert kind == 'sqlite'
             snapshot = await build_graph(checkpointer=cp).aget_state({'configurable': {'thread_id': 'bound-graph'}})
-            return snapshot.values['review_policy']
-    assert asyncio.run(saved_policy()) == policy
+            return snapshot.values['review_policy'], snapshot.values['content_index']
+    saved, saved_index = asyncio.run(saved_policy())
+    assert saved == policy
+    assert saved_index == history['content_index']
+    index = history['content_index']
+    assert index['task_id'] == 'bound-graph' and index['revision'] == 1
+    assert len({b['target_id'] for b in index['blocks']}) == len(index['blocks'])
+
 
 
 

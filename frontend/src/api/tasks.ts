@@ -103,6 +103,7 @@ export interface RewriteAudit {
     retired_claims: Array<{ source_id: string; claims: string[]; reason: string; review_required?: boolean }>;
     retained_claims?: Record<string, string[]> }
   mode: string
+  content_index?: ContentIndex
   changed?: boolean
   failures?: string[]
   attempts?: RewriteAttempt[]
@@ -110,6 +111,15 @@ export interface RewriteAudit {
 }
 
 /** 单轮审核记录（review_history 元素） */
+export interface ContentIndex {
+  version: 1
+  task_id: string
+  revision: number
+  body_sha256: string
+  blocks: Array<{ target_id: string; paragraph: number; text: string; digest: string;
+    certainty: 'new' | 'exact' | 'mapped' | 'unverified' }>
+}
+
 export interface RuleAssessment {
   origin: 'program' | 'model'
   decision: 'confirmed' | 'suspected' | 'dismissed' | 'unresolved'
@@ -118,6 +128,12 @@ export interface RuleAssessment {
 }
 export interface ReviewFinding extends Partial<RuleAssessment> {
   finding_id: string
+  issue_id?: string
+  issue_key?: string
+  target_id?: string
+  occurrence?: number
+  identity_certainty?: string
+  conflict_fields?: Record<string, unknown>
   rule?: string
   severity: 'hard' | 'soft' | 'info'
   problem: string
@@ -137,6 +153,8 @@ export interface ReviewPolicy {
 }
 
 export interface ReviewRound {
+  content_index?: ContentIndex
+  issue_set?: Array<Partial<ReviewFinding>>
   findings?: Array<Partial<ReviewFinding>>
   review_policy?: ReviewPolicy | null
   report_pipeline_version?: number
@@ -147,7 +165,8 @@ export interface ReviewRound {
   policy_corrections?: Array<{ review: unknown; violations: Array<{ code: string; text: string }> }>
   citation_retirements?: Array<{ source_id: string; claims: string[]; reason: string; review_required?: boolean }>
   convergence?: { resolved: string[]; introduced: string[]; persisting: string[];
-    current_review_complete: boolean; stopped: boolean; basis: string }
+    current_review_complete: boolean; stopped: boolean; basis: string;
+    unverified?: string[]; previous_problem_count?: number; current_problem_count?: number }
   review_complete?: boolean
   action_plan?: { scope: string; finding_ids: string[]; comments: string[] }
   rejected_findings?: Array<{ code: string; finding: unknown }>

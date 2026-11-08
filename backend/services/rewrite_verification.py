@@ -2,14 +2,15 @@
 from services.citations import check_citations
 from services.findings import build_findings, reference_findings
 from services.rewrite_patches import paragraph_table
-from services.numbers import token_matches_text
+from services.issue_identity import same_repair_target, attach_identities, conflict_fields
 
 
-def verify_findings(body, evidence, findings, model_results, required=(), task_id=''):
+def verify_findings(body, evidence, findings, model_results, required=(), task_id='', *, content_index=None, strict_identity=False):
     check = check_citations(task_id, body, evidence, required)
     current = build_findings(body, evidence, check['binding_issues']) + reference_findings(body, check)
     for issue in check['issues']:
         current.append({'rule':'missing_citation','location':{'paragraph':issue.get('paragraph',1),'sentence':1}})
+    current = attach_identities(body, current, content_index, evidence)
     reported = {r.get('finding_id'):r for r in model_results if isinstance(r, dict)}
     rows, targets = [], []
     rules = {'unbound_number','merged_fact_range','unsupported_wording','unverified_comparison',
@@ -18,11 +19,13 @@ def verify_findings(body, evidence, findings, model_results, required=(), task_i
     for finding in findings:
         rule = finding.get('rule') or finding.get('kind')
         # 旧finding未标rule时不猜测；不可将模型自报直接当作已解决。
-        numbers = set(finding.get('numbers') or [])
-        matches = [f for f in current if f.get('rule') == rule and
-                   (not numbers or any(token_matches_text(n, other) for n in numbers for other in f.get('numbers', []))
-                    or f.get('location', {}).get('paragraph') == finding.get('location', {}).get('paragraph'))]
-        status = 'unverified' if rule not in rules else 'unresolved' if matches else 'resolved'
+        matches = [f for f in current if same_repair_target(finding, f)]
+        known_targets = {b['target_id']:b for b in content_index['blocks']} if content_index else {}
+        target = known_targets.get(finding.get('target_id'))
+        available = {s['source_id'] for s in evidence if s.get('source_id') and not s.get('source_deleted')}
+        missing_sources = set(conflict_fields(finding)['sources']) - available
+        uncertain = strict_identity and (not target or target['certainty'] == 'unverified' or bool(missing_sources))
+        status = 'unverified' if rule not in rules or uncertain else 'unresolved' if matches else 'resolved'
         report = reported.get(finding['finding_id'], {})
         row = {'finding_id':finding['finding_id'], 'reported_status':report.get('status'),
                'status':status, 'reason':('确定性问题仍存在' if status == 'unresolved' else

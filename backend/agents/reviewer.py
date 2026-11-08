@@ -15,6 +15,7 @@ from services.findings import build_findings, finding_block, merge_findings, ref
 from services.event_logs import EventLogs
 from services.review_policy import report_metrics, policy_violations, freeze_policy, policy_text, decide_quality
 from services.review_rules import assess_issue, is_confirmed_blocker, material_pending
+from services.issue_identity import index_document, attach_identities, citation_issue
 
 REVIEW_STEP_ID = 0
 
@@ -250,6 +251,7 @@ async def reviewer_node(state: dict) -> dict:
         return dict(quality_status='not_run',passed=False,forced_pass=False,forced_output=False,
                     error_code='REVIEW_DISABLED',react_logs=logs)
     policy = freeze_policy(state) if state.get("report_pipeline_version", 1) >= 2 else None
+    content_index = index_document(state["task_id"], draft, state.get("content_index")) if policy else None
     evidence = await asyncio.to_thread(refresh_document_sources, state.get("evidence", []))
     check = check_citations(state.get("task_id", ""), draft, evidence, state.get("required_citations", []))
     binding = check.get("binding_issues", [])
@@ -301,6 +303,7 @@ async def reviewer_node(state: dict) -> dict:
                 'evidence':{'kind':'report','quote':table[n-1]['text']}})
     if policy:
         deterministic_findings = [f if f.get("origin") == "program" else assess_issue(f, evidence) for f in deterministic_findings]
+    deterministic_findings = attach_identities(draft, deterministic_findings, content_index, evidence)
     # 逐轮累计保留要求；Rewriter 只会执行本轮证据上下文里可见的部分，不可见的编号不会卡住返工。
     required = sorted(set(state.get("required_citations", [])) | {c["source_id"] for c in check["citations"] if c["valid"]})
     cited = reference_ids(draft)
@@ -311,6 +314,7 @@ async def reviewer_node(state: dict) -> dict:
               "required_citations": required}
     if policy is not None:
         common["review_policy"] = policy
+        common["content_index"] = content_index
     logs.extend([
         {"type": "Thought", "content": f"开始审核草稿（第 {round_no} 次审核）", "step_id": 0},
         {"type": "Action", "content": "llm_gen(query=按审核标准评审报告草稿)", "step_id": 0},
@@ -374,6 +378,7 @@ async def reviewer_node(state: dict) -> dict:
     findings, rejected_findings = merge_findings(
         deterministic_findings, review.get("findings") or [], evidence, draft,
     )
+    findings = attach_identities(draft, findings, content_index, evidence)
     if rejected_findings:
         logs.append({"type": "Observation",
                      "content": f"审核 agent 的 {len(rejected_findings)} 条 finding 证据不在来源中，已丢弃",
@@ -414,8 +419,10 @@ async def reviewer_node(state: dict) -> dict:
     hard_count = len(hard_findings) + len(check['errors'])
     from services.review_progress import review_progress
     review_complete = decision['review_complete'] if decision else not bool(review.get('review_diagnostics') or rejected_findings)
-    hard_set = hard_findings + [{'rule': 'citation', 'message': e} for e in check['errors']]
-    progress = review_progress(history[-1] if history else None, hard_set, review_complete)
+    integrity_set = [citation_issue(e, state.get('task_id', '')) for e in check['errors']]
+    hard_set = hard_findings + integrity_set
+    active_set = [f for f in findings if f.get('decision') != 'dismissed' and (f.get('material') or f.get('severity') == 'hard')] + integrity_set
+    progress = review_progress(history[-1] if history else None, active_set if policy else hard_set, review_complete)
     convergence_stopped = not passed and progress['stopped']
     research_needed = needs_research(dict(state, evidence=evidence, quality_status='rejected', review_comments=comments))
     no_targets = not passed and not findings and not full_rewrite_required and not research_needed
@@ -428,6 +435,7 @@ async def reviewer_node(state: dict) -> dict:
                     "round": round_no, "passed": passed, "comments": comments,
                     "hard_error_count": hard_count,
                     "hard_finding_set": hard_set,
+                    "issue_set": active_set if policy else hard_set,
                     "convergence": progress,
                     "convergence_stopped": convergence_stopped,
                     "findings": findings, "possible_rule_issue": possible_rule_issue,
@@ -446,6 +454,7 @@ async def reviewer_node(state: dict) -> dict:
     if state.get("report_pipeline_version", 1) >= 2:
         history[-1]["report_pipeline_version"] = 2
         history[-1]["review_policy"] = policy
+        history[-1]["content_index"] = content_index
         history[-1]["claim_bindings"] = state.get("claim_bindings", [])
         history[-1]["fact_registry"] = state.get("fact_registry", {})
         if dispute_review:

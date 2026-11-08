@@ -34,6 +34,7 @@ from services.rewrite_verification import verify_findings
 from services.candidate_acceptance import validate_candidate, hard_problem_counts
 from services.fact_binding import build_registry, binding_prompt, render_bound_text, locate_bindings
 from services.review_policy import policy_text, freeze_policy
+from services.issue_identity import index_document, index_candidate
 from agents.react_writer import _summarize_research, FACTUAL_DISCIPLINE   # 复用：研究数据 → Markdown 摘要、事实口径
 
 # 返工日志统一归类到 step_id=0（A2A 阶段无 Plan 步骤）
@@ -104,6 +105,7 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
                    or any(f.get('scope') == 'full' for f in findings) else None)
     # 全文要求直接执行；局部修改遇到被拦截提案时升级全文，保留有效局部候选。
     best = draft
+    best_index = index_document(state["task_id"], draft, state.get("content_index")) if bound else None
     best_receipt = None
     force_full = bool(full_reason)
     feedback = []
@@ -205,13 +207,17 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
             supplied = payload.get('results', [])
             model_results = supplied if isinstance(supplied, list) else []
             life = citation_lifecycle(draft, candidate, required, changes=changes, original_claims=originals)
-            verification, correction_targets = verify_findings(candidate, evidence, findings, model_results, life['required_ids'], state.get('task_id', ''))
+            candidate_index = None
+            if bound:
+                candidate_index = index_candidate(state['task_id'], best, candidate, best_index, patch=mode == 'patch')
+            verification, correction_targets = verify_findings(candidate, evidence, findings, model_results, life['required_ids'], state.get('task_id', ''), content_index=candidate_index, strict_identity=bound)
             receipt.update(model_results=model_results, verification=verification)
             audit.update(model_results=model_results, verification=verification)
             audit.update(decision='applied' if candidate != best else 'no_change',
                          candidate_sha256=hashlib.sha256(candidate.encode()).hexdigest())
             attempts.append(audit)
             best, best_receipt = candidate, receipt
+            best_index = candidate_index
             bindings = locate_bindings(best, bindings + candidate_bindings)
             if correction_targets and not correction_used:
                 correction_used = True
@@ -285,13 +291,14 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
         history[-1]['stop_reason'] = 'REWRITE_FAILED' if receipt['mode'] == 'rollback' else 'REWRITE_NO_CHANGE'
     history[-1]['rewrite'] = receipt
     if bound:
+        receipt["content_index"] = best_index
         receipt["claim_bindings"] = bindings
         receipt["fact_registry"] = {key: registry[key] for c in bindings for key in c["fact_ids"] if key in registry}
     logs.append({'type': 'Observation', 'content': '返工回执：' + json.dumps({
         'mode': receipt['mode'], 'changed': changed, 'attempt_count': len(attempts),
         'program_restriction': receipt['program_restriction'],
     }, ensure_ascii=False), 'step_id': 0})
-    result = {'forced_output': not (changed or citation_changed), 'quality_status': 'rejected', 'passed': False, 'draft_content': candidate, 'review_history': history, 'react_logs': logs,
+    result = {**({'content_index': best_index} if bound else {}), 'forced_output': not (changed or citation_changed), 'quality_status': 'rejected', 'passed': False, 'draft_content': candidate, 'review_history': history, 'react_logs': logs,
             'fact_registry': registry if bound else state.get("fact_registry", {}),
             'claim_bindings': bindings,
             'required_citations': required, 'citations': check['citations'],

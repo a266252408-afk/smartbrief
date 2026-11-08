@@ -28,7 +28,6 @@ def _check(sentence):
     return {'errors': [], 'binding_issues': [dict(kind='unbound_number', severity='hard', sentence=sentence, numbers=['99亿元'], source_ids=['S1'])]}
 
 
-@pytest.mark.xfail(strict=True, reason="R00已复现；R02负责修复")
 def test_d03_reworded_existing_conflict_is_not_introduced():
     validate_candidate('市场规模约99亿元。', '该市场规模约99亿元。',
                        _check('市场规模约99亿元。'), _check('该市场规模约99亿元。'))

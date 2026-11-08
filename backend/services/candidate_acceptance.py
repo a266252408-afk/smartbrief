@@ -5,15 +5,8 @@ import re
 
 
 def hard_problem_counts(check):
-    counts = Counter()
-    for issue in check.get("binding_issues", []):
-        if issue.get("severity") != "hard":
-            continue
-        sentence = re.sub(r"\[S[1-9][0-9]*\]|\s+", "", issue.get("sentence", ""))
-        key = (issue.get("kind"), sentence, tuple(sorted(issue.get("numbers", []))),
-               tuple(sorted(issue.get("source_ids", []))))
-        counts[key] += 1
-    return counts
+    from services.issue_identity import problem_counts
+    return problem_counts(i for i in check.get('binding_issues', []) if i.get('severity') == 'hard')
 
 
 def has_rewrite_protocol(body):

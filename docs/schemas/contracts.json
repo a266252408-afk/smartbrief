@@ -7931,6 +7931,88 @@
       ],
       "title": "RuleAssessment",
       "type": "object"
+    },
+    "ContentBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "target_id": {
+          "pattern": "^B[a-f0-9]{24}$",
+          "title": "Target Id",
+          "type": "string"
+        },
+        "paragraph": {
+          "minimum": 1,
+          "title": "Paragraph",
+          "type": "integer"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "digest": {
+          "title": "Digest",
+          "type": "string"
+        },
+        "certainty": {
+          "enum": [
+            "new",
+            "exact",
+            "mapped",
+            "unverified"
+          ],
+          "title": "Certainty",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_id",
+        "paragraph",
+        "text",
+        "digest",
+        "certainty"
+      ],
+      "title": "ContentBlock",
+      "type": "object"
+    },
+    "ContentIndex": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "task_id": {
+          "minLength": 1,
+          "title": "Task Id",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "body_sha256": {
+          "title": "Body Sha256",
+          "type": "string"
+        },
+        "blocks": {
+          "items": {
+            "$ref": "#/$defs/ContentBlock"
+          },
+          "title": "Blocks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "task_id",
+        "revision",
+        "body_sha256",
+        "blocks"
+      ],
+      "title": "ContentIndex",
+      "type": "object"
     }
   }
 }
