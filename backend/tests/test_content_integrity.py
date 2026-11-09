@@ -109,6 +109,44 @@ def test_explicit_core_quote_and_valid_v2_bindings_cannot_be_deleted():
         )
 
 
+def test_core_question_split_into_ordered_fragments_is_rejoined():
+    review = dict(
+        core_coverage=[
+            dict(question="市场规模。", covered=True, quote="规模结论。", reason="前半"),
+            dict(question="增长速度。", covered=True, quote="规模结论。", reason="后半"),
+        ]
+    )
+    out = validate_review_content(review, "规模结论。", ["市场规模。增长速度。"])
+    assert len(out["core_coverage"]) == 1
+    assert out["core_coverage"][0]["question"] == "市场规模。增长速度。"
+    forged = dict(
+        core_coverage=[
+            dict(question="市场规模。", covered=True, quote="规模结论。", reason="前半"),
+            dict(question="增长速度很快。", covered=True, quote="规模结论。", reason="后半"),
+        ]
+    )
+    partial = validate_review_content(forged, "规模结论。", ["市场规模。增长速度。"])
+    assert partial["core_status"] == "unknown"
+    assert partial["core_coverage_complete"] is False
+
+
+def test_core_question_whitespace_is_normalized_but_content_still_frozen():
+    review = dict(
+        core_coverage=[
+            dict(question="市场  规模", covered=True, quote="规模结论。", reason="回答")
+        ]
+    )
+    out = validate_review_content(review, "规模结论。", ["市场规模"])
+    assert out["core_coverage"][0]["question"] == "市场规模"
+    forged = dict(
+        core_coverage=[
+            dict(question="市场 规模 增长", covered=True, quote="规模结论。", reason="回答")
+        ]
+    )
+    out = validate_review_content(forged, "规模结论。", ["市场规模"])
+    assert out["core_status"] == "unknown" and not out["core_coverage"]
+
+
 def test_review_content_checks_both_quotes_questions_and_information_loss():
     review = dict(
         core_coverage=[
@@ -129,8 +167,8 @@ def test_review_content_checks_both_quotes_questions_and_information_loss():
     assert out["core_status"] == "covered" and len(out["semantic_duplicates"]) == 1
     with pytest.raises(ValueError):
         validate_review_content(review, "伪造原句", ["市场"])
-    with pytest.raises(ValueError):
-        validate_review_content(review, "规模结论。规模结论重复。", ["另一个问题"])
+    unrelated = validate_review_content(review, "规模结论。规模结论重复。", ["另一个问题"])
+    assert unrelated["core_status"] == "unknown" and not unrelated["core_coverage"]
     assert validate_review_content({}, "原文", ["市场"])["core_status"] == "unknown"
     forged = copy.deepcopy(review)
     forged["semantic_duplicates"][0]["second_quote"] = "不存在的另一处原句"

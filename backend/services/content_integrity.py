@@ -10,6 +10,48 @@ class ContentRejected(ValueError):
     code = "CONTENT_COVERAGE_REJECTED"
 
 
+def _question_text(value):
+    return re.sub(r"\s+", "", value)
+
+
+def _align_core_rows(rows, questions):
+    frozen = [_question_text(question) for question in questions]
+    given = [_question_text(row["question"]) for row in rows]
+    if len(rows) == len(questions) and set(given) == set(frozen):
+        canonical = {_question_text(question): question for question in questions}
+        for row in rows:
+            row["question"] = canonical[_question_text(row["question"])]
+        return rows, True
+    # 模型可能把一条冻结问题按完整子句拆成多行；按顺序能逐字拼回原问题才算完整。
+    merged = {}
+    aligned = []
+    index = offset = 0
+    complete = True
+    for row, text in zip(rows, given):
+        if index >= len(frozen) or not text or not frozen[index].startswith(text, offset):
+            complete = False
+            break
+        aligned.append(row)
+        question = questions[index]
+        offset += len(text)
+        if offset == len(frozen[index]):
+            index += 1
+            offset = 0
+        current = merged.get(question)
+        if current is None:
+            merged[question] = dict(row, question=question)
+        else:
+            current["covered"] = bool(current["covered"] and row["covered"])
+            if row["reason"] not in current["reason"]:
+                current["reason"] = current["reason"] + "；" + row["reason"]
+    if index != len(frozen) or offset != 0:
+        complete = False
+    if complete:
+        return [merged[question] for question in questions if question in merged], True
+    # 不完整覆盖保留已验证的片段供下游按covered判断，整体标记为unknown。
+    return aligned, False
+
+
 def validate_review_content(review, body, questions):
     rows = [
         CoreCoverage.model_validate(r).model_dump()
@@ -19,13 +61,12 @@ def validate_review_content(review, body, questions):
         SemanticDuplicate.model_validate(r).model_dump()
         for r in review.get("semantic_duplicates", [])
     ]
-    if rows and (
-        len(rows) != len(questions) or {r["question"] for r in rows} != set(questions)
-    ):
-        raise ValueError("核心问题覆盖记录缺失、重复或不属于冻结问题")
     for row in rows:
         if row["quote"] not in body:
             raise ValueError("核心回答原句不在报告中")
+    complete = bool(rows)
+    if rows:
+        rows, complete = _align_core_rows(rows, questions)
     for row in duplicates:
         if row["first_quote"] not in body or row["second_quote"] not in body:
             raise ValueError("语义重复必须提供报告中的两处原句")
@@ -34,11 +75,16 @@ def validate_review_content(review, body, questions):
             and body.count(row["first_quote"]) < 2
         ):
             raise ValueError("语义重复不能把同一处原句当两处")
+    if not rows:
+        core_status = "unknown"
+    elif any(not row["covered"] for row in rows):
+        core_status = "missing"
+    else:
+        core_status = "covered" if complete else "unknown"
     return dict(
-        core_status=("missing" if any(not r["covered"] for r in rows) else "covered")
-        if rows
-        else "unknown",
+        core_status=core_status,
         core_coverage=rows,
+        core_coverage_complete=complete,
         semantic_duplicates=duplicates,
         review_scope="full_report",
     )

@@ -94,6 +94,47 @@ def finding_errors(review, body, evidence, *, task_id=None):
     return errors
 
 
+def repair_report_locations(review, body):
+    """报告finding的quote若唯一存在，确定性修正段/句坐标；不改quote或判定。"""
+    paragraphs = paragraph_table(body)
+    corrections = []
+    for finding in review.get("findings", []):
+        source = finding.get("evidence") or {}
+        if source.get("kind", "source") != "report":
+            continue
+        quote = source.get("quote")
+        located = [
+            (row["paragraph"], row["text"])
+            for row in paragraphs
+            if isinstance(quote, str) and quote and quote in row["text"]
+        ]
+        if len(located) != 1:
+            continue
+        paragraph, text = located[0]
+        offset = text.index(quote)
+        sentence = 1
+        cursor = 0
+        for index, part in enumerate(split_sentences(text), 1):
+            start = text.find(part, cursor)
+            if start < 0:
+                break
+            cursor = start + len(part)
+            sentence = index
+            if start <= offset < cursor:
+                break
+        current = finding.get("location") or {}
+        if (current.get("paragraph"), current.get("sentence")) != (paragraph, sentence):
+            finding["location"] = dict(paragraph=paragraph, sentence=sentence)
+            corrections.append(
+                dict(
+                    finding_id=finding.get("finding_id"),
+                    before=current,
+                    after=finding["location"],
+                )
+            )
+    return corrections
+
+
 def response_audit(response):
     choices = getattr(response, "choices", None) or []
     choice = choices[0] if choices else None

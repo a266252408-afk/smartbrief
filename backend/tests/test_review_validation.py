@@ -4,7 +4,7 @@ import asyncio
 import json
 from unittest.mock import AsyncMock, patch
 import pytest
-from services.review_validation import finding_errors
+from services.review_validation import finding_errors, repair_report_locations
 from agents import reviewer
 from tests.test_evidence import source
 from tests.test_rewriter import FakeResp
@@ -183,6 +183,50 @@ def test_provenance_and_policy_share_one_correction_budget():
     out, model = execute([bad, conflicting])
     assert model.await_count == 2 and out["quality_status"] == "unavailable"
     assert len(out["review_history"][-1]["review_response_attempts"]) == 2
+
+
+def test_unique_report_quote_is_reanchored_to_actual_paragraph_and_sentence():
+    row = finding(
+        evidence=dict(kind="report", quote="市场规模10亿元[S1]。"),
+        location=dict(paragraph=1, sentence=9),
+    )
+    corrections = repair_report_locations(dict(findings=[row]), BODY)
+    assert row["location"] == dict(paragraph=3, sentence=1)
+    assert corrections[0]["finding_id"] == "M1"
+    assert corrections[0]["before"] == dict(paragraph=1, sentence=9)
+    forged = finding(evidence=dict(kind="report", quote="报告未有的原句。"))
+    assert not repair_report_locations(dict(findings=[forged]), BODY)
+    assert (
+        finding_errors(dict(findings=[forged]), BODY, [])[0]["code"]
+        == "REPORT_QUOTE_INVALID"
+    )
+
+
+def test_reviewer_separates_program_metadata_and_repeats_coordinate_rules_on_correction():
+    calls = []
+
+    async def model(messages, **kwargs):
+        calls.append([dict(message) for message in messages])
+        if len(calls) == 1:
+            return FakeResp(json.dumps(dict(
+                passed=False,
+                comments=["长度不足"],
+                findings=[finding(evidence=dict(kind="report", quote="程序统计内容"))],
+            ), ensure_ascii=False))
+        return FakeResp('{"passed":true,"comments":[]}')
+
+    with patch.object(reviewer, "chat", new=model):
+        out = asyncio.run(reviewer.reviewer_node(dict(
+            task_id="t", topic="市场", report_pipeline_version=2,
+            draft_content=BODY, evidence=[source(excerpt="市场规模10亿元。")],
+        )))
+    first = calls[0][1]["content"]
+    assert "【程序统计（不是报告正文，不得作为报告quote）】" in first
+    assert first.index("【程序统计") < first.index("【报告正文")
+    assert "段落坐标（仅用于location；报告正文从段落1开始" in first
+    correction = calls[1][-1]["content"]
+    assert "不是报告正文" in correction and "从1开始计数" in correction
+    assert out["passed"] and len(out["review_history"][-1]["review_response_attempts"]) == 2
 
 
 def test_response_audit_preserves_empty_choices_nontext_and_truncation():

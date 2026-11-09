@@ -16,7 +16,7 @@ from services.event_logs import EventLogs
 from services.review_policy import report_metrics, policy_violations, freeze_policy, policy_text, decide_quality
 from services.review_rules import assess_issue, is_confirmed_blocker, material_pending
 from services.issue_identity import index_document, attach_identities, citation_issue
-from services.review_validation import finding_errors, response_audit
+from services.review_validation import finding_errors, repair_report_locations, response_audit
 
 REVIEW_STEP_ID = 0
 
@@ -94,12 +94,18 @@ SYSTEM_PROMPT = """你是市场调研报告质量审核员。请对给定的报�
 仅返回 JSON：
 {"passed": true/false, "comments": ["意见1", "意见2"], "findings": [], "possible_rule_issue": null, "full_rewrite_required": false}
 - passed：满足全部标准为 true，否则为 false
+- passed=false 必须至少携带一条 severity=hard 且有可验证 evidence 的 finding；只有字数、重复、文风等 soft 建议时必须返回 passed=true，并把建议写入 comments。无硬问题的拒绝会被视为无效审核。
 - comments：审核意见列表；通过时可为空数组；不通过时必须给出具体修改意见
 - finding_id 必须为 MODEL-0001 形式的非空字符串；只返回新增问题，确定性 findings 由系统保留。
 - 结构问题使用 evidence={"kind":"report","quote":"报告原文"}；来源问题使用 kind=source、source_id、quote。
 - findings：结构化问题列表。每条必须包含 finding_id、problem、evidence{source_id, quote}、location{paragraph, sentence}、expected、severity(hard/soft)
 - location.paragraph 和 location.sentence 必须是从 1 开始的整数，不能返回字符串、null 或省略 sentence；没有额外问题时 findings 返回 []
 - evidence.kind=source 时 quote 必须逐字来自给定来源摘要；kind=report 时必须逐字来自指定报告段落。不得编造。
+- 用户消息开头的“程序统计/段落坐标”不是报告正文，不得作为 evidence.kind=report 的 quote；kind=report 的 quote 只能逐字取自“报告正文”部分。
+- kind=report 的 quote 必须完整位于 location 指定的同一段落，并覆盖 location.sentence 指定的句子；不得跨段引用。段落和句子按“报告正文”从 1 开始计数，不包含程序统计块。
+- kind=report 的 quote 必须是一个连续、逐字的句子片段；不得用“...”“…”省略或拼接多个句子/段落。跨段或多事实问题请拆成多条 finding，或写入 comments。
+- 找不到逐字原句时写入 comments，不要编造或改写 quote。
+- 纯字数不足写入 comments，不要为字数编造 report quote 或 finding。
 - expected 必须是可执行修改；scope=paragraph 表示局部，scope=full 表示整篇重组（location仅作问题锚点）。全局问题不得限制在单个段落。
 - comments 用于解释 findings，不得额外增加无证据的阻塞要求；不要求独立标题页等未列标准。
 - 不得推翻确定性 hard 结论，也不得删除给定 finding；若认为规则误判，写入 possible_rule_issue，但保留 finding 与 passed=false
@@ -176,7 +182,14 @@ async def _review(draft: str, evidence: list, *, binding_issues=None, structure_
         structure_block += "\n重复指标：\n" + "\n".join(duplicate_lines)
     original_draft = draft
     metrics = report_metrics(draft)
-    draft = "程序字数统计：" + json.dumps(metrics, ensure_ascii=False) + "\n段落坐标：" + json.dumps(paragraph_table(draft), ensure_ascii=False) + "\n\n报告：\n" + draft
+    draft = (
+        "【程序统计（不是报告正文，不得作为报告quote）】\n"
+        + json.dumps(metrics, ensure_ascii=False)
+        + "\n【段落坐标（仅用于location；报告正文从段落1开始，不含本统计块）】\n"
+        + json.dumps(paragraph_table(draft), ensure_ascii=False)
+        + "\n\n【报告正文（evidence.kind=report的quote只能逐字取自这里）】\n\n"
+        + draft
+    )
     finding_lines = finding_block(deterministic_findings or [])
     finding_text = ""
     if finding_lines:
@@ -193,7 +206,8 @@ async def _review(draft: str, evidence: list, *, binding_issues=None, structure_
         finding_text = finding_text.replace('确定性规则 findings（finding_id 固定，不得删除或推翻 hard 结论）', '程序预检 findings（confirmed才为已确认；suspected/unresolved必须核验）')
     if policy:
         system_prompt += ('\n全稿逐项核对冻结核心问题与分析前提；可返回core_coverage[{question,covered,quote,reason}]，'
-            '一旦提供须逐项覆盖全部冻结问题，quote逐字取报告原句。semantic_duplicates须给first_quote/second_quote两处原句、'
+            'question必须逐字复制policy中的冻结问题原文，不得拆分、合并、缩写或改写；一旦提供，每个冻结问题恰好一行，'
+            'quote逐字取报告原句。semantic_duplicates须给first_quote/second_quote两处原句、'
             'information_loss布尔及reason；摘要正常复述不算正文重复，不可因指标多次出现删独有证据。')
     messages = [
         {"role": "system", "content": system_prompt + ("\n" + policy_text(policy) if policy else "")},
@@ -215,6 +229,9 @@ async def _review(draft: str, evidence: list, *, binding_issues=None, structure_
             response_attempts.append(audit)
         try:
             result = _parse_response(resp)
+            location_corrections = repair_report_locations(result, original_draft) if policy else []
+            if location_corrections:
+                result['location_corrections'] = location_corrections
             invalid=(finding_errors(result,original_draft,evidence,task_id=policy['task_id']) if policy else [])
             if policy:
                 from services.content_integrity import validate_review_content
@@ -233,7 +250,12 @@ async def _review(draft: str, evidence: list, *, binding_issues=None, structure_
             audit.update(decision='rejected',code=exc.diagnostic['code'],message=exc.diagnostic['message'])
             if attempt:
                 raise ReviewResponseError(dict(exc.diagnostic,review_response_attempts=response_attempts)) from exc
-            messages=messages+[dict(role='user',content='审核响应无效，请仅纠正原文/出处/坐标或格式并返回完整审核JSON，不改报告、不补造原文：'+json.dumps(exc.diagnostic,ensure_ascii=False))]
+            messages=messages+[dict(role='user',content='审核响应无效，请仅纠正原文/出处/坐标或格式并返回完整审核JSON，不改报告、不补造原文。'
+                '注意：程序统计与段落坐标不是报告正文；kind=report 的 quote 只能逐字取自“报告正文”，'
+                '且必须位于 location 指定的同一段落并覆盖指定句子，段落和句子按报告正文从1开始计数；'
+                'quote必须是一个连续逐字句子，不得用省略号省略或拼接多段，找不到就写入comments；'
+                'core_coverage 的 question 必须逐字复制冻结问题，不得拆分、合并或改写：'
+                + json.dumps(exc.diagnostic,ensure_ascii=False))]
             continue
         violations = policy_violations(result, original_draft, policy=policy, deterministic_findings=deterministic_findings or [], check_errors=check_errors or [])
         if not violations:
@@ -543,6 +565,8 @@ async def reviewer_node(state: dict) -> dict:
         history[-1]['policy_corrections'] = review['policy_corrections']
     if review.get('review_response_attempts'):
         history[-1]['review_response_attempts']=review['review_response_attempts']
+    if review.get('location_corrections'):
+        history[-1]['location_corrections']=review['location_corrections']
     if state.get("report_pipeline_version", 1) >= 2:
         history[-1]["report_pipeline_version"] = state.get('report_pipeline_version',2)
         history[-1]["review_policy"] = policy
