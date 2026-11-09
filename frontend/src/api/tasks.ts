@@ -182,7 +182,8 @@ export interface ReviewRound {
   claim_bindings?: ClaimBinding[]
   fact_registry?: Record<string, BoundFact>
   dispute_review?: { status: 'unresolved' | 'reviewed'; initial_findings: unknown[];
-    result?: unknown; error?: string }
+    result?: unknown; error?: string; context_key?: string;
+    records?: AdjudicationRecord[]; response_attempt?: ReviewResponseAttempt }
   policy_corrections?: Array<{ review: unknown; violations: Array<{ code: string; text: string }> }>
   citation_retirements?: Array<{ source_id: string; claims: string[]; reason: string; review_required?: boolean }>
   convergence?: { resolved: string[]; introduced: string[]; persisting: string[];
@@ -490,4 +491,15 @@ export interface ReviewResponseAttempt {
   finish_reason: string | null; raw_response: string; raw_length: number;
   raw_truncated: boolean; raw_sha256: string; decision?: 'accepted' | 'rejected' | null;
   code?: string | null; message?: string | null
+}
+
+// 程序生成的可核验原句区间，偏移为Python Unicode字符索引。
+export interface AdjudicationRecord {
+  context_key: string
+  issue_key: string
+  verdict: 'supported' | 'contradicted' | 'insufficient'
+  reason: string
+  report_span: { start: number; end: number; quote: string }
+  source_spans: Array<{ source_id: string; start: number; end: number; quote: string }>
+  cached: boolean
 }

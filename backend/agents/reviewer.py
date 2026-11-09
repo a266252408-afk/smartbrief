@@ -409,17 +409,16 @@ async def reviewer_node(state: dict) -> dict:
                 "findings": deterministic_findings, "possible_rule_issue": None,
                 "full_rewrite_required": False, "react_logs": logs}
     dispute_review = None
-    if state.get("report_pipeline_version", 1) >= 2:
-        from services.review_disputes import resolve_disputes
-        visible_ids = cited | set(required) | {
-            f.get("evidence", {}).get("source_id") for f in review.get("findings", [])}
-        visible = [s for s in evidence if s["source_id"] in visible_ids]
-        review, dispute_review = await resolve_disputes(
-            review, draft, visible, chat, _parse_response, policy_text=SYSTEM_PROMPT + ("\n" + policy_text(policy) if policy else ""),task_id=state.get('task_id'))
     findings, rejected_findings = merge_findings(
         deterministic_findings, review.get("findings") or [], evidence, draft,
     )
     findings = attach_identities(draft, findings, content_index, evidence)
+    if policy is not None:
+        from services.review_adjudication import adjudicate
+        findings, dispute_review = await adjudicate(
+            findings, draft, evidence, policy, chat, history=history,
+            task_id=state.get('task_id', ''), revision=(state.get('report_document') or {}).get('revision'))
+
     if rejected_findings:
         logs.append({"type": "Observation",
                      "content": f"审核 agent 的 {len(rejected_findings)} 条 finding 证据不在来源中，已丢弃",
@@ -431,7 +430,8 @@ async def reviewer_node(state: dict) -> dict:
     decision = None
     if policy is not None:
         decision = decide_quality(usable=True,
-            review_complete=not bool(review.get('review_diagnostics') or rejected_findings or pending_material) and bool(review['passed'] or hard_findings or check['errors']),
+            review_complete=not bool(review.get('review_diagnostics') or rejected_findings or pending_material) and bool(review['passed'] or hard_findings or check['errors'] or
+                (dispute_review and dispute_review['status'] == 'reviewed')),
             confirmed_blockers=[f['finding_id'] for f in hard_findings] + check['errors'], unresolved_material=pending_material)
         passed = decision['passed']
     comments = list(review.get("comments") or [])
@@ -486,7 +486,7 @@ async def reviewer_node(state: dict) -> dict:
                                 else 'SOURCE_QUOTE_MISMATCH',
                     } for f in rejected_findings],
                     "action_plan": {'scope': 'full' if full_rewrite_required else 'paragraph',
-                                    'finding_ids': [f['finding_id'] for f in findings],
+                                    'finding_ids': [f['finding_id'] for f in findings if f.get('decision') != 'dismissed'],
                                     'comments': comments},
                     "evidence_coverage": review.get('evidence_coverage'),
                     "full_rewrite_required": full_rewrite_required})

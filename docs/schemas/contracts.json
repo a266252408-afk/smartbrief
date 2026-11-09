@@ -8742,6 +8742,204 @@
       ],
       "title": "ReviewResponseAttempt",
       "type": "object"
+    },
+    "EvidenceVerdict": {
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "minLength": 1,
+          "title": "Target",
+          "type": "string"
+        },
+        "verdict": {
+          "enum": [
+            "supported",
+            "contradicted",
+            "insufficient"
+          ],
+          "title": "Verdict",
+          "type": "string"
+        },
+        "report_quote": {
+          "minLength": 1,
+          "title": "Report Quote",
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/VerdictSource"
+          },
+          "title": "Sources",
+          "type": "array"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target",
+        "verdict",
+        "report_quote",
+        "sources",
+        "reason"
+      ],
+      "title": "EvidenceVerdict",
+      "type": "object"
+    },
+    "VerdictSource": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "quote": {
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "quote"
+      ],
+      "title": "VerdictSource",
+      "type": "object"
+    },
+    "AdjudicationResult": {
+      "additionalProperties": false,
+      "properties": {
+        "verdicts": {
+          "items": {
+            "$ref": "#/$defs/EvidenceVerdict"
+          },
+          "minItems": 1,
+          "title": "Verdicts",
+          "type": "array"
+        }
+      },
+      "required": [
+        "verdicts"
+      ],
+      "title": "AdjudicationResult",
+      "type": "object"
+    },
+    "QuoteSpan": {
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "minimum": 0,
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "minimum": 1,
+          "title": "End",
+          "type": "integer"
+        },
+        "quote": {
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "quote"
+      ],
+      "title": "QuoteSpan",
+      "type": "object"
+    },
+    "SourceSpan": {
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "minimum": 0,
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "minimum": 1,
+          "title": "End",
+          "type": "integer"
+        },
+        "quote": {
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "quote",
+        "source_id"
+      ],
+      "title": "SourceSpan",
+      "type": "object"
+    },
+    "AdjudicationRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "context_key": {
+          "minLength": 1,
+          "title": "Context Key",
+          "type": "string"
+        },
+        "issue_key": {
+          "minLength": 1,
+          "title": "Issue Key",
+          "type": "string"
+        },
+        "verdict": {
+          "enum": [
+            "supported",
+            "contradicted",
+            "insufficient"
+          ],
+          "title": "Verdict",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "report_span": {
+          "$ref": "#/$defs/QuoteSpan"
+        },
+        "source_spans": {
+          "items": {
+            "$ref": "#/$defs/SourceSpan"
+          },
+          "title": "Source Spans",
+          "type": "array"
+        },
+        "cached": {
+          "default": false,
+          "title": "Cached",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "context_key",
+        "issue_key",
+        "verdict",
+        "reason",
+        "report_span",
+        "source_spans"
+      ],
+      "title": "AdjudicationRecord",
+      "type": "object"
     }
   }
 }

@@ -165,7 +165,12 @@ def test_dispute_request_inherits_frozen_policy():
         finding_id='MODEL-0001', problem='数值疑问', expected='对照来源核验', severity='hard',
         evidence=dict(kind='source',source_id='S1',quote='市场规模10亿元，增长20%。'),
         location=dict(paragraph=3,sentence=1))])
-    model = ScriptedLLM([json.dumps(initial, ensure_ascii=False), '{"passed":true,"comments":[]}'])
+    def supported(messages):
+        request = json.loads(messages[-1]['content'])
+        return json.dumps(dict(verdicts=[dict(target=t['target'],verdict='supported',
+            report_quote=t['report_quote'],sources=[dict(source_id='S1',quote='市场规模10亿元，增长20%。')],
+            reason='逐项来源核验通过') for t in request['targets']]),ensure_ascii=False)
+    model = ScriptedLLM([json.dumps(initial, ensure_ascii=False), supported])
     with patch.object(reviewer, 'chat', new=model.chat):
         result = asyncio.run(reviewer.reviewer_node(state()))
     assert result['quality_status'] == 'passed'

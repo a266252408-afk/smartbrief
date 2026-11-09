@@ -377,6 +377,22 @@ async def rewriter_node(state: dict) -> dict:
     """
     state = dict(state)
     state["evidence"] = await asyncio.to_thread(refresh_document_sources, state.get("evidence", []))
+    if state.get('report_pipeline_version', 1) >= 2:
+        original_findings = list(state.get('findings') or [])
+        if not original_findings:
+            history = state.get('review_history') or []
+            original_findings = list(history[-1].get('findings') or []) if history else []
+        state['findings'] = [f for f in original_findings if f.get('decision') != 'dismissed']
+        if original_findings and not state['findings']:
+            body = state.get('draft_content', '')
+            if state.get('report_pipeline_version') == 3 and state.get('report_document'):
+                from services.report_document import render_document
+                body = render_document(state['report_document'])
+            history = [dict(h) for h in state.get('review_history', [])] or [{'round': 0}]
+            history[-1]['rewrite'] = dict(mode='not_called', changed=False, attempts=[],
+                failures=[], reason='本轮疑点均已被带证据裁决驳回，无活动返工目标')
+            return dict(draft_content=body, review_history=history,
+                react_logs=state.get('react_logs', []))
     if state.get('report_pipeline_version') == 3:
         from services.document_rewrite import rewrite_document
         return await rewrite_document(chat,state)
