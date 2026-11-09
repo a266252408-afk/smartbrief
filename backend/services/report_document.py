@@ -111,11 +111,38 @@ def _claim_check(quote, ids, registry, task_id):
         if any(key not in registry for key in ids):
             raise DocumentError("声明事实不存在或跨任务")
         for sentence in split_sentences(quote):
+            _literal_claim_scope(sentence, [registry[key]['quote'] for key in ids])
             render_bound_text(
                 sentence + "".join(f"[{key}]" for key in ids), task_id, registry
             )
     elif quantitative_tokens(_prose(quote)):
         raise DocumentError("定量声明缺少事实绑定")
+
+
+def _literal_claim_scope(sentence, facts):
+    """只检查可对齐的单句：极性翻转及简单指标主体替换，不猜一般语义。"""
+    def compact(text):
+        return re.sub(r'\s|[。.!！]', '', text)
+    value = compact(sentence)
+    originals = [compact(fact) for fact in facts]
+    if value in originals:
+        return
+    # 去掉否定词后逐字相同才能证明翻转；不能把“不低于”当作普通否定。
+    polarity = r'并非|并不|不是|没有'
+    neutral = re.sub(polarity, '', value)
+    if any(neutral == re.sub(polarity, '', original)
+           and re.findall(polarity, value) != re.findall(polarity, original)
+           for original in originals):
+        raise DocumentError("声明与绑定事实的肯否极性不一致")
+    # 限定为完整单指标句。一般改写/多事实论证仍交既有语义审核。
+    pattern = r'((?:19|20)\d{2}年)(中国|全球|欧洲|北美)([\u4e00-\u9fff]{2,24}?)(销售额|出口量|出货量|销量)(\d+(?:\.\d+)?(?:万|亿)?(?:元|台|册))'
+    claim = re.fullmatch(pattern, value)
+    if claim:
+        aligned = [re.fullmatch(pattern, original) for original in originals]
+        aligned = [match for match in aligned if match and
+                   (match[1], match[2], match[4], match[5]) == (claim[1], claim[2], claim[4], claim[5])]
+        if aligned and all(match[3] != claim[3] for match in aligned):
+            raise DocumentError("声明的统计对象无法由绑定事实核验")
 
 
 def build_document(payload, task_id, evidence, context=None, *, revision=1):

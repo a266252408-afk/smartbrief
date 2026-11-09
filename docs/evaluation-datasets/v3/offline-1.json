@@ -1,0 +1,411 @@
+{
+  "protocol_id": "v3-offline-1",
+  "pipeline_version": 3,
+  "synthetic": true,
+  "online_status": "pending_authorization",
+  "labels": "人工构造/预标注，无实际市场真实性；不声称模型语义准确率",
+  "challenges": [
+    {
+      "topic": "农业灌溉",
+      "source_quote": "2025年中国灌溉设备销售额12亿元。\n2025年中国灌溉设备出口量18万台。",
+      "split": "development",
+      "id": "V01",
+      "category": "valid",
+      "rationale": "原句与年份、对象、指标和数量逐字有来源，双事实可追溯。"
+    },
+    {
+      "topic": "农业灌溉",
+      "source_quote": "2025年中国灌溉设备销售额12亿元。\n2025年中国灌溉设备出口量18万台。",
+      "split": "development",
+      "id": "V02",
+      "category": "valid",
+      "rationale": "原句与年份、对象、指标和数量逐字有来源，双事实可追溯。"
+    },
+    {
+      "topic": "农业灌溉",
+      "source_quote": "2025年中国灌溉设备销售额12亿元。\n2025年中国灌溉设备出口量18万台。",
+      "split": "development",
+      "id": "I01",
+      "category": "invalid",
+      "mutation": "year",
+      "replacement": "2024年中国灌溉设备销售额12亿元。",
+      "rationale": "年份与来源不一致"
+    },
+    {
+      "topic": "农业灌溉",
+      "source_quote": "2025年中国灌溉设备销售额12亿元。\n2025年中国灌溉设备出口量18万台。",
+      "split": "development",
+      "id": "I02",
+      "category": "invalid",
+      "mutation": "number",
+      "replacement": "2025年中国灌溉设备销售额12万亿元。",
+      "rationale": "单位数量级与来源不一致"
+    },
+    {
+      "topic": "农业灌溉",
+      "source_quote": "2025年中国灌溉设备销售额12亿元。\n2025年中国灌溉设备出口量18万台。",
+      "split": "development",
+      "id": "B01",
+      "category": "boundary",
+      "mutation": "source",
+      "replacement": "",
+      "rationale": "引用别名不存在，不得猜来源"
+    },
+    {
+      "topic": "农业灌溉",
+      "source_quote": "2025年中国灌溉设备销售额12亿元。\n2025年中国灌溉设备出口量18万台。",
+      "split": "development",
+      "id": "B02",
+      "category": "boundary",
+      "mutation": "empty",
+      "replacement": "",
+      "rationale": "只有标题而摘要无内容，不得冒充有效结构"
+    },
+    {
+      "topic": "轨道交通",
+      "source_quote": "2025年中国轨道车辆销售额24亿元。\n2025年中国轨道车辆出口量36万台。",
+      "split": "development",
+      "id": "V03",
+      "category": "valid",
+      "rationale": "原句与年份、对象、指标和数量逐字有来源，双事实可追溯。"
+    },
+    {
+      "topic": "轨道交通",
+      "source_quote": "2025年中国轨道车辆销售额24亿元。\n2025年中国轨道车辆出口量36万台。",
+      "split": "development",
+      "id": "V04",
+      "category": "valid",
+      "rationale": "原句与年份、对象、指标和数量逐字有来源，双事实可追溯。"
+    },
+    {
+      "topic": "轨道交通",
+      "source_quote": "2025年中国轨道车辆销售额24亿元。\n2025年中国轨道车辆出口量36万台。",
+      "split": "development",
+      "id": "I03",
+      "category": "invalid",
+      "mutation": "year",
+      "replacement": "2024年中国轨道车辆销售额24亿元。",
+      "rationale": "年份与来源不一致"
+    },
+    {
+      "topic": "轨道交通",
+      "source_quote": "2025年中国轨道车辆销售额24亿元。\n2025年中国轨道车辆出口量36万台。",
+      "split": "development",
+      "id": "I04",
+      "category": "invalid",
+      "mutation": "number",
+      "replacement": "2025年中国轨道车辆销售额24万亿元。",
+      "rationale": "单位数量级与来源不一致"
+    },
+    {
+      "topic": "轨道交通",
+      "source_quote": "2025年中国轨道车辆销售额24亿元。\n2025年中国轨道车辆出口量36万台。",
+      "split": "development",
+      "id": "B03",
+      "category": "boundary",
+      "mutation": "source",
+      "replacement": "",
+      "rationale": "引用别名不存在，不得猜来源"
+    },
+    {
+      "topic": "轨道交通",
+      "source_quote": "2025年中国轨道车辆销售额24亿元。\n2025年中国轨道车辆出口量36万台。",
+      "split": "development",
+      "id": "B04",
+      "category": "boundary",
+      "mutation": "empty",
+      "replacement": "",
+      "rationale": "只有标题而摘要无内容，不得冒充有效结构"
+    },
+    {
+      "topic": "工业泵",
+      "source_quote": "2025年中国工业泵销售额16亿元。\n2025年中国工业泵出口量28万台。",
+      "split": "development",
+      "id": "V05",
+      "category": "valid",
+      "rationale": "原句与年份、对象、指标和数量逐字有来源，双事实可追溯。"
+    },
+    {
+      "topic": "工业泵",
+      "source_quote": "2025年中国工业泵销售额16亿元。\n2025年中国工业泵出口量28万台。",
+      "split": "development",
+      "id": "V06",
+      "category": "valid",
+      "rationale": "原句与年份、对象、指标和数量逐字有来源，双事实可追溯。"
+    },
+    {
+      "topic": "工业泵",
+      "source_quote": "2025年中国工业泵销售额16亿元。\n2025年中国工业泵出口量28万台。",
+      "split": "development",
+      "id": "I05",
+      "category": "invalid",
+      "mutation": "year",
+      "replacement": "2024年中国工业泵销售额16亿元。",
+      "rationale": "年份与来源不一致"
+    },
+    {
+      "topic": "工业泵",
+      "source_quote": "2025年中国工业泵销售额16亿元。\n2025年中国工业泵出口量28万台。",
+      "split": "development",
+      "id": "I06",
+      "category": "invalid",
+      "mutation": "number",
+      "replacement": "2025年中国工业泵销售额16万亿元。",
+      "rationale": "单位数量级与来源不一致"
+    },
+    {
+      "topic": "工业泵",
+      "source_quote": "2025年中国工业泵销售额16亿元。\n2025年中国工业泵出口量28万台。",
+      "split": "development",
+      "id": "B05",
+      "category": "boundary",
+      "mutation": "source",
+      "replacement": "",
+      "rationale": "引用别名不存在，不得猜来源"
+    },
+    {
+      "topic": "工业泵",
+      "source_quote": "2025年中国工业泵销售额16亿元。\n2025年中国工业泵出口量28万台。",
+      "split": "development",
+      "id": "B06",
+      "category": "boundary",
+      "mutation": "empty",
+      "replacement": "",
+      "rationale": "只有标题而摘要无内容，不得冒充有效结构"
+    },
+    {
+      "topic": "太阳能组件",
+      "source_quote": "2025年中国太阳能组件销售额32亿元。\n2025年中国太阳能组件出口量48万台。",
+      "split": "holdout",
+      "id": "V07",
+      "category": "valid",
+      "rationale": "原句与年份、对象、指标和数量逐字有来源，双事实可追溯。"
+    },
+    {
+      "topic": "太阳能组件",
+      "source_quote": "2025年中国太阳能组件销售额32亿元。\n2025年中国太阳能组件出口量48万台。",
+      "split": "holdout",
+      "id": "V08",
+      "category": "valid",
+      "rationale": "原句与年份、对象、指标和数量逐字有来源，双事实可追溯。"
+    },
+    {
+      "topic": "太阳能组件",
+      "source_quote": "2025年中国太阳能组件销售额32亿元。\n2025年中国太阳能组件出口量48万台。",
+      "split": "holdout",
+      "id": "I07",
+      "category": "invalid",
+      "mutation": "year",
+      "replacement": "2024年中国太阳能组件销售额32亿元。",
+      "rationale": "年份与来源不一致"
+    },
+    {
+      "topic": "太阳能组件",
+      "source_quote": "2025年中国太阳能组件销售额32亿元。\n2025年中国太阳能组件出口量48万台。",
+      "split": "holdout",
+      "id": "I08",
+      "category": "invalid",
+      "mutation": "number",
+      "replacement": "2025年中国太阳能组件销售额32万亿元。",
+      "rationale": "单位数量级与来源不一致"
+    },
+    {
+      "topic": "太阳能组件",
+      "source_quote": "2025年中国太阳能组件销售额32亿元。\n2025年中国太阳能组件出口量48万台。",
+      "split": "holdout",
+      "id": "B07",
+      "category": "boundary",
+      "mutation": "source",
+      "replacement": "",
+      "rationale": "引用别名不存在，不得猜来源"
+    },
+    {
+      "topic": "太阳能组件",
+      "source_quote": "2025年中国太阳能组件销售额32亿元。\n2025年中国太阳能组件出口量48万台。",
+      "split": "holdout",
+      "id": "B08",
+      "category": "boundary",
+      "mutation": "empty",
+      "replacement": "",
+      "rationale": "只有标题而摘要无内容，不得冒充有效结构"
+    },
+    {
+      "topic": "图书出版",
+      "source_quote": "2025年中国图书销售额20亿元。\n2025年中国图书出口量64万册。",
+      "split": "holdout",
+      "id": "V09",
+      "category": "valid",
+      "rationale": "原句与年份、对象、指标和数量逐字有来源，双事实可追溯。"
+    },
+    {
+      "topic": "图书出版",
+      "source_quote": "2025年中国图书销售额20亿元。\n2025年中国图书出口量64万册。",
+      "split": "holdout",
+      "id": "V10",
+      "category": "valid",
+      "rationale": "原句与年份、对象、指标和数量逐字有来源，双事实可追溯。"
+    },
+    {
+      "topic": "图书出版",
+      "source_quote": "2025年中国图书销售额20亿元。\n2025年中国图书出口量64万册。",
+      "split": "holdout",
+      "id": "I09",
+      "category": "invalid",
+      "mutation": "year",
+      "replacement": "2024年中国图书销售额20亿元。",
+      "rationale": "年份与来源不一致"
+    },
+    {
+      "topic": "图书出版",
+      "source_quote": "2025年中国图书销售额20亿元。\n2025年中国图书出口量64万册。",
+      "split": "holdout",
+      "id": "I10",
+      "category": "invalid",
+      "mutation": "number",
+      "replacement": "2025年中国图书销售额20万亿元。",
+      "rationale": "单位数量级与来源不一致"
+    },
+    {
+      "topic": "图书出版",
+      "source_quote": "2025年中国图书销售额20亿元。\n2025年中国图书出口量64万册。",
+      "split": "holdout",
+      "id": "B09",
+      "category": "boundary",
+      "mutation": "source",
+      "replacement": "",
+      "rationale": "引用别名不存在，不得猜来源"
+    },
+    {
+      "topic": "图书出版",
+      "source_quote": "2025年中国图书销售额20亿元。\n2025年中国图书出口量64万册。",
+      "split": "holdout",
+      "id": "B10",
+      "category": "boundary",
+      "mutation": "empty",
+      "replacement": "",
+      "rationale": "只有标题而摘要无内容，不得冒充有效结构"
+    }
+  ],
+  "tasks": [
+    {
+      "topic": "农业灌溉",
+      "source_quote": "2025年中国灌溉设备销售额12亿元。\n2025年中国灌溉设备出口量18万台。",
+      "split": "development",
+      "id": "G01",
+      "sufficient": true,
+      "rationale": "预先提供两条有完整口径的合成事实；模型仅生成给定材料。"
+    },
+    {
+      "topic": "农业灌溉",
+      "source_quote": "2025年中国灌溉设备销售额12亿元。\n2025年中国灌溉设备出口量18万台。",
+      "split": "development",
+      "id": "G02",
+      "sufficient": true,
+      "rationale": "预先提供两条有完整口径的合成事实；模型仅生成给定材料。"
+    },
+    {
+      "topic": "农业灌溉",
+      "source_quote": "2025年中国灌溉设备销售额12亿元。\n2025年中国灌溉设备出口量18万台。",
+      "split": "development",
+      "id": "N01",
+      "sufficient": false,
+      "rationale": "真实搜索边界返回零来源；不得编造证据或继续生成通过报告。"
+    },
+    {
+      "topic": "轨道交通",
+      "source_quote": "2025年中国轨道车辆销售额24亿元。\n2025年中国轨道车辆出口量36万台。",
+      "split": "development",
+      "id": "G03",
+      "sufficient": true,
+      "rationale": "预先提供两条有完整口径的合成事实；模型仅生成给定材料。"
+    },
+    {
+      "topic": "轨道交通",
+      "source_quote": "2025年中国轨道车辆销售额24亿元。\n2025年中国轨道车辆出口量36万台。",
+      "split": "development",
+      "id": "G04",
+      "sufficient": true,
+      "rationale": "预先提供两条有完整口径的合成事实；模型仅生成给定材料。"
+    },
+    {
+      "topic": "轨道交通",
+      "source_quote": "2025年中国轨道车辆销售额24亿元。\n2025年中国轨道车辆出口量36万台。",
+      "split": "development",
+      "id": "N02",
+      "sufficient": false,
+      "rationale": "真实搜索边界返回零来源；不得编造证据或继续生成通过报告。"
+    },
+    {
+      "topic": "工业泵",
+      "source_quote": "2025年中国工业泵销售额16亿元。\n2025年中国工业泵出口量28万台。",
+      "split": "development",
+      "id": "G05",
+      "sufficient": true,
+      "rationale": "预先提供两条有完整口径的合成事实；模型仅生成给定材料。"
+    },
+    {
+      "topic": "工业泵",
+      "source_quote": "2025年中国工业泵销售额16亿元。\n2025年中国工业泵出口量28万台。",
+      "split": "development",
+      "id": "G06",
+      "sufficient": true,
+      "rationale": "预先提供两条有完整口径的合成事实；模型仅生成给定材料。"
+    },
+    {
+      "topic": "工业泵",
+      "source_quote": "2025年中国工业泵销售额16亿元。\n2025年中国工业泵出口量28万台。",
+      "split": "development",
+      "id": "N03",
+      "sufficient": false,
+      "rationale": "真实搜索边界返回零来源；不得编造证据或继续生成通过报告。"
+    },
+    {
+      "topic": "太阳能组件",
+      "source_quote": "2025年中国太阳能组件销售额32亿元。\n2025年中国太阳能组件出口量48万台。",
+      "split": "holdout",
+      "id": "G07",
+      "sufficient": true,
+      "rationale": "预先提供两条有完整口径的合成事实；模型仅生成给定材料。"
+    },
+    {
+      "topic": "太阳能组件",
+      "source_quote": "2025年中国太阳能组件销售额32亿元。\n2025年中国太阳能组件出口量48万台。",
+      "split": "holdout",
+      "id": "G08",
+      "sufficient": true,
+      "rationale": "预先提供两条有完整口径的合成事实；模型仅生成给定材料。"
+    },
+    {
+      "topic": "太阳能组件",
+      "source_quote": "2025年中国太阳能组件销售额32亿元。\n2025年中国太阳能组件出口量48万台。",
+      "split": "holdout",
+      "id": "N04",
+      "sufficient": false,
+      "rationale": "真实搜索边界返回零来源；不得编造证据或继续生成通过报告。"
+    },
+    {
+      "topic": "图书出版",
+      "source_quote": "2025年中国图书销售额20亿元。\n2025年中国图书出口量64万册。",
+      "split": "holdout",
+      "id": "G09",
+      "sufficient": true,
+      "rationale": "预先提供两条有完整口径的合成事实；模型仅生成给定材料。"
+    },
+    {
+      "topic": "图书出版",
+      "source_quote": "2025年中国图书销售额20亿元。\n2025年中国图书出口量64万册。",
+      "split": "holdout",
+      "id": "G10",
+      "sufficient": true,
+      "rationale": "预先提供两条有完整口径的合成事实；模型仅生成给定材料。"
+    },
+    {
+      "topic": "图书出版",
+      "source_quote": "2025年中国图书销售额20亿元。\n2025年中国图书出口量64万册。",
+      "split": "holdout",
+      "id": "N05",
+      "sufficient": false,
+      "rationale": "真实搜索边界返回零来源；不得编造证据或继续生成通过报告。"
+    }
+  ]
+}

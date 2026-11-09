@@ -236,13 +236,13 @@ def repeated_passages(draft):
     """重复提及一个指标允许；跨章节复制至少两个完整长句时给出位置。"""
     from services.citations import split_sentences
     sections = []
-    current = {"paragraph": 1, "sentences": set(), "skip":False}
+    current = {"paragraph": 1, "sentences": set()}
     for n, paragraph in enumerate(re.split(r"\n\s*\n", draft or ""), 1):
         if re.match(r"^##\s+", paragraph):
             sections.append(current)
-            current = {"paragraph": n, "sentences": set(), "skip":bool(_required_heading_role(paragraph.splitlines()[0].lstrip("# ")))}
+            current = {"paragraph": n, "sentences": set()}
         text = re.sub(r"(?m)^#{1,6}[^\n]*", "", paragraph)
-        for sentence in ([] if current["skip"] else split_sentences(text)):
+        for sentence in split_sentences(text):
             normalized = re.sub(r"\[S\d+\]|\s+", "", sentence)
             if len(normalized) >= 12:
                 current["sentences"].add(normalized)

@@ -1,0 +1,19 @@
+{
+  "protocol_id": "v3-offline-1",
+  "split": "new_holdout_after_fix",
+  "synthetic": true,
+  "cases": [
+    {
+      "topic": "港口设备",
+      "source_quote": "2025年中国港口起重机销售额42亿元。\n2025年中国港口起重机出口量56万台。",
+      "object_from": "港口起重机",
+      "object_to": "铁路货车"
+    },
+    {
+      "topic": "纺织机械",
+      "source_quote": "2025年中国纺织机械销售额27亿元。\n2025年中国纺织机械出口量39万台。",
+      "object_from": "纺织机械",
+      "object_to": "印刷机械"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "protocol_id": "v3-offline-1",
+  "file": "docs/evaluation-datasets/v3/offline-1.json",
+  "sha256": "eb1d02ad1e4e0e7a6609591b75a5ccb83e5120f9b0594b5db498dced2b038c7d",
+  "frozen_on": "2026-11-09",
+  "rule": "输入冻结；业务修复后保留失败并增补新的保留样本"
+}

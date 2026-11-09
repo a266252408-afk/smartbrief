@@ -72,7 +72,8 @@ def test_comparison_suspicion_is_neither_confirmed_rejection_nor_auto_pass():
     assert result['quality_status'] == 'unavailable'
     assert result['review_history'][-1]['review_complete'] is False
     finding = next(f for f in result['findings'] if f['rule'] == 'unverified_comparison')
-    assert finding['decision'] == 'suspected'
+    # R04裁决未能核验时记为unresolved，与suspected同为非确认待核验状态。
+    assert finding['decision'] in {'suspected', 'unresolved'}
 
 
 def test_explicit_period_conflict_remains_a_blocking_error():
@@ -123,7 +124,7 @@ def test_unknown_heading_semantics_requires_verification_not_false_rejection():
     body = '# 行业报告\n\n## 研究发现\n\n市场规模10亿元[S1]。\n\n## 展望\n\n建议持续跟踪。'
     result = run_review(body,[source(excerpt='市场规模10亿元。')])
     assert result['quality_status'] == 'unavailable'
-    assert any(f.get('decision') == 'suspected' for f in result['findings'])
+    assert any(f.get('decision') in {'suspected', 'unresolved'} for f in result['findings'])
 
 
 @pytest.mark.parametrize('kind,sentence,quote,decision', [

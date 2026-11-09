@@ -7,7 +7,9 @@ def problem_keys(findings):
 
 
 def review_progress(previous, current_findings, complete):
-    old_items = (previous.get('issue_set', previous.get('hard_finding_set')) or []) if previous else []
+    old_items = [f for f in (previous.get('issue_set', previous.get('hard_finding_set')) or [])
+                 if isinstance(f, dict)] if previous else []
+    current_findings = [f for f in (current_findings or []) if isinstance(f, dict)]
     old_counts, new_counts = problem_counts(old_items), problem_counts(current_findings)
     resolved_counts, introduced_counts = old_counts-new_counts, new_counts-old_counts
     resolved = [occurrence_id(key, new_counts[key]+i) for key,n in resolved_counts.items() for i in range(n)]
