@@ -25,12 +25,24 @@ class Finding(Contract):
     evidence: SourceEvidence | ReportEvidence
     location: Location
     scope: Literal['paragraph', 'full'] = 'paragraph'
+class CoreCoverage(Contract):
+    question: Text
+    covered: bool
+    quote: Text
+    reason: Text
+class SemanticDuplicate(Contract):
+    first_quote: Text
+    second_quote: Text
+    information_loss: bool
+    reason: Text
 class ReviewResult(Contract):
     passed: bool
     comments: list[Text]
     findings: list[Finding] = Field(default_factory=list)
     possible_rule_issue: Text | None = None
     full_rewrite_required: bool = False
+    core_coverage: list[CoreCoverage] = Field(default_factory=list)
+    semantic_duplicates: list[SemanticDuplicate] = Field(default_factory=list)
     @model_validator(mode='after')
     def check_result(self):
         if not self.passed and not self.comments:

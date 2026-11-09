@@ -109,6 +109,8 @@ export interface NormalizationTrace {
   target: string
 }
 export interface RewriteAudit {
+  accepted?: Array<Record<string, unknown>>
+  review_required?: boolean
   normalization?: NormalizationTrace[]
   claim_bindings?: ClaimBinding[]
   fact_registry?: Record<string, BoundFact>
@@ -170,6 +172,9 @@ export interface ReviewPolicy {
 }
 
 export interface ReviewRound {
+  content_checks?: { core_status: 'covered' | 'missing' | 'unknown'; review_scope: 'full_report';
+    core_coverage: Array<{ question: string; covered: boolean; quote: string; reason: string }>;
+    semantic_duplicates: Array<{ first_quote: string; second_quote: string; information_loss: boolean; reason: string }> }
   review_response_attempts?: ReviewResponseAttempt[]
   writer_attempts?: WriterAttempt[]
   report_document_revision?: number | null

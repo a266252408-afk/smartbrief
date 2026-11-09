@@ -191,6 +191,10 @@ async def _review(draft: str, evidence: list, *, binding_issues=None, structure_
             '不得推翻确定性 hard 结论，也不得删除给定 finding；若认为规则误判，写入 possible_rule_issue，但保留 finding 与 passed=false',
             '不得豁免来源归属等confirmed完整性事实。suspected/unresolved为待核验疑点，不等同已确认错误；对照完整来源核验，不得仅因规则未知就拒绝。程序保留原记录，若有实质错误给出准确hard意见，普通文风用soft')
         finding_text = finding_text.replace('确定性规则 findings（finding_id 固定，不得删除或推翻 hard 结论）', '程序预检 findings（confirmed才为已确认；suspected/unresolved必须核验）')
+    if policy:
+        system_prompt += ('\n全稿逐项核对冻结核心问题与分析前提；可返回core_coverage[{question,covered,quote,reason}]，'
+            '一旦提供须逐项覆盖全部冻结问题，quote逐字取报告原句。semantic_duplicates须给first_quote/second_quote两处原句、'
+            'information_loss布尔及reason；摘要正常复述不算正文重复，不可因指标多次出现删独有证据。')
     messages = [
         {"role": "system", "content": system_prompt + ("\n" + policy_text(policy) if policy else "")},
         {
@@ -212,6 +216,12 @@ async def _review(draft: str, evidence: list, *, binding_issues=None, structure_
         try:
             result = _parse_response(resp)
             invalid=(finding_errors(result,original_draft,evidence,task_id=policy['task_id']) if policy else [])
+            if policy:
+                from services.content_integrity import validate_review_content
+                try:
+                    result['content_checks']=validate_review_content(result,original_draft,policy['required_questions'])
+                except ValueError as exc:
+                    invalid.append(dict(code='CONTENT_REVIEW_INVALID',path='/content_checks',message=str(exc)))
             diagnostic=result.get('review_diagnostics') if policy else None
             if invalid:
                 diagnostic=dict(audit,code='REVIEW_FINDING_INVALID',message='审核意见原文、来源或位置无效',issues=invalid)
@@ -338,6 +348,24 @@ async def reviewer_node(state: dict) -> dict:
                 'location':{'paragraph':n,'sentence':1},
                 'evidence':{'kind':'report','quote':table[n-1]['text']}})
     if policy:
+        from services.content_integrity import deduplicate_markdown
+        _,duplicates_to_remove=deduplicate_markdown(checked_draft)
+        if state.get('report_pipeline_version')==3:
+            from services.content_integrity import deduplicate_document
+            from services.report_document import render_parts
+            _,removed=deduplicate_document(state['report_document'])
+            rendered=dict(render_parts(state['report_document']))
+            for entry in removed:
+                quote=rendered[entry['block_id']]
+                n=next(p['paragraph'] for p in paragraph_table(draft) if quote==p['text'])
+                if not any(r['paragraph']==n for r in duplicates_to_remove):
+                    duplicates_to_remove.append(dict(paragraph=n,quote=quote))
+        for item in duplicates_to_remove:
+            deterministic_findings.append(dict(finding_id=f"ASSEMBLY-{item['paragraph']}",rule='report_assembly',kind='exact_duplicate',
+                origin='program',decision='confirmed',material=True,severity='hard',scope='full',
+                location=dict(paragraph=item['paragraph'],sentence=1),problem='正文逐字重复装配',
+                expected='只删除重复副本，保留摘要复述及独有事实和引用',evidence=dict(kind='report',quote=item['quote'])))
+    if policy:
         deterministic_findings = [f if f.get("origin") == "program" else assess_issue(f, evidence) for f in deterministic_findings]
     deterministic_findings = attach_identities(draft, deterministic_findings, content_index, evidence)
     # 逐轮累计保留要求；Rewriter 只会执行本轮证据上下文里可见的部分，不可见的编号不会卡住返工。
@@ -420,6 +448,13 @@ async def reviewer_node(state: dict) -> dict:
     findings, rejected_findings = merge_findings(
         deterministic_findings, review.get("findings") or [], evidence, draft,
     )
+    checks=review.get('content_checks') or {}
+    for index,row in enumerate(checks.get('core_coverage',[])):
+        if not row['covered']:
+            paragraph=next((p['paragraph'] for p in paragraph_table(draft) if row['quote'] in p['text']),1)
+            findings.append(dict(finding_id=f'CORE-{index}',rule='core_evidence_gap',origin='model',decision='confirmed',material=True,
+                severity='hard',problem='核心问题未覆盖：'+row['question'],expected=row['reason'],
+                location=dict(paragraph=paragraph,sentence=1),evidence=dict(kind='report',quote=row['quote'])))
     findings = attach_identities(draft, findings, content_index, evidence)
     if policy is not None:
         from services.review_adjudication import adjudicate
@@ -502,6 +537,7 @@ async def reviewer_node(state: dict) -> dict:
                                     'finding_ids': [f['finding_id'] for f in findings if f.get('decision') != 'dismissed'],
                                     'comments': comments},
                     "evidence_coverage": review.get('evidence_coverage'),
+                    "content_checks": review.get("content_checks"),
                     "full_rewrite_required": full_rewrite_required})
     if review.get('policy_corrections'):
         history[-1]['policy_corrections'] = review['policy_corrections']

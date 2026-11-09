@@ -191,6 +191,10 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
                 after_check = checked(after)
                 targets = [f for f in active_findings if f['finding_id'] in edit['finding_ids']]
                 pure = bool(targets and all(f.get('rule') in deterministic_rules for f in targets))
+                if bound:
+                    from services.content_integrity import guard_content,protected_core
+                    guard_content(before,after,before_bindings=bindings,after_bindings=bindings+binding_rows.get(edit['paragraph'],[]),
+                        core_quotes=protected_core(state.get('review_history')))
                 validate_candidate(before, after, before_check, after_check,
                     pipeline_version=2 if bound else 1, require_progress=bound and pure)
             if mode == 'patch':
@@ -226,6 +230,10 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
                     pipeline_version=2 if bound else 1, require_progress=bound and pure)
                 receipt = {'mode':mode, 'results':[], 'failures':failures,
                            'receipt_errors':receipt_errors, 'reason':validated.reason}
+            if bound:
+                from services.content_integrity import guard_content,protected_core
+                guard_content(draft,candidate,before_bindings=bindings,after_bindings=bindings+candidate_bindings,
+                    core_quotes=protected_core(state.get('review_history')))
             check = checked(candidate)
             previous_check = checked(best)
             previous_hard_count = sum(hard_problem_counts(previous_check).values())
@@ -407,6 +415,30 @@ async def rewriter_node(state: dict) -> dict:
                 failures=[], reason='本轮疑点均已被带证据裁决驳回，无活动返工目标')
             return dict(draft_content=body, review_history=history,
                 react_logs=state.get('react_logs', []))
+    if state.get('report_pipeline_version',1)>=2:
+        from services.content_integrity import deduplicate_document,deduplicate_markdown,protected_core,guard_content
+        import copy
+        original_body=state.get('draft_content','')
+        if state.get('report_pipeline_version')==3 and state.get('report_document'):
+            from services.report_document import render_document
+            document,removed=deduplicate_document(state['report_document'])
+            body=render_document(document)
+        else:
+            document=None
+            body,removed=deduplicate_markdown(original_body)
+        if removed:
+            guard_content(original_body,body,core_quotes=protected_core(state.get('review_history')))
+            history=copy.deepcopy(state.get('review_history') or [dict(round=0)])
+            history[-1]['rewrite']=dict(mode='deterministic_dedup',changed=True,applied=True,accepted=removed,
+                attempts=[],failures=[],verification=[],review_required=True)
+            updated_bindings=locate_bindings(body,state.get('claim_bindings',[]))
+            if document:
+                claims=[dict(paragraph=1,text=c['quote'],fact_ids=list(dict.fromkeys(c['fact_ids']+c['premise_ids'])),source_ids=c['source_ids'])
+                    for section in document['sections'] for block in section['blocks'] for c in block['claims']]
+                updated_bindings=locate_bindings(body,claims)
+            return dict(draft_content=body,review_history=history,passed=False,quality_status='rejected',forced_output=False,
+                claim_bindings=updated_bindings, fact_registry=build_registry(state['task_id'],state.get('evidence',[])),
+                **(dict(report_document=document) if document else {}))
     if state.get('report_pipeline_version',1) >= 2:
         from services.repair_plan import plan_repair, stop_repair
         plan=plan_repair(state)

@@ -9062,6 +9062,193 @@
       ],
       "title": "RepairPlan",
       "type": "object"
+    },
+    "CoreCoverage": {
+      "additionalProperties": false,
+      "properties": {
+        "question": {
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "covered": {
+          "title": "Covered",
+          "type": "boolean"
+        },
+        "quote": {
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "question",
+        "covered",
+        "quote",
+        "reason"
+      ],
+      "title": "CoreCoverage",
+      "type": "object"
+    },
+    "Finding": {
+      "additionalProperties": false,
+      "properties": {
+        "finding_id": {
+          "minLength": 1,
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "problem": {
+          "minLength": 1,
+          "title": "Problem",
+          "type": "string"
+        },
+        "expected": {
+          "minLength": 1,
+          "title": "Expected",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "hard",
+            "soft"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceEvidence"
+            },
+            {
+              "$ref": "#/$defs/ReportEvidence"
+            }
+          ],
+          "title": "Evidence"
+        },
+        "location": {
+          "$ref": "#/$defs/Location"
+        },
+        "scope": {
+          "default": "paragraph",
+          "enum": [
+            "paragraph",
+            "full"
+          ],
+          "title": "Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "finding_id",
+        "problem",
+        "expected",
+        "severity",
+        "evidence",
+        "location"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "SemanticDuplicate": {
+      "additionalProperties": false,
+      "properties": {
+        "first_quote": {
+          "minLength": 1,
+          "title": "First Quote",
+          "type": "string"
+        },
+        "second_quote": {
+          "minLength": 1,
+          "title": "Second Quote",
+          "type": "string"
+        },
+        "information_loss": {
+          "title": "Information Loss",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "first_quote",
+        "second_quote",
+        "information_loss",
+        "reason"
+      ],
+      "title": "SemanticDuplicate",
+      "type": "object"
+    },
+    "ReviewResult": {
+      "additionalProperties": false,
+      "properties": {
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "comments": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Comments",
+          "type": "array"
+        },
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/Finding"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "possible_rule_issue": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Possible Rule Issue"
+        },
+        "full_rewrite_required": {
+          "default": false,
+          "title": "Full Rewrite Required",
+          "type": "boolean"
+        },
+        "core_coverage": {
+          "items": {
+            "$ref": "#/$defs/CoreCoverage"
+          },
+          "title": "Core Coverage",
+          "type": "array"
+        },
+        "semantic_duplicates": {
+          "items": {
+            "$ref": "#/$defs/SemanticDuplicate"
+          },
+          "title": "Semantic Duplicates",
+          "type": "array"
+        }
+      },
+      "required": [
+        "passed",
+        "comments"
+      ],
+      "title": "ReviewResult",
+      "type": "object"
     }
   }
 }

@@ -133,17 +133,8 @@ def _restore_ids(candidate, owners):
 
 
 def _coverage_guard(before, after):
-    def facts(document):
-        return {
-            key
-            for s in document["sections"]
-            for b in s["blocks"]
-            for c in b["claims"]
-            for key in c["fact_ids"] + c["premise_ids"]
-        }
-
-    if len(facts(after)) < len(facts(before)):
-        raise DocumentError("候选删除造成事实覆盖缺口，不能删成空壳")
+    from services.content_integrity import guard_content
+    guard_content('','',before_document=before,after_document=after)
 
 
 def apply_actions(document, payload, context, evidence, *, allowed_targets=None):
@@ -403,6 +394,17 @@ async def rewrite_document(chat, state):
                 exc, (ValidationError, json.JSONDecodeError, RewriteProtocolError)
             ):
                 break
+    from services.content_integrity import guard_content, protected_core
+    try:
+        guard_content(render_document(original),render_document(current),before_document=original,after_document=current,
+            core_quotes=protected_core(state.get('review_history')))
+    except ValueError as exc:
+        current=original
+        rejection=dict(index=0,code='CONTENT_COVERAGE_REJECTED',message=str(exc),proposal={})
+        rejected.append(rejection)
+        attempts.append(dict(mode='document_full' if full else 'document_actions',decision='rejected',
+            code='CONTENT_COVERAGE_REJECTED',message=str(exc),accepted=[],rejected=[rejection]))
+        accepted=[]
     body = render_document(current)
     changed = current != original
     history = copy.deepcopy(state.get("review_history") or [dict(round=0)])
