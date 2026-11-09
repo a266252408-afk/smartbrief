@@ -14,6 +14,7 @@ import '../styles/report.css'
 import { authRole } from '../api/session'
 import { fetchTaskStatus, regenerateTask, type TaskStatus, type ReactLog, type ReviewRound } from '../api/tasks'
 import ReviewEvidence from '../components/ReviewEvidence.vue'
+import { roundOutcome, stopExplanation } from '../utils/reviewDiagnostics'
 
 const route = useRoute()
 const router = useRouter()
@@ -218,7 +219,7 @@ const stopText = computed(() => {
     REVIEW_NO_ACTIONABLE_FINDINGS: '审核未提供有效修改目标', NO_CONVERGENCE: '完整复审确认旧硬问题均未解决',
     MAX_ITERATIONS: '已达审核次数上限',
   }
-  if (last?.stop_reason) return reasons[last.stop_reason] ?? '流程已停止，报告未通过审核'
+  if (last?.stop_reason) return stopExplanation(last.stop_reason)
   if (last?.convergence_stopped) return reasons.NO_CONVERGENCE
   return (detail.value?.iteration ?? 0) >= (detail.value?.max_iterations ?? 3)
     ? reasons.MAX_ITERATIONS : '流程已停止，报告未通过审核'
@@ -379,7 +380,7 @@ watch(() => route.params.taskId, async value => {
       <el-alert
         v-if="detail.forced_output"
         :title="stopText"
-        description="报告保留供查看，质量仍为未通过。"
+        description="报告已保留；结束执行不代表质量通过。"
         type="warning"
         show-icon
         :closable="false"
@@ -391,15 +392,15 @@ watch(() => route.params.taskId, async value => {
             <span class="review-bubble-icon">审</span>
             <span class="review-round-title">第 {{ round.round }} 次审核</span>
             <el-tag
-              :type="(!detail.quality_status || detail.quality_status === 'unknown') ? 'info' : round.passed === true ? 'success' : round.passed === null ? 'warning' : 'danger'"
+              :type="roundOutcome(round, detail.quality_status).type"
               size="small"
               effect="plain"
             >
-              {{ (!detail.quality_status || detail.quality_status === 'unknown') ? '历史记录（质量未知）' : round.passed === true ? '通过' : round.passed === null ? '审核不可用' : '未通过' }}
+              {{ roundOutcome(round, detail.quality_status).label }}
             </el-tag>
           </div>
-          <p v-if="round.review_diagnostics" class="hint">审核格式诊断：{{ round.review_diagnostics.message }}</p>
-          <p v-if="round.action_plan" class="hint">修改范围：{{ round.action_plan.scope === 'full' ? '全文重组' : '点名段落' }}；问题清单：{{ round.action_plan.finding_ids.join('、') || '按全文审核意见核对' }}</p>
+
+          <p v-if="round.action_plan" class="hint">本轮计划：{{ round.action_plan.scope === 'full' ? '调整全篇结构' : '按问题定点修改，保留其他内容' }}</p>
           <p v-if="round.convergence" class="hint" data-testid="review-progress">旧硬问题已解决 {{ round.convergence.resolved.length }} 项，仍存在 {{ round.convergence.persisting.length }} 项，新问题 {{ round.convergence.introduced.length }} 项；本轮审核{{ round.convergence.current_review_complete ? '完整' : '不完整，不能据此提前判定不收敛' }}。</p>
           <details v-if="round.rejected_findings?.length">
             <summary>未采纳的审核问题 {{ round.rejected_findings.length }} 条（审核不完整）</summary>

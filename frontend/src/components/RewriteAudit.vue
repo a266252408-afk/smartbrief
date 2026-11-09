@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import type { RewriteAudit } from '../api/tasks'
 defineProps<{ audit: RewriteAudit }>()
+const modes: Record<string, string> = { patch: '定点修改', full: '全文重组', document_actions: '定点修改', document_full: '全文重组', deterministic_dedup: '程序去重', not_called: '未调用模型', rollback: '保留原稿', legacy_full: '旧版全文修改' }
 const outcomes: Record<string, string> = {
   candidate_applied_after_restriction: '程序曾拦截修改，升级或重试后已应用候选稿',
-  partial_candidate_applied: '程序拦截了部分修改；保留局部候选，全文尝试未成功',
+  partial_candidate_applied: '程序拦截了部分修改；已保留可用的局部修改',
   candidate_blocked: '程序未接受候选修改，原稿保留',
   candidate_applied: '候选修改已应用，未记录程序拦截',
   citation_obligations_updated: '已更新声明删除回执，正文未变，等待独立复审',
@@ -17,7 +18,9 @@ const verified: Record<string, string> = { resolved: '问题已消失', unresolv
 
 <template>
   <details data-testid="rewrite-audit">
-    <summary>返工{{ audit.changed || audit.citation_changes_applied ? '已应用' : '未应用' }} · {{ audit.mode }}</summary>
+    <summary>返工{{ audit.changed || audit.citation_changes_applied ? '已应用' : '未应用' }} · {{ modes[audit.mode] || '历史修改记录' }}</summary>
+    <p v-if="audit.changed || audit.citation_changes_applied">实际修改或引用回执已保留，仍需整稿复审；候选应用不代表质量通过。</p>
+    <p v-if="audit.mode === 'deterministic_dedup'">程序仅删除了相同的正文副本，保留有效事实和引用。</p>
     <template v-if="audit.program_restriction">
       <p>{{ outcomes[audit.program_restriction.outcome] || '返工诊断状态未知' }}</p>
       <p>程序是否拦截过提案：{{ audit.program_restriction.observed ? '是' : '否' }}。被拦截的修改是否能解决质量问题，仍需核对提案和复审结果。</p>
@@ -32,6 +35,9 @@ const verified: Record<string, string> = { resolved: '问题已消失', unresolv
     <p v-for="item in audit.citation_lifecycle?.retired_claims" :key="item.source_id">
       {{ item.source_id }}：{{ item.reason }}{{ item.review_required ? '；已提供原声明供独立审核复核。' : '' }}
     </p>
+    <details data-testid="rewrite-technical">
+      <summary>查看返工技术明细</summary>
+      <p>内部模式：{{ audit.mode }}</p>
     <p v-for="(failure, index) in audit.failures" :key="index">{{ failure }}</p>
     <details v-for="(attempt, index) in audit.attempts" :key="index">
       <summary>第 {{ index + 1 }} 次尝试 · {{ attempt.mode }} · {{ attempt.decision }}</summary>
@@ -50,6 +56,7 @@ const verified: Record<string, string> = { resolved: '问题已消失', unresolv
         <summary>查看 Agent 原始提案{{ attempt.raw_truncated ? '（仅保存前 64000 字符，原文已截断）' : '' }}</summary>
         <pre>{{ attempt.raw_response }}</pre>
       </details>
+    </details>
     </details>
   </details>
 </template>

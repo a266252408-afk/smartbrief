@@ -11,7 +11,8 @@ afterEach(() => { wrapper?.unmount(); vi.restoreAllMocks() })
 describe('任务详情以明确质量状态展示结果', () => {
   it.each([
     [undefined, false, '质量未知'], ['unknown', false, '质量未知'], ['rejected', true, '未通过（强制输出）'],
-    ['unavailable', false, '审核不可用'], ['not_run', false, '未审核']
+    ['unavailable', false, '审核不可用'], ['not_run', false, '未审核'],
+    ['unavailable', true, '审核不可用'], ['unknown', true, '质量未知'], ['not_run', true, '未审核']
   ] as const)('%s 不因旧passed=true显示审核通过', async (quality, forced, label) => {
     vi.mocked(fetchTaskStatus).mockResolvedValue({
       task_id: 't', topic: '历史报告', status: 'completed', execution_status: 'completed',

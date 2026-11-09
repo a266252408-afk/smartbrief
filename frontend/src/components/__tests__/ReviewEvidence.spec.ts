@@ -16,6 +16,6 @@ describe('声明依据', () => {
       dispute_review: { status: 'unresolved', initial_findings: [] },
     } } })
     expect(wrapper.text()).toContain('2026年第一季度规模10亿元。')
-    expect(wrapper.text()).toContain('待核实，保留拒绝')
+    expect(wrapper.text()).toContain('待核验，质量尚未确认')
   })
 })
