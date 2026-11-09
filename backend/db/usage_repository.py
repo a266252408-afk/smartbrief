@@ -28,7 +28,7 @@ def list_usage(task_id: str) -> list[dict]:
     return [_decode(row) for row in rows]
 
 
-def reserve(entry, limit):
+def reserve(entry, limit, *, max_calls=100, max_seconds=3600):
     from services.budget import charged
     with get_connection() as conn:
         conn.execute("BEGIN IMMEDIATE")
@@ -36,11 +36,19 @@ def reserve(entry, limit):
         if task and task[0] != "running":
             return "stopped"
         rows = conn.execute("SELECT call_id,task_id,data FROM model_usage WHERE task_id=?", (entry.task_id,)).fetchall()
-        used = sum(charged(_decode(r), limit) for r in rows)
+        decoded = [_decode(r) for r in rows]
+        used = sum(charged(r, limit) for r in decoded)
+        calls = sum(r['status'] != 'budget_exceeded' for r in decoded)
+        seconds = sum((r.get('reserved_seconds') or max_seconds) if r['status']=='running' or r.get('error_code')=='USAGE_INTERRUPTED'
+                      else r['duration_ms']/1000 for r in decoded if r['status']!='budget_exceeded')
+        remaining = max_seconds - seconds
         status = "reserved"
-        if used + entry.reserved_tokens > limit:
+        if used + entry.reserved_tokens > limit or calls >= max_calls or remaining <= 0:
             entry.status, entry.error_code, entry.reserved_tokens = "budget_exceeded", "BUDGET_EXCEEDED", 0
+            entry.reserved_seconds = 0
             status = "exceeded"
+        else:
+            entry.reserved_seconds = min(entry.reserved_seconds or max_seconds, remaining)
         conn.execute("INSERT INTO model_usage(call_id,task_id,data) VALUES (?,?,?)",
                      (entry.call_id, entry.task_id, entry.model_dump_json()))
         return status

@@ -189,6 +189,7 @@ export interface ReviewRound {
   convergence?: { resolved: string[]; introduced: string[]; persisting: string[];
     current_review_complete: boolean; stopped: boolean; basis: string;
     unverified?: string[]; previous_problem_count?: number; current_problem_count?: number }
+  repair_plan?: RepairPlan
   review_complete?: boolean
   action_plan?: { scope: string; finding_ids: string[]; comments: string[] }
   rejected_findings?: Array<{ code: string; finding: unknown }>
@@ -396,6 +397,7 @@ export interface ModelUsage {
   currency: string | null
   attempt: number
   reserved_tokens: number
+  reserved_seconds?: number
   created_at: string
   error_code: string | null
 }
@@ -502,4 +504,15 @@ export interface AdjudicationRecord {
   report_span: { start: number; end: number; quote: string }
   source_spans: Array<{ source_id: string; start: number; end: number; quote: string }>
   cached: boolean
+}
+
+
+export interface RepairPlan {
+  action: 'rewrite' | 'research' | 'stop'
+  reason: string
+  scope: 'paragraph' | 'full' | 'none'
+  context_key: string
+  targets: Array<{ finding_id: string; kind: 'claim' | 'structure' | 'evidence' | 'review' | 'dispute' | 'protocol';
+    report_quote: string; paragraph: number; problem: string; expected: string; sources: Array<Record<string, unknown>> }>
+  preserve: Array<Record<string, unknown>>
 }

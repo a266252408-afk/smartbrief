@@ -24,6 +24,10 @@ def route_after_review(state: dict) -> str:
     terminal = state.get("quality_status") in {"passed", "unavailable", "not_run"} or state.get("forced_output") or state.get("execution_status") == "failed"
     if terminal or state.get("passed") is True:
         return "passed"
+    if state.get('report_pipeline_version',1) >= 2:
+        from services.repair_plan import plan_repair
+        plan=plan_repair(state)
+        return 'passed' if plan['action']=='stop' else plan['action']
     return "research" if needs_research(state) else "rewrite"
 
 
@@ -53,7 +57,8 @@ def build_graph(checkpointer=None, *, interrupt_before=None):
         route_after_review,
         {"passed": END, "rewrite": "rewriter", "research": "research_revision"},
     )
-    graph.add_edge("research_revision", "rewriter")
+    graph.add_conditional_edges('research_revision',
+        lambda state: 'end' if state.get('forced_output') else 'rewrite', {'end':END,'rewrite':'rewriter'})
     graph.add_conditional_edges("rewriter", lambda state: "end" if state.get("forced_output") else "review", {"end": END, "review": "reviewer"})           # 返工完 → 再次审核（条件循环）
     return graph.compile(checkpointer=checkpointer,interrupt_before=interrupt_before)
 
@@ -131,6 +136,25 @@ async def _checkpoint_logs(task_id: str, checkpoint: str | None = None) -> list:
         return []
 
 
+async def _invoke_with_budget(graph, initial, config, version):
+    """已完成Agent检查点中的最佳稿不能被后续预算耗尽抹去。"""
+    from services.budget import BudgetExceeded
+    from services.repair_plan import stop_repair
+    try:
+        return await graph.ainvoke(initial,config)
+    except BudgetExceeded:
+        snapshot=await graph.aget_state(config)
+        saved=dict(snapshot.values or {})
+        if version<2 or not usable_draft(saved.get('draft_content')) or (version==3 and not saved.get('report_document')):
+            raise
+        if version==3 and saved.get('report_document'):
+            from services.report_document import render_document
+            saved['draft_content']=render_document(saved['report_document'])
+        saved.update(stop_repair(saved,'BUDGET_EXCEEDED'))
+        await graph.aupdate_state(config,saved,as_node='reviewer')
+        return saved
+
+
 @usage_scope("workflow", task=True)
 async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
     """执行完整流程：运行图 → 落库日志与最终状态。
@@ -197,7 +221,7 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
                     from services.report_document import validate_document
                     validate_document(snapshot.values['report_document'],task_id)
                 # 断点续跑：不传 input，LangGraph 从最近快照继续未完成的节点
-                final = await graph.ainvoke(None, config)
+                final = await _invoke_with_budget(graph,None,config,stored_version)
             else:
                 if mode == "restart":
                     await cp.adelete_thread(task_id)
@@ -208,7 +232,7 @@ async def run_task(task_id: str, topic: str, resume: bool = False) -> dict:
                     initial["retrievals"] = [record]
                     initial["evidence"] = record["evidence"]
                     task_repository.update_task(task_id, retrievals=[record], evidence=record["evidence"])
-                final = await graph.ainvoke(initial, config)          # 新任务从头跑
+                final = await _invoke_with_budget(graph,initial,config,initial["report_pipeline_version"])          # 新任务从头跑
         failed = final.get("execution_status") == "failed" or not usable_draft(final.get("draft_content"))
         final_report = None if failed else final["draft_content"]
         final.update(execution_status="failed" if failed else "completed",resume_mode=mode,

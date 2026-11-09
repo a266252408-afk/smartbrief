@@ -15,6 +15,7 @@ import asyncio
 import json
 
 from llm.client import chat
+from services.repair_plan import model_repair_package
 from services.review_contracts import PatchResult, FullResult, parse_json
 import hashlib
 from services.usage_service import usage_scope, UsagePersistenceError
@@ -104,6 +105,8 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
         '10. 严格按最后一条消息的 JSON 补丁契约输出，默认 patch；full 必须提供理由')
     full_reason = ('审核要求全文重写' if state.get('full_rewrite_required')
                    or any(f.get('scope') == 'full' for f in findings) else None)
+    if bound and state.get('repair_plan'):
+        full_reason = '已确认全局结构或组织依赖' if state['repair_plan']['scope']=='full' else None
     # 全文要求直接执行；局部修改遇到被拦截提案时升级全文，保留有效局部候选。
     best = draft
     best_index = index_document(state["task_id"], draft, state.get("content_index")) if bound else None
@@ -116,6 +119,7 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
     protocol_mode = None
     active_findings = findings
     model_results = []
+    budget_exhausted = False
     for attempt in range(4):
         if attempt == 3 and not feedback and not protocol_feedback:
             break
@@ -124,6 +128,7 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
             'mode': mode, 'paragraphs': paragraph_table(best), 'findings': [
                 {k:f[k] for k in ('finding_id','problem','expected','severity','scope','location','evidence','evidence_sources','numbers','cited','rule') if k in f}
                 for f in active_findings],
+            'repair_package': model_repair_package(state.get('repair_plan')),
             'verification_feedback': feedback,
             'protocol_feedback': protocol_feedback,
             'citation_obligations': citation_lifecycle(draft, best, required, original_claims=originals)['retained_claims'],
@@ -268,8 +273,14 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
                 failures.append(full_reason)
                 continue
             break
-        except UsagePersistenceError:
-            raise
+        except UsagePersistenceError as exc:
+            from services.budget import BudgetExceeded
+            if not isinstance(exc, BudgetExceeded) or not bound:
+                raise
+            budget_exhausted = True
+            failures.append('任务共享预算耗尽，保留最佳候选')
+            attempts.append(dict(mode=mode,decision='rejected',code='BUDGET_EXCEEDED'))
+            break
         except Exception as exc:
             changes = previous_changes
             raw = getattr(getattr((getattr(response, 'choices', None) or [None])[0], 'message', None), 'content', '') or ''
@@ -292,7 +303,7 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
                 protocol_feedback = exc.errors
                 protocol_mode = mode
                 continue
-            if feedback:
+            if feedback or bound:
                 break
             if mode == 'full':
                 break
@@ -350,6 +361,9 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
     if not changed and attempts and all(a.get('code') == 'MODEL_CALL_FAILED' for a in attempts):
         result.update(execution_status='failed', quality_status='not_run', forced_output=False,
                       error_code='REWRITE_FAILED', error='报告返工模型调用失败')
+    if budget_exhausted:
+        from services.repair_plan import stop_repair
+        result.update(stop_repair(dict(state, draft_content=candidate, review_history=history), 'BUDGET_EXCEEDED'))
     return result
 
 SYSTEM_PROMPT = """你是市场调研报告改写员。你的任务是把给定的报告草稿，修改为围绕《研究主题》的高质量市场调研报告。
@@ -393,6 +407,12 @@ async def rewriter_node(state: dict) -> dict:
                 failures=[], reason='本轮疑点均已被带证据裁决驳回，无活动返工目标')
             return dict(draft_content=body, review_history=history,
                 react_logs=state.get('react_logs', []))
+    if state.get('report_pipeline_version',1) >= 2:
+        from services.repair_plan import plan_repair, stop_repair
+        plan=plan_repair(state)
+        state['repair_plan']=plan
+        if plan['reason'] in {'REPAIR_NO_PROGRESS','REWRITE_LIMIT','RESEARCH_LIMIT','REVIEW_UNAVAILABLE','DISPUTE_UNRESOLVED'}:
+            return stop_repair(state,plan['reason'])
     if state.get('report_pipeline_version') == 3:
         from services.document_rewrite import rewrite_document
         return await rewrite_document(chat,state)

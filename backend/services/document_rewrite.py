@@ -1,5 +1,7 @@
 """v3文档返工：程序冻结目标与版本，模型只返回内容操作。"""
 
+from services.repair_plan import model_repair_package
+from services.budget import BudgetExceeded
 import copy
 import hashlib
 import json
@@ -265,7 +267,12 @@ async def rewrite_document(chat, state):
     full = state.get("full_rewrite_required") or any(
         f.get("scope") == "full" for f in state.get("findings", [])
     )
-    allowed = _allowed_targets(original, context, state.get("findings", []))
+    if state.get('repair_plan'):
+        full=state['repair_plan']['scope']=='full'
+    scoped_findings=state.get('findings',[])
+    if state.get('repair_plan') and not full:
+        scoped_findings=[dict(f,scope='paragraph') for f in scoped_findings]
+    allowed = _allowed_targets(original, context, scoped_findings)
     model = model_payload(original, context)
     targets = [
         dict(
@@ -295,6 +302,7 @@ async def rewrite_document(chat, state):
             content=json.dumps(
                 dict(
                     topic=state.get("topic"),
+                    repair_package=model_repair_package(state.get("repair_plan")),
                     findings=[
                         dict(problem=f.get("problem"), expected=f.get("expected"))
                         for f in state.get("findings", [])
@@ -310,6 +318,7 @@ async def rewrite_document(chat, state):
     attempts = []
     current = original
     accepted, rejected = [], []
+    budget_exhausted=False
     for attempt in range(2):
         audit = dict(mode="document_full" if full else "document_actions")
         try:
@@ -372,6 +381,10 @@ async def rewrite_document(chat, state):
                 rejected=rejected,
             )
             attempts.append(audit)
+            break
+        except BudgetExceeded:
+            budget_exhausted=True
+            attempts.append(dict(mode=audit['mode'],decision='rejected',code='BUDGET_EXCEEDED'))
             break
         except (ValueError, TypeError) as exc:
             audit.update(
@@ -445,7 +458,7 @@ async def rewrite_document(chat, state):
         for b in s["blocks"]
         for c in b["claims"]
     ]
-    return dict(
+    result = dict(
         report_document=current,
         draft_content=body,
         content_index=index,
@@ -456,3 +469,8 @@ async def rewrite_document(chat, state):
         quality_status="rejected",
         forced_output=not changed,
     )
+
+    if budget_exhausted:
+        from services.repair_plan import stop_repair
+        result.update(stop_repair(dict(state,draft_content=body,review_history=history),'BUDGET_EXCEEDED'))
+    return result

@@ -605,6 +605,12 @@
           ],
           "default": null,
           "title": "Error Code"
+        },
+        "reserved_seconds": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Reserved Seconds",
+          "type": "number"
         }
       },
       "required": [
@@ -8939,6 +8945,122 @@
         "source_spans"
       ],
       "title": "AdjudicationRecord",
+      "type": "object"
+    },
+    "RepairTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "finding_id": {
+          "minLength": 1,
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "claim",
+            "structure",
+            "evidence",
+            "review",
+            "dispute",
+            "protocol"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "report_quote": {
+          "title": "Report Quote",
+          "type": "string"
+        },
+        "paragraph": {
+          "minimum": 0,
+          "title": "Paragraph",
+          "type": "integer"
+        },
+        "problem": {
+          "title": "Problem",
+          "type": "string"
+        },
+        "expected": {
+          "title": "Expected",
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Sources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "finding_id",
+        "kind",
+        "report_quote",
+        "paragraph",
+        "problem",
+        "expected",
+        "sources"
+      ],
+      "title": "RepairTarget",
+      "type": "object"
+    },
+    "RepairPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "rewrite",
+            "research",
+            "stop"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "paragraph",
+            "full",
+            "none"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
+        "context_key": {
+          "minLength": 1,
+          "title": "Context Key",
+          "type": "string"
+        },
+        "targets": {
+          "items": {
+            "$ref": "#/$defs/RepairTarget"
+          },
+          "title": "Targets",
+          "type": "array"
+        },
+        "preserve": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Preserve",
+          "type": "array"
+        }
+      },
+      "required": [
+        "action",
+        "reason",
+        "scope",
+        "context_key",
+        "targets",
+        "preserve"
+      ],
+      "title": "RepairPlan",
       "type": "object"
     }
   }

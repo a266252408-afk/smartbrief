@@ -103,9 +103,9 @@ def test_persistence_failure_blocks_or_fails_call(setup_usage, monkeypatch, fail
     def failing(entry):
         check()
         original(entry)
-    def failing_reserve(entry, limit):
+    def failing_reserve(entry, limit, **caps):
         check()
-        return original_reserve(entry, limit)
+        return original_reserve(entry, limit, **caps)
     monkeypatch.setattr(usage_repository, "save", failing)
     monkeypatch.setattr(usage_repository, "reserve", failing_reserve)
     @usage_scope("planner", task=True)

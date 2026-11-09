@@ -1,4 +1,5 @@
 """审核发现缺少资料时，先补研究再改写；不重跑计划与已有章节。"""
+from services.budget import BudgetExceeded
 import asyncio
 import time
 
@@ -12,6 +13,9 @@ from services.execution_context import run_before_deadline
 
 @usage_scope("researcher", state=True)
 async def research_revision_node(state: dict) -> dict:
+    if state.get('report_pipeline_version',1)>=2 and state.get('research_revision_count',0)>=1:
+        from services.repair_plan import stop_repair
+        return stop_repair(state,'RESEARCH_LIMIT')
     count = state.get("research_revision_count", 0) + 1
     logs = EventLogs(state.get("react_logs", []))
     logs.append({"type": "Thought", "step_id": 0,
@@ -20,12 +24,18 @@ async def research_revision_node(state: dict) -> dict:
             "待解决的审核意见：\n" + "\n".join(state.get("review_comments", [])))
     partial = []
     deadline = time.monotonic() + AGENT_STEP_TIMEOUT_SECONDS - STEP_DEADLINE_MARGIN_SECONDS
+    budget_exhausted=False
     try:
         result = await asyncio.wait_for(
             run_before_deadline(
                 react_researcher_run(task, 0, logs, observations=partial, deadline=deadline), deadline),
             timeout=AGENT_STEP_TIMEOUT_SECONDS,
         )
+    except BudgetExceeded:
+        if state.get('report_pipeline_version',1)<2:
+            raise
+        budget_exhausted=True
+        result=dict(observations=partial,skipped=True,error='任务预算耗尽')
     except asyncio.TimeoutError:
         result = {"observations": partial, "skipped": True, "error": "补充研究超时"}
         logs.append({"type": "Observation", "step_id": 0,
@@ -36,5 +46,10 @@ async def research_revision_node(state: dict) -> dict:
     added = len(evidence) - len(state.get("evidence", []))
     logs.append({"type": "Observation", "step_id": 0,
                  "content": f"补充研究结束，新增{added}条来源；是否支持声明仍需审核"})
-    return {"research_revision_count": count, "research_data": research_data,
+    output = {"research_revision_count": count, "research_data": research_data,
             "evidence": evidence, "react_logs": logs}
+
+    if budget_exhausted:
+        from services.repair_plan import stop_repair
+        output.update(stop_repair(state,'BUDGET_EXCEEDED'))
+    return output

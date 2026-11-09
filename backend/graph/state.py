@@ -21,6 +21,7 @@ class AgentState(TypedDict):
     """
     # ---------- 1. 任务信息 ----------
     content_index: Dict  # 稳定块目标与修订号，程序维护
+    repair_plan: Dict  # 程序生成的修复分流与完整修改包
     review_policy: Dict  # 任务开始冻结，随检查点恢复，不能临时增加审核要求
     report_pipeline_version: int
     report_document: Dict | None

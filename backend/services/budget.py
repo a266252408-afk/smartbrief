@@ -17,6 +17,8 @@ class TaskStopped(UsagePersistenceError):
 
 class ModelPolicy(BaseModel):
     model_config = ConfigDict(allow_inf_nan=False)
+    max_task_calls: int = Field(default=100, ge=1)
+    max_task_seconds: float = Field(default=3600, gt=0)
     max_task_tokens: int = Field(default=500000, ge=1)
     completion_reserve: int = Field(default=16384, ge=1)
     timeout_seconds: float = Field(default=180, gt=0, le=600)
@@ -25,7 +27,8 @@ class ModelPolicy(BaseModel):
     @classmethod
     def from_env(cls):
         try:
-            return cls(max_task_tokens=os.getenv("MAX_TASK_TOKENS", "500000"),
+            return cls(max_task_calls=os.getenv("MAX_TASK_MODEL_CALLS", "100"),
+                       max_task_seconds=os.getenv("MAX_TASK_MODEL_SECONDS", "3600"), max_task_tokens=os.getenv("MAX_TASK_TOKENS", "500000"),
                        completion_reserve=os.getenv("MODEL_COMPLETION_RESERVE", "16384"),
                        timeout_seconds=os.getenv("MODEL_TIMEOUT_SECONDS", "180"),
                        max_retries=os.getenv("MODEL_MAX_RETRIES", "1"))
@@ -85,10 +88,10 @@ def reserve(entry, policy):
     """同一SQLite事务检查任务状态、已用预算并持久化本次预留。"""
     from db import usage_repository
     try:
-        status = usage_repository.reserve(entry, policy.max_task_tokens)
+        status = usage_repository.reserve(entry, policy.max_task_tokens, max_calls=policy.max_task_calls, max_seconds=policy.max_task_seconds)
     except Exception:
         raise UsagePersistenceError("模型预算账本不可用，任务已停止") from None
     if status == "stopped":
         raise TaskStopped("任务已终止，不能继续调用模型")
     if status == "exceeded":
-        raise BudgetExceeded("任务Token预算不足，已在调用前停止")
+        raise BudgetExceeded("任务调用/Token/时间预算不足，已在调用前停止")

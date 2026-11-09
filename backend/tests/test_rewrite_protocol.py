@@ -181,6 +181,8 @@ def test_invalid_json_only_gets_one_protocol_correction():
 def test_full_missing_content_keeps_draft_and_retries_full_once(bad):
     task,_=bound_task()
     task['full_rewrite_required']=True
+    task['findings'][0].update(rule='report_assembly',scope='full',decision='confirmed',material=True,
+        problem='报告整体装配错误',expected='统一全篇结构并保留有效事实')
     out,model=execute(task,[bad,bad])
     assert model.await_count==2 and out['draft_content']==task['draft_content']
     attempts=out['review_history'][-1]['rewrite']['attempts']
@@ -191,6 +193,8 @@ def test_full_missing_content_keeps_draft_and_retries_full_once(bad):
 def test_full_protocol_correction_reaches_content_validation():
     task,_=bound_task()
     task['full_rewrite_required']=True
+    task['findings'][0].update(rule='report_assembly',scope='full',decision='confirmed',material=True,
+        problem='报告整体装配错误',expected='统一全篇结构并保留有效事实')
     key=next(iter(build_registry('t',task['evidence'])))
     good=dict(mode='full',content=f'# 报告\n\n市场规模10亿元[{key}]。',reason='修正数值',results=[])
     out,model=execute(task,[{},good])

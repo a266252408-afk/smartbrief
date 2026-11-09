@@ -371,11 +371,13 @@ async def reviewer_node(state: dict) -> dict:
             citation_retirements=[r for h in history for r in h.get('rewrite', {}).get('citation_lifecycle', {}).get('retired_claims', [])
                                  if r.get('review_required')],
         )
-    except UsagePersistenceError:
-        raise
     except Exception as exc:
+        from services.budget import BudgetExceeded
+        exhausted=isinstance(exc,BudgetExceeded)
+        if isinstance(exc,UsagePersistenceError) and (not exhausted or state.get('report_pipeline_version',1)<2):
+            raise
         diagnostic = (exc.diagnostic if isinstance(exc, ReviewResponseError) else {
-            'stage': 'review_call', 'code': 'REVIEW_CALL_FAILED',
+            'stage': 'review_call', 'code': 'BUDGET_EXCEEDED' if exhausted else 'REVIEW_CALL_FAILED',
             'exception_type': type(exc).__name__, 'model_error_code': getattr(exc, 'code', None),
             'message': '审核调用或准备失败，详见异常类型与模型错误码',
         })
@@ -403,11 +405,17 @@ async def reviewer_node(state: dict) -> dict:
         from services.document_writer import writer_provenance
         history[-1].update(writer_provenance(state))
         logs.append({"type": "Observation", "content": comments[0], "step_id": 0})
-        return common | {"passed": False, "quality_status": fault_quality, "forced_pass": fault_quality == "rejected",
-                "forced_output": fault_quality == "rejected", "error_code": "REVIEW_REJECTED" if fault_quality == "rejected" else "REVIEW_UNAVAILABLE",
+        fault_result = common | {"passed": False, "quality_status": fault_quality, "forced_pass": fault_quality == "rejected",
+                "forced_output": exhausted or fault_quality == "rejected", "error_code": "BUDGET_EXCEEDED" if exhausted else "REVIEW_REJECTED" if fault_quality == "rejected" else "REVIEW_UNAVAILABLE",
                 "review_comments": comments, "review_history": history,
                 "findings": deterministic_findings, "possible_rule_issue": None,
                 "full_rewrite_required": False, "react_logs": logs}
+        if policy is not None:
+            from services.repair_plan import plan_repair
+            fault_result['repair_plan']=plan_repair(dict(state,**fault_result))
+            history[-1]['repair_plan']=fault_result['repair_plan']
+            history[-1]['stop_reason']='BUDGET_EXCEEDED' if exhausted else 'REVIEW_UNAVAILABLE'
+        return fault_result
     dispute_review = None
     findings, rejected_findings = merge_findings(
         deterministic_findings, review.get("findings") or [], evidence, draft,
@@ -415,9 +423,14 @@ async def reviewer_node(state: dict) -> dict:
     findings = attach_identities(draft, findings, content_index, evidence)
     if policy is not None:
         from services.review_adjudication import adjudicate
-        findings, dispute_review = await adjudicate(
-            findings, draft, evidence, policy, chat, history=history,
-            task_id=state.get('task_id', ''), revision=(state.get('report_document') or {}).get('revision'))
+        from services.budget import BudgetExceeded
+        try:
+            findings, dispute_review = await adjudicate(
+                findings, draft, evidence, policy, chat, history=history,
+                task_id=state.get('task_id', ''), revision=(state.get('report_document') or {}).get('revision'))
+        except BudgetExceeded:
+            dispute_review=dict(status='unresolved',error='BudgetExceeded',initial_findings=findings,records=[])
+            review['review_diagnostics']=dict(code='BUDGET_EXCEEDED',message='任务预算耗尽，未完成争议裁决')
 
     if rejected_findings:
         logs.append({"type": "Observation",
@@ -544,4 +557,12 @@ async def reviewer_node(state: dict) -> dict:
               "iteration": iteration, "react_logs": logs}
     if forced:
         result["draft_content"] = draft + "\n\n> ⚠️ 部分章节未通过校验（已强制输出）"
+    if policy is not None:
+        from services.repair_plan import plan_repair, stop_repair
+        result['repair_plan']=plan_repair(dict(state,**result))
+        history[-1]['repair_plan']=result['repair_plan']
+        if not passed and result['repair_plan']['action']=='stop':
+            reason=('BUDGET_EXCEEDED' if (review.get('review_diagnostics') or {}).get('code')=='BUDGET_EXCEEDED'
+                    else result['repair_plan']['reason'])
+            result.update(stop_repair(dict(state,**result),reason))
     return result

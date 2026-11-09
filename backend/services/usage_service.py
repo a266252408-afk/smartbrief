@@ -30,6 +30,7 @@ class ModelUsage(BaseModel):
     currency: str | None = None
     attempt: int = Field(default=1, ge=1)
     reserved_tokens: int = Field(default=0, ge=0)
+    reserved_seconds: float = Field(default=0, ge=0)
     created_at: str = Field(min_length=1)
     error_code: Literal["USAGE_INTERRUPTED", "MODEL_FAILED", "MODEL_CANCELLED", "MODEL_TIMEOUT", "BUDGET_EXCEEDED"] | None = None
 
@@ -157,7 +158,9 @@ async def measured_call(create, kwargs, *, policy, attempt=1, price=None,
                        logical_call_id=logical_call_id)
     from services.budget import reserve, reservation
     entry.reserved_tokens = reservation(kwargs, policy)
+    entry.reserved_seconds = policy.timeout_seconds
     reserve(entry, policy)
+    kwargs = dict(kwargs, timeout=min(policy.timeout_seconds, entry.reserved_seconds, kwargs.get("timeout", policy.timeout_seconds)))
     start = perf_counter()
     async def guarded_create():
         from services.execution_context import assert_active
@@ -166,7 +169,7 @@ async def measured_call(create, kwargs, *, policy, attempt=1, price=None,
         assert_active()
         return response
     try:
-        response = await _wait_hard(guarded_create(), policy.timeout_seconds)
+        response = await _wait_hard(guarded_create(), kwargs["timeout"])
     except asyncio.CancelledError:
         entry.status, entry.error_code = "cancelled", "MODEL_CANCELLED"
         raise
