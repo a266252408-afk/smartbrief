@@ -17,7 +17,7 @@ def fixture():
 
 
 def replacement(text="建议持续跟踪来源。"):
-    return dict(kind="recommendation", text=text)
+    return dict(kind="recommendation", segments=[dict(text=text)])
 
 
 def test_explicit_target_keeps_id_and_increments_revision():
@@ -48,8 +48,7 @@ def test_bad_action_does_not_remove_another_good_action():
                 operation="replace",
                 value=dict(
                     kind="fact",
-                    text="市场规模999亿元。",
-                    claims=[dict(quote="市场规模999亿元。", facts=["F1"])],
+                    segments=[dict(text="市场规模999亿元。", facts=["F1"])],
                 ),
             ),
         ]
@@ -138,7 +137,7 @@ def test_full_kind_only_change_is_not_progress():
 
 def test_full_candidate_failure_keeps_whole_original_document():
     p, e, d, c = fixture()
-    p["sections"][0]["blocks"][0]["claims"][0]["facts"] = ["F9999"]
+    p["sections"][0]["blocks"][0]["segments"][0]["facts"] = ["F9999"]
     model = AsyncMock(return_value=FakeResp(json.dumps(p)))
     out = asyncio.run(
         rewrite_document(
@@ -267,7 +266,7 @@ def test_v3_reviewer_does_not_treat_code_literals_as_citations():
 
     p, e, _ = example()
     p["sections"][1]["blocks"].append(
-        dict(kind="analysis", text="```txt\n[S999] 99亿元\n```")
+        dict(kind="analysis", segments=[dict(text="```txt\n[S999] 99亿元\n```")])
     )
     d = build_document(p, "t", e)
     with patch.object(
@@ -598,7 +597,7 @@ def test_actual_v3_graph_rewrites_then_persists_revised_document(
     p, _, _ = example()
     text = "市场规模10亿元，因此需求推动增长。"
     p["sections"][1]["blocks"][0] = dict(
-        kind="analysis", text=text, claims=[dict(quote=text, facts=["F1"])]
+        kind="analysis", segments=[dict(text=text, facts=["F1"])]
     )
     database.init_db()
     repo.create_task(
@@ -666,8 +665,7 @@ def test_actual_v3_graph_rewrites_then_persists_revised_document(
                         operation="replace",
                         value=dict(
                             kind="fact",
-                            text="市场规模10亿元。",
-                            claims=[dict(quote="市场规模10亿元。", facts=["F1"])],
+                            segments=[dict(text="市场规模10亿元。", facts=["F1"])],
                         ),
                     )
                 ]

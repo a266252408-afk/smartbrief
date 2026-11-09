@@ -19,8 +19,7 @@ def example():
     context = fact_context("t", evidence)
     fact = dict(
         kind="fact",
-        text="市场规模10亿元。",
-        claims=[dict(quote="市场规模10亿元。", facts=["F1"])],
+        segments=[dict(text="市场规模10亿元。", facts=["F1"])],
     )
     payload = dict(
         title="市场报告",
@@ -31,7 +30,7 @@ def example():
                 blocks=[
                     copy.deepcopy(fact)
                     if role != "conclusion"
-                    else dict(kind="recommendation", text="建议继续观察。")
+                    else dict(kind="recommendation", segments=[dict(text="建议继续观察。")])
                 ],
             )
             for role in ("summary", "body", "conclusion")
@@ -49,16 +48,15 @@ def test_deterministic_render_and_server_ids():
     assert first.count("# 市场报告") == 1 and "## 结论与建议" in first
     assert "市场规模10亿元。[S1]" in first and "## 来源附录" in first
     assert document["sections"][0]["blocks"][0]["claims"][0]["claim_id"]
-    assert "claim_id" not in payload["sections"][0]["blocks"][0]["claims"][0]
+    assert "claim_id" not in json.dumps(payload)
+    assert "segments" in payload["sections"][0]["blocks"][0]
 
 
 @pytest.mark.parametrize(
     "fault",
     [
-        "duplicate",
-        "missing",
-        "overlap",
-        "number",
+        "empty",
+        "missing_facts",
         "unknown",
         "cross_task",
         "stale",
@@ -68,17 +66,12 @@ def test_deterministic_render_and_server_ids():
 def test_document_rejects_ambiguous_or_unsupported_content(fault):
     p, e, c = example()
     block = p["sections"][1]["blocks"][0]
-    if fault == "duplicate":
-        block["text"] *= 2
-    elif fault == "missing":
-        block["claims"][0]["quote"] = "不存在"
-    elif fault == "overlap":
-        block["claims"] *= 2
-    elif fault == "number":
-        block["text"] = "市场规模999亿元。"
-        block["claims"][0]["quote"] = block["text"]
+    if fault == "empty":
+        block["segments"] = []
+    elif fault == "missing_facts":
+        block["segments"][0]["facts"] = []
     elif fault == "unknown":
-        block["claims"][0]["facts"] = ["F99999"]
+        block["segments"][0]["facts"] = ["F99999"]
     elif fault == "cross_task":
         c["task_id"] = "other"
     elif fault == "stale":
@@ -91,7 +84,9 @@ def test_document_rejects_ambiguous_or_unsupported_content(fault):
 
 def test_block_kind_does_not_exempt_unbound_number():
     p, e, c = example()
-    p["sections"][1]["blocks"] = [dict(kind="transition", text="预计增长99%。")]
+    p["sections"][1]["blocks"] = [
+        dict(kind="transition", segments=[dict(text="预计增长99%。")])
+    ]
     with pytest.raises(DocumentError):
         build_document(p, "t", e, c)
 
@@ -108,13 +103,12 @@ def test_multisource_conflict_retained_and_missing_side_rejected():
     p["sections"][1]["blocks"] = [
         dict(
             kind="analysis",
-            text=text,
-            claims=[dict(quote=text, facts=list(c["aliases"]))],
+            segments=[dict(text=text, facts=list(c["aliases"]))],
         )
     ]
     d = build_document(p, "t", e, c)
     assert text + "[S1][S2]" in render_document(d)
-    p["sections"][1]["blocks"][0]["claims"][0]["facts"] = list(c["aliases"])[:1]
+    p["sections"][1]["blocks"][0]["segments"][0]["facts"] = list(c["aliases"])[:1]
     with pytest.raises(ValueError):
         build_document(p, "t", e, c)
 
@@ -124,7 +118,9 @@ def test_code_table_list_and_literal_alias_are_not_globally_replaced():
     text = (
         "```txt\nF1 [S999] 99亿元\n```\n\n- 说明 F1\n\n|名称|值|\n|---|---|\n|F1|说明|"
     )
-    p["sections"][1]["blocks"].append(dict(kind="analysis", text=text))
+    p["sections"][1]["blocks"].append(
+        dict(kind="analysis", segments=[dict(text=text)])
+    )
     assert text in render_document(build_document(p, "t", e, c))
 
 
@@ -238,8 +234,8 @@ def test_analysis_saves_fact_premises_and_unquantified_comment():
     p, e, c = example()
     block = p["sections"][1]["blocks"][0]
     block["kind"] = "analysis"
-    block["claims"][0]["premises"] = block["claims"][0].pop("facts")
-    p["sections"][2]["blocks"][0]["claims"] = [dict(quote="建议继续观察。")]
+    block["segments"][0]["premises"] = block["segments"][0].pop("facts")
+    p["sections"][2]["blocks"][0]["segments"] = [dict(text="建议继续观察。")]
     d = build_document(p, "t", e, c)
     claim = d["sections"][1]["blocks"][0]["claims"][0]
     assert claim["premise_ids"] and not claim["fact_ids"]

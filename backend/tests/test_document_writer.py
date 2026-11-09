@@ -37,8 +37,7 @@ def test_writer_minimal_contract_keeps_internal_fields_out_of_model_prompt():
 def test_local_binding_repair_preserves_other_blocks():
     p, e, c = example()
     bad = copy.deepcopy(p)
-    bad["sections"][1]["blocks"][0]["text"] = "市场规模999亿元。"
-    bad["sections"][1]["blocks"][0]["claims"][0]["quote"] = "市场规模999亿元。"
+    bad["sections"][1]["blocks"][0]["segments"][0]["text"] = "市场规模999亿元。"
     correction = dict(blocks=[dict(target="B2", value=p["sections"][1]["blocks"][0])])
     result, model = call([bad, correction])
     assert model.await_count == 2 and result["payload"] == p
@@ -49,17 +48,19 @@ def test_local_binding_repair_preserves_other_blocks():
 
 def test_local_repair_keeps_other_block_whitespace():
     p, _, _ = example()
-    p["sections"][0]["blocks"][0]["text"] = (
-        "  " + p["sections"][0]["blocks"][0]["text"] + "  \n"
+    p["sections"][0]["blocks"][0]["segments"].append(
+        dict(text="  补充说明。  \n")
+    )
+    expected = "".join(
+        segment["text"] for segment in p["sections"][0]["blocks"][0]["segments"]
     )
     bad = copy.deepcopy(p)
-    bad["sections"][1]["blocks"][0]["claims"][0]["facts"] = ["F9999"]
+    bad["sections"][1]["blocks"][0]["segments"][0]["facts"] = ["F9999"]
     result, _ = call(
         [bad, dict(blocks=[dict(target="B2", value=p["sections"][1]["blocks"][0])])]
     )
     assert (
-        result["document"]["sections"][0]["blocks"][0]["text"]
-        == p["sections"][0]["blocks"][0]["text"]
+        result["document"]["sections"][0]["blocks"][0]["text"] == expected
     )
 
 
@@ -67,7 +68,7 @@ def test_out_of_scope_correction_cannot_overwrite_accepted_block():
     p, e, c = example()
     previous = build_document(p, "t", e, c)
     bad = copy.deepcopy(p)
-    bad["sections"][1]["blocks"][0]["claims"][0]["facts"] = ["F9999"]
+    bad["sections"][1]["blocks"][0]["segments"][0]["facts"] = ["F9999"]
     result, model = call(
         [bad, dict(blocks=[dict(target="B1", value=p["sections"][0]["blocks"][0])])],
         previous,
@@ -87,13 +88,13 @@ def test_invalid_first_document_does_not_fall_back_to_markdown_or_drop_content()
 
 def test_blank_block_cannot_form_a_valid_document():
     p, _, _ = example()
-    p["sections"][1]["blocks"] = [dict(kind="transition", text="   ")]
+    p["sections"][1]["blocks"] = [dict(kind="transition", segments=[dict(text="   ")])]
     with pytest.raises(ValueError):
         call(
             [
                 p,
                 dict(
-                    blocks=[dict(target="B2", value=dict(kind="transition", text="  "))]
+                    blocks=[dict(target="B2", value=dict(kind="transition", segments=[dict(text="  ")]))]
                 ),
             ]
         )
@@ -159,7 +160,7 @@ def test_invalid_root_corrected_once_without_legacy_fallback(invalid):
 
 def test_invalid_local_correction_cannot_trigger_third_attempt():
     p, _, _ = example()
-    p["sections"][1]["blocks"][0]["claims"][0]["facts"] = ["F9999"]
+    p["sections"][1]["blocks"][0]["segments"][0]["facts"] = ["F9999"]
     with pytest.raises(ValueError):
         call([p, dict(blocks=[])])
 

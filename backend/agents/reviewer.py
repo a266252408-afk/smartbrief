@@ -207,7 +207,8 @@ async def _review(draft: str, evidence: list, *, binding_issues=None, structure_
     if policy:
         system_prompt += ('\n全稿逐项核对冻结核心问题与分析前提；可返回core_coverage[{question,covered,quote,reason}]，'
             'question必须逐字复制policy中的冻结问题原文，不得拆分、合并、缩写或改写；一旦提供，每个冻结问题恰好一行，'
-            'quote逐字取报告原句。semantic_duplicates须给first_quote/second_quote两处原句、'
+            'quote必须逐字取自报告正文；找不到逐字原句时整体省略core_coverage，不要返回改写或拼接的quote。'
+            'semantic_duplicates须给first_quote/second_quote两处原句、'
             'information_loss布尔及reason；摘要正常复述不算正文重复，不可因指标多次出现删独有证据。')
     messages = [
         {"role": "system", "content": system_prompt + ("\n" + policy_text(policy) if policy else "")},
@@ -254,7 +255,8 @@ async def _review(draft: str, evidence: list, *, binding_issues=None, structure_
                 '注意：程序统计与段落坐标不是报告正文；kind=report 的 quote 只能逐字取自“报告正文”，'
                 '且必须位于 location 指定的同一段落并覆盖指定句子，段落和句子按报告正文从1开始计数；'
                 'quote必须是一个连续逐字句子，不得用省略号省略或拼接多段，找不到就写入comments；'
-                'core_coverage 的 question 必须逐字复制冻结问题，不得拆分、合并或改写：'
+                'core_coverage 的 question 必须逐字复制冻结问题，不得拆分、合并或改写；quote 必须逐字来自报告正文，'
+                '找不到就整体省略 core_coverage：'
                 + json.dumps(exc.diagnostic,ensure_ascii=False))]
             continue
         violations = policy_violations(result, original_draft, policy=policy, deterministic_findings=deterministic_findings or [], check_errors=check_errors or [])

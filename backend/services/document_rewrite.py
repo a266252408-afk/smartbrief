@@ -49,6 +49,23 @@ class ActionRejected(DocumentError):
         super().__init__(message)
 
 
+def _segments(block, inverse):
+    segments = []
+    cursor = 0
+    for claim in sorted(block["claims"], key=lambda c: c["start"]):
+        if claim["start"] > cursor:
+            segments.append(dict(text=block["text"][cursor:claim["start"]], facts=[], premises=[]))
+        segments.append(dict(
+            text=claim["quote"],
+            facts=[inverse.get(k, "UNAVAILABLE") for k in claim["fact_ids"]],
+            premises=[inverse.get(k, "UNAVAILABLE") for k in claim["premise_ids"]],
+        ))
+        cursor = claim["end"]
+    if cursor < len(block["text"]) or not segments:
+        segments.append(dict(text=block["text"][cursor:], facts=[], premises=[]))
+    return [segment for segment in segments if segment["text"]]
+
+
 def model_payload(document, context):
     inverse = {key: alias for alias, key in context["facts"]["aliases"].items()}
     return dict(
@@ -58,23 +75,7 @@ def model_payload(document, context):
                 role=s["role"],
                 title=s["title"],
                 blocks=[
-                    dict(
-                        kind=b["kind"],
-                        text=b["text"],
-                        claims=[
-                            dict(
-                                quote=c["quote"],
-                                facts=[
-                                    inverse.get(k, "UNAVAILABLE") for k in c["fact_ids"]
-                                ],
-                                premises=[
-                                    inverse.get(k, "UNAVAILABLE")
-                                    for k in c["premise_ids"]
-                                ],
-                            )
-                            for c in b["claims"]
-                        ],
-                    )
+                    dict(kind=b["kind"], segments=_segments(b, inverse))
                     for b in s["blocks"]
                 ],
             )
@@ -280,7 +281,7 @@ async def rewrite_document(chat, state):
         if key in allowed
     ]
     facts = [
-        dict(alias=a, quote=context["facts"]["registry"][key]["quote"])
+        dict(alias=a, statement=context["facts"]["registry"][key]["quote"])
         for a, key in context["facts"]["aliases"].items()
     ]
     messages = [

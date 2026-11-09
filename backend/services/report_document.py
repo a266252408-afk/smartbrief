@@ -22,16 +22,15 @@ RawText = Annotated[
 ]
 
 
-class ModelClaim(Contract):
-    quote: RawText
+class ModelSegment(Contract):
+    text: RawText
     facts: list[Text] = Field(default_factory=list)
     premises: list[Text] = Field(default_factory=list)
 
 
 class ModelBlock(Contract):
     kind: Literal["transition", "fact", "analysis", "recommendation"]
-    text: RawText
-    claims: list[ModelClaim] = Field(default_factory=list)
+    segments: list[ModelSegment] = Field(min_length=1)
 
 
 class ModelSection(Contract):
@@ -159,36 +158,41 @@ def build_document(payload, task_id, evidence, context=None, *, revision=1):
     for si, section in enumerate(source.sections):
         blocks = []
         for bi, block in enumerate(section.blocks):
+            text = "".join(segment.text for segment in block.segments)
             claims = []
-            for ci, claim in enumerate(block.claims):
-                if block.text.count(claim.quote) != 1:
-                    raise DocumentError(
-                        "声明原文必须唯一定位",
-                        f"/sections/{si}/blocks/{bi}/claims/{ci}/quote",
-                    )
+            offset = 0
+            for ci, segment in enumerate(block.segments):
+                quote = segment.text
+                start = offset
+                offset += len(quote)
 
                 def resolve(alias):
                     if alias not in ctx["aliases"]:
                         raise DocumentError("事实短别名无效")
                     return ctx["aliases"][alias]
 
-                facts = [resolve(a) for a in claim.facts]
-                premises = [resolve(a) for a in claim.premises]
+                facts = [resolve(a) for a in segment.facts]
+                premises = [resolve(a) for a in segment.premises]
                 ids = list(dict.fromkeys(facts + premises))
-                _claim_check(claim.quote, ids, ctx["registry"], task_id)
+                if (
+                    not ids
+                    and not quantitative_tokens(_prose(quote))
+                    and not _embedded_fact(_prose(quote))
+                ):
+                    continue
+                _claim_check(quote, ids, ctx["registry"], task_id)
                 sids = sorted({ctx["registry"][key]["source_id"] for key in ids})
                 for key in ids:
                     fact = ctx["registry"][key]
                     snapshots[fact["source_id"]] = next(
                         s for s in sources if s["source_id"] == fact["source_id"]
                     )
-                start = block.text.index(claim.quote)
                 claims.append(
                     DocumentClaim(
                         claim_id="C" + uuid4().hex,
-                        quote=claim.quote,
+                        quote=quote,
                         start=start,
-                        end=start + len(claim.quote),
+                        end=offset,
                         fact_ids=facts,
                         premise_ids=premises,
                         source_ids=sids,
@@ -198,7 +202,7 @@ def build_document(payload, task_id, evidence, context=None, *, revision=1):
                 DocumentBlock(
                     block_id="B" + uuid4().hex,
                     kind=block.kind,
-                    text=block.text,
+                    text=text,
                     claims=claims,
                 )
             )

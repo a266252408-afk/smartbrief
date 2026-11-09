@@ -90,31 +90,28 @@ async def generate_document(
         dict(
             role="system",
             content=(
-                "生成结构化报告，只提供章节角色/标题、内容块和声明原文及事实短编号。规则："
+                "生成结构化报告，只提供章节角色/标题和分段内容。规则："
                 "1. sections 必须恰好包含一个 role=summary、至少一个 role=body、恰好一个 role=conclusion；"
                 "block.kind 只能是 transition/fact/analysis/recommendation。"
-                "2. facts 与 premises 都只能使用给定 facts 列表中的短编号（F1、F2...），"
-                "不得使用 [S#]、来源ID、数字编号或自造编号；分析前提也必须来自该列表。"
-                "facts 列表中的 statement 是事实原文，仅用于确定可绑定事实，不是你要返回的 quote。"
-                "3. 每个 claim.quote 必须从你自己写的 block.text 中逐字复制，且在该块内只出现一次；"
-                "同一 block 内多个 quote 不得重叠；禁止把 statement 或其他来源原文直接复制进 quote。"
-                "4. block.text 中每个数字或定量陈述都必须落在同一 block 的某个 claim.quote 内并由其 facts/premises 绑定；"
-                "块中没有数字时 claims 可为空；块中有数字却未绑定，整篇会被拒绝。不得补造数字、来源或因果关系。"
-                "推荐做法：每个含数字的句子单独放在一个 kind=fact 块中，该块 text 就是这句话，"
-                "claims 只有一项且 quote 与 text 完全相同；summary/analysis/recommendation 块不要写数字。"
-                "5. block.text 与 claim.quote 中不得出现 F1、[S1] 等编号标记；quote 不能用省略号、改写或拼接。"
-                "6. 只返回完整 ModelDocument JSON，不返回内部身份、偏移或回执。"
+                "2. 每个 block 只有 segments 列表；程序按顺序拼接各段 text 作为块正文，并把该段 text 直接作为声明原文，"
+                "因此不要返回 text、quote、偏移或内部身份。"
+                "3. facts 与 premises 只能使用给定 facts 列表中的短编号（F1、F2...），"
+                "不得使用 [S#]、来源ID、数字编号或自造编号；facts 列表中的 statement 只是事实原文，不是要返回的内容。"
+                "4. 含数字的段必须在 facts 或 premises 中绑定对应事实，程序会把整段作为一条声明校验；"
+                "纯分析/建议段可以不带事实，但段内不得出现数字。不得补造数字、来源或因果关系。"
+                "5. segments 的 text 不得出现 F1、[S1] 等编号标记；每段是一句或一个完整片段，段与段按顺序直接拼接。"
+                "6. 只返回完整 ModelDocument JSON。"
                 "格式示例（仅示意，不要照抄内容）："
                 '{"title":"单行标题","sections":['
                 '{"role":"summary","title":"执行摘要","blocks":['
-                '{"kind":"fact","text":"2025年全球工业机器人运行存量约500万台，同比增长9%。",'
-                '"claims":[{"quote":"2025年全球工业机器人运行存量约500万台，同比增长9%。",'
+                '{"kind":"fact","segments":[{"text":"2025年全球工业机器人运行存量约500万台，同比增长9%。",'
                 '"facts":["F1"],"premises":[]}]},'
-                '{"kind":"analysis","text":"存量与新增属于不同统计口径，不能直接相加。","claims":[]}]},'
-                '{"role":"body","title":"正文","blocks":[{"kind":"fact","text":"……","claims":[{"quote":"……",'
+                '{"kind":"analysis","segments":[{"text":"存量与新增属于不同统计口径，不能直接相加。",'
+                '"facts":[],"premises":[]}]}]},'
+                '{"role":"body","title":"正文","blocks":[{"kind":"fact","segments":[{"text":"……",'
                 '"facts":["F2"],"premises":[]}]}]},'
                 '{"role":"conclusion","title":"结论与建议","blocks":[{"kind":"recommendation",'
-                '"text":"建议按不同统计口径分别分析。","claims":[]}]}]}'
+                '"segments":[{"text":"建议按不同统计口径分别分析。","facts":[],"premises":[]}]}]}]}'
             ),
         ),
         dict(
@@ -148,8 +145,8 @@ async def generate_document(
             request["instruction"] = (
                 f"必须返回且仅返回以下{len(pending)}个targets："
                 + "、".join(t["target"] for t in pending)
-                + "；每个target只能出现一次，不得遗漏或新增；value为修正后的完整块，"
-                "value.claims 的 quote 必须逐字出现在 value.text 中，未指定内容保持原文。"
+                + "；每个target只能出现一次，不得遗漏或新增；value为修正后的完整块（segments，程序拼接生成正文与声明原文），"
+                "未指定内容保持原文。"
             )
         audit = dict(
             mode="blocks" if local else "document",

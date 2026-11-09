@@ -24,13 +24,14 @@ def document():
     aliases = {
         c["registry"][key]["quote"]: alias for alias, key in c["aliases"].items()
     }
-    p["sections"][1]["blocks"][0]["claims"][0]["facts"] = [aliases["市场规模10亿元。"]]
-    p["sections"][0]["blocks"] = [dict(kind="analysis", text="研究范围说明。")]
+    p["sections"][1]["blocks"][0]["segments"][0]["facts"] = [aliases["市场规模10亿元。"]]
+    p["sections"][0]["blocks"] = [
+        dict(kind="analysis", segments=[dict(text="研究范围说明。")])
+    ]
     p["sections"][1]["blocks"].append(
         dict(
             kind="fact",
-            text="同比增长20%。",
-            claims=[dict(quote="同比增长20%。", facts=[aliases["同比增长20%。"]])],
+            segments=[dict(text="同比增长20%。", facts=[aliases["同比增长20%。"]])],
         )
     )
     return p, e, build_document(p, "t", e, c)
@@ -205,9 +206,8 @@ def test_actual_action_cannot_swap_old_fact_for_different_fact():
                 operation="replace",
                 value=dict(
                     kind="fact",
-                    text="出口规模30亿元。",
-                    claims=[
-                        dict(quote="出口规模30亿元。", facts=[aliases["出口规模30亿元。"]])
+                    segments=[
+                        dict(text="出口规模30亿元。", facts=[aliases["出口规模30亿元。"]])
                     ],
                 ),
             )
@@ -371,7 +371,10 @@ def test_real_core_answer_rollback_keeps_rejection_trace():
                     dict(
                         target="B4",
                         operation="replace",
-                        value=dict(kind="recommendation", text="删除原建议。"),
+                        value=dict(
+                            kind="recommendation",
+                            segments=[dict(text="删除原建议。")],
+                        ),
                     )
                 ]
             )

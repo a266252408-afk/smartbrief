@@ -24,12 +24,12 @@ def material(case):
     evidence = [source('v3-case', title='合成验收资料', excerpt=case['source_quote'])]
     context = fact_context('v3-case', evidence)
     aliases = {context['registry'][key]['quote']: alias for alias, key in context['aliases'].items()}
-    blocks = [dict(kind='fact', text=quote, claims=[dict(quote=quote, facts=[aliases[quote]])])
+    blocks = [dict(kind='fact', segments=[dict(text=quote, facts=[aliases[quote]])])
               for quote in case['source_quote'].splitlines()]
     payload = dict(title=case['topic'], sections=[
-        dict(role='summary', title='核心摘要', blocks=[dict(kind='analysis', text='本报告仅依据合成资料。')]),
+        dict(role='summary', title='核心摘要', blocks=[dict(kind='analysis', segments=[dict(text='本报告仅依据合成资料。')])]),
         dict(role='body', title='研究结果', blocks=blocks),
-        dict(role='conclusion', title='主要结论', blocks=[dict(kind='recommendation', text='建议持续核对原始资料。')])])
+        dict(role='conclusion', title='主要结论', blocks=[dict(kind='recommendation', segments=[dict(text='建议持续核对原始资料。')])])])
     if case.get('id', '').startswith(('V', 'G')) and int(case['id'][1:]) % 2 == 0:
         payload['sections'][1]['blocks'].reverse()
         payload['sections'][0]['title'] = '概要'
@@ -73,12 +73,11 @@ def test_challenge_actual_v3_document_boundary(index):
     else:
         block = payload['sections'][1]['blocks'][0]
         if case['mutation'] == 'source':
-            block['claims'][0]['facts'] = ['F99999']
+            block['segments'][0]['facts'] = ['F99999']
         elif case['mutation'] == 'empty':
             payload['sections'][0]['blocks'] = []
         else:
-            block['text'] = case['replacement']
-            block['claims'][0]['quote'] = case['replacement']
+            block['segments'][0]['text'] = case['replacement']
         with pytest.raises(ValueError):
             build_document(payload, 'v3-case', evidence, context)
 
@@ -164,15 +163,14 @@ def test_opposite_metamorphisms_cannot_preserve_acceptance(mutation):
     case = protocol()['challenges'][0]
     evidence, context, payload = material(case)
     block = payload['sections'][1]['blocks'][0]
-    text = block['text']
+    text = block['segments'][0]['text']
     if mutation == 'source':
-        block['claims'][0]['facts'] = ['F99999']
+        block['segments'][0]['facts'] = ['F99999']
     else:
         replacements = {'year': ('2025', '2024'), 'object': ('灌溉设备', '拖拉机'),
                         'number': ('12亿元', '99亿元'), 'negation': ('销售额12亿元', '销售额并非12亿元')}
         old, new = replacements[mutation]
-        block['text'] = text.replace(old, new)
-        block['claims'][0]['quote'] = block['text']
+        block['segments'][0]['text'] = text.replace(old, new)
     with pytest.raises(ValueError):
         build_document(payload, 'v3-case', evidence, context)
 
@@ -185,9 +183,10 @@ def test_new_holdout_after_scope_fix(index):
     for mutation in ('object', 'negation'):
         changed = copy.deepcopy(payload)
         block = changed['sections'][1]['blocks'][0]
-        block['text'] = (block['text'].replace(case['object_from'], case['object_to']) if mutation == 'object'
-                         else block['text'].replace('销售额', '销售额并非'))
-        block['claims'][0]['quote'] = block['text']
+        block['segments'][0]['text'] = (
+            block['segments'][0]['text'].replace(case['object_from'], case['object_to']) if mutation == 'object'
+            else block['segments'][0]['text'].replace('销售额', '销售额并非')
+        )
         with pytest.raises(ValueError):
             build_document(changed, 'v3-case', evidence, context)
 
