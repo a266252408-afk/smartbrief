@@ -25,7 +25,8 @@ def period_context(text):
     for m in re.finditer(r'(?i)Q\s*([1-4])|第?\s*([一二三四1-4])\s*季度', text or ''):
         n = m.group(1) or m.group(2)
         periods.add('Q' + str('一二三四'.index(n) + 1 if n in '一二三四' else n))
-    for pattern, value in [(r'上半年|(?i:H1)', 'H1'), (r'下半年|(?i:H2)', 'H2'), (r'全年|年度', 'annual')]:
+    for pattern, value in [(r'上半年|(?i:H1)', 'H1'), (r'下半年|(?i:H2)', 'H2'),
+                           (r'全年|年度|(?i:annual|yearly|full[-\s]?year)', 'annual')]:
         if re.search(pattern, text or ''):
             periods.add(value)
     return {'years': sorted({int(y) for y in re.findall(r'(?<!\d)((?:19|20)\d{2})(?!\d)', text or '')}),

@@ -81,3 +81,29 @@ def test_diagnostic_is_persisted_in_existing_history_json():
     repo.create_task('review-diagnostic', '审核诊断')
     repo.update_task('review-diagnostic', review_history=out['review_history'])
     assert repo.get_task('review-diagnostic')['review_history'] == out['review_history']
+
+
+def test_malformed_soft_finding_is_dropped_without_voiding_round():
+    hard = {'finding_id': 'MODEL-0001', 'problem': '缺少结论章节', 'expected': '补充结论与建议',
+            'location': {'paragraph': 1, 'sentence': 1}, 'severity': 'hard',
+            'evidence': {'kind': 'report', 'quote': '市场规模99亿元。[S1]'}}
+    bad_soft = {'finding_id': 'MODEL-0002', 'problem': '口径说明不足', 'expected': '',
+                'location': {'paragraph': 1, 'sentence': 1}, 'severity': 'soft',
+                'evidence': {'source_id': 'S1', 'quote': '市场规模10亿元。'}}
+    raw = json.dumps({'passed': False, 'comments': ['结构缺失'], 'findings': [hard, bad_soft]})
+    parsed = reviewer._parse_response(FakeResp(raw))
+    assert parsed['passed'] is False
+    assert [f['finding_id'] for f in parsed['findings']] == ['MODEL-0001']
+    assert parsed['dropped_findings'][0]['index'] == 1
+    assert 'review_diagnostics' not in parsed
+    assert any('soft' in c for c in parsed['comments'])
+
+
+def test_dropping_soft_does_not_turn_a_baseless_rejection_into_a_pass():
+    bad_soft = {'finding_id': 'MODEL-0002', 'problem': '口径说明不足', 'expected': '',
+                'location': {'paragraph': 1, 'sentence': 1}, 'severity': 'soft',
+                'evidence': {'source_id': 'S1', 'quote': '市场规模10亿元。'}}
+    raw = json.dumps({'passed': False, 'comments': ['只有建议'], 'findings': [bad_soft]})
+    with pytest.raises(reviewer.ReviewResponseError) as caught:
+        reviewer._parse_response(FakeResp(raw))
+    assert caught.value.diagnostic['code'] == 'REVIEW_SCHEMA_INVALID'

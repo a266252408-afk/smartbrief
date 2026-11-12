@@ -33,7 +33,7 @@ from services.rewrite_patches import apply_partial_patches, paragraph_table, rec
 from services.event_logs import EventLogs
 from services.rewrite_verification import verify_findings
 from services.candidate_acceptance import validate_candidate, hard_problem_counts
-from services.fact_binding import build_registry, binding_prompt, render_bound_text, locate_bindings
+from services.fact_binding import build_registry, binding_prompt, render_bound_text, locate_bindings, BindingError
 from services.review_policy import policy_text, freeze_policy
 from services.issue_identity import index_document, index_candidate
 from services.rewrite_protocol import RewriteProtocolError, VersionMismatch, parse_rewrite, full_payload
@@ -96,13 +96,15 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
     if bound:
         messages[0]["content"] += (
             "\n本任务使用事实绑定协议：新增或修改的可核验声明使用给定[F…]编号，"
-            "程序将其渲染为来源编号。可逐字保留原稿已绑定的[S编号]声明。")
+            "程序将其渲染为来源编号。可逐字保留原稿已绑定的[S编号]声明。"
+            "修改过的句子不得沿用原句的[S编号]（视为新声明，必须改用[F…]，或删除该句/改为建议等前缀）；"
+            "只有完全逐字未改的句子才能保留[S编号]。")
         visible = set(state.get("_rewrite_context", {}).get("selected", []))
         messages.append({"role": "user", "content": binding_prompt(
             {key: fact for key, fact in registry.items() if fact["source_id"] in visible})})
     messages[0]['content'] = messages[0]['content'].replace(
-        '10. 直接输出修改后的完整草稿（Markdown），不要输出代码块包裹，不要输出任何解释',
-        '10. 严格按最后一条消息的 JSON 补丁契约输出，默认 patch；full 必须提供理由')
+        '11. 直接输出修改后的完整草稿（Markdown），不要输出代码块包裹，不要输出任何解释',
+        '11. 严格按最后一条消息的 JSON 补丁契约输出，默认 patch；full 必须提供理由')
     full_reason = ('审核要求全文重写' if state.get('full_rewrite_required')
                    or any(f.get('scope') == 'full' for f in findings) else None)
     if bound and state.get('repair_plan'):
@@ -115,6 +117,7 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
     feedback = []
     correction_used = False
     protocol_used = False
+    binding_retries = 0
     protocol_feedback = []
     protocol_mode = None
     active_findings = findings
@@ -210,6 +213,10 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
                 if candidate == best and payload.get('patches'):
                     if bound and partial['rejected'] and all(r['code']=='VERSION_MISMATCH' for r in partial['rejected']):
                         raise VersionMismatch([e for r in partial['rejected'] for e in r['errors']])
+                    if bound and partial['rejected'] and all(r['code']=='FACT_BINDING_REJECTED' for r in partial['rejected']):
+                        first = partial['rejected'][0]
+                        raise BindingError(first['message'],
+                            (first.get('proposal') or {}).get('replacement', ''))
                     if bound and partial['rejected'] and all(r['stage']=='protocol' for r in partial['rejected']):
                         raise RewriteProtocolError(partial['rejected'][0]['code'],'没有规范有效的补丁',
                             [e for r in partial['rejected'] for e in r['errors']])
@@ -311,6 +318,16 @@ async def _rewrite_patch(state, draft, findings, messages, logs, required):
                 protocol_feedback = exc.errors
                 protocol_mode = mode
                 continue
+            if bound and isinstance(exc,BindingError) and binding_retries < 2:
+                binding_retries += 1
+                protocol_feedback = [{
+                    'message': exc.reason,
+                    'sentence': exc.sentence[:400],
+                    'instruction': '修改过的句子必须改用引用协议中的[F…]编号，不得沿用原句的[S…]；'
+                                   '没有能支持该表述的事实编号时，删除该句或改为“建议/推断”前缀。',
+                }]
+                protocol_mode = mode
+                continue
             if feedback or bound:
                 break
             if mode == 'full':
@@ -386,7 +403,8 @@ SYSTEM_PROMPT = """你是市场调研报告改写员。你的任务是把给定�
 7. 资料已有对应指标时必须使用，不得标“数据待补充”
 8. 不得补充资料未出现的机制、技术路线、部署方式、芯片或算法判断
 9. 同一指标只在一个章节展开，其余章节交叉引用；补齐报告标题、执行摘要、结论与建议，不得新增事实
-10. 直接输出修改后的完整草稿（Markdown），不要输出代码块包裹，不要输出任何解释
+10. 标题必须单独成行：`##` 标题行不得与正文句子粘连；只调整换行，不改写标题文字
+11. 直接输出修改后的完整草稿（Markdown），不要输出代码块包裹，不要输出任何解释
 """ + FACTUAL_DISCIPLINE
 
 

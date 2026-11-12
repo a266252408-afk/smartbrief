@@ -33,7 +33,7 @@ def issue(**changes):
 
 
 def judge(
-    verdict="supported", quote="Apple followed in second place.", report=BODY, **changes
+    verdict="report_supported", quote="Apple followed in second place.", report=BODY, **changes
 ):
     value = (
         dict(
@@ -68,13 +68,13 @@ def test_supported_ranking_is_dismissed_with_program_source_spans():
     result, audit = run()
     assert result[0]["decision"] == "dismissed" and not result[0]["material"]
     record = audit["records"][0]
-    assert record["verdict"] == "supported" and record["source_spans"][0]["start"] == 0
+    assert record["verdict"] == "report_supported" and record["source_spans"][0]["start"] == 0
     assert record["source_spans"][0]["quote"] == "Apple followed in second place."
 
 
 def test_unsupported_ranking_is_confirmed_only_with_valid_quote():
     result, audit = run(
-        model=AsyncMock(return_value=judge("contradicted", "No ranking is provided.")),
+        model=AsyncMock(return_value=judge("report_contradicted", "No ranking is provided.")),
         evidence=[source(excerpt="No ranking is provided.")],
     )
     assert result[0]["decision"] == "confirmed" and result[0]["material"]
@@ -142,7 +142,7 @@ def test_same_context_reuses_verified_ruling_without_model_call():
 
 def test_changed_source_invalidates_cached_ruling():
     first, audit = run()
-    model = AsyncMock(return_value=judge("contradicted", "No ranking is provided."))
+    model = AsyncMock(return_value=judge("report_contradicted", "No ranking is provided."))
     second, changed = run(
         model=model,
         evidence=[source(excerpt="No ranking is provided.")],
@@ -179,7 +179,7 @@ def test_malformed_verdicts_are_not_empty_success():
 
 def integrated(
     *,
-    verdict="supported",
+    verdict="report_supported",
     history=(),
     source_text="Apple followed in second place.",
     suffix="",
@@ -255,7 +255,7 @@ def test_real_reviewer_applies_soft_and_program_rulings_before_quality_merge():
 def test_real_reviewer_insufficient_and_contradicted_do_not_pass():
     for verdict, quality in [
         ("insufficient", "unavailable"),
-        ("contradicted", "rejected"),
+        ("report_contradicted", "rejected"),
     ]:
         out, model = integrated(verdict=verdict, source_text="No ranking is provided.")
         assert not out["passed"] and out["quality_status"] == quality
@@ -399,7 +399,7 @@ def test_duplicate_missing_and_truncated_verdict_targets_fail_closed():
             verdicts=[
                 dict(
                     target="I999",
-                    verdict="supported",
+                    verdict="report_supported",
                     report_quote=BODY,
                     sources=[],
                     reason="越界",
@@ -520,3 +520,69 @@ def test_repeated_sentence_locations_have_independent_cache_entries():
     assert all(f["decision"] == "dismissed" for f in out)
     assert all(r["cached"] for r in cached["records"])
     model.assert_not_awaited()
+
+
+def test_candidate_sources_are_visible_to_adjudicator():
+    model = AsyncMock(return_value=judge())
+    result, audit = run(
+        findings=[issue(candidate_sources=["S2", "S3"])],
+        model=model,
+        evidence=[
+            source(excerpt="Apple followed in second place."),
+            source(source_id="S2", excerpt="苹果位列第一。"),
+            source(source_id="S3", excerpt="苹果位列第二。"),
+        ],
+    )
+    request = json.loads(model.call_args.args[0][-1]["content"])
+    assert {s["source_id"] for s in request["sources"]} == {"S1", "S2", "S3"}
+    assert result[0]["decision"] == "dismissed"
+
+
+def report_issue(**changes):
+    return dict(
+        finding_id="STRUCT-REQUIRED-missing_conclusion", rule="required_structure",
+        severity="hard", origin="program", decision="suspected", material=True,
+        problem="缺少结论与建议", expected="在报告末尾增加独立章节",
+        location=dict(paragraph=1, sentence=1),
+        evidence={"kind": "report", "quote": "# 2026年市场调研报告"},
+        structure_kind="missing_conclusion", has_section_headings=True,
+    ) | changes
+
+
+def report_judge(verdict, sources=()):
+    return FakeResp(json.dumps(dict(verdicts=[dict(
+        target="I1", verdict=verdict, report_quote="# 2026年市场调研报告",
+        sources=list(sources), reason="对照报告结构核验")]), ensure_ascii=False))
+
+
+REPORT_BODY = "# 2026年市场调研报告\n\n## 执行摘要\n摘要内容。"
+
+
+@pytest.mark.parametrize(("verdict", "decision"), [("report_contradicted", "confirmed"), ("report_supported", "dismissed")])
+def test_report_kind_finding_uses_full_report_and_needs_no_source_quote(verdict, decision):
+    model = AsyncMock(return_value=report_judge(verdict))
+    result, audit = run(findings=[report_issue()], model=model, evidence=[], body=REPORT_BODY)
+    request = json.loads(model.call_args.args[0][-1]["content"])
+    assert request["report"] == REPORT_BODY
+    assert result[0]["decision"] == decision
+    assert audit["records"][0]["source_spans"] == []
+
+
+def test_ellipsis_spliced_adjudication_quote_keeps_longest_verbatim_fragment():
+    evidence = [source(excerpt="Apple followed in second place. It is far behind.")]
+    model = AsyncMock(return_value=judge(
+        "report_supported", "Apple followed in second place...It is far behind."))
+    result, audit = run(model=model, evidence=evidence)
+    assert result[0]["decision"] == "dismissed"
+    record = audit["records"][0]
+    assert record["verdict"] == "report_supported"
+    assert record["source_spans"][0]["quote"] == "Apple followed in second place"
+
+
+def test_fabricated_adjudication_quote_stays_insufficient():
+    evidence = [source(excerpt="Apple followed in second place.")]
+    model = AsyncMock(return_value=judge(
+        "report_supported", "Nothing here...really nothing."))
+    result, audit = run(model=model, evidence=evidence)
+    assert result[0]["decision"] == "unresolved"
+    assert audit["records"][0]["verdict"] == "insufficient"

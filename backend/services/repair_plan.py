@@ -143,7 +143,11 @@ def plan_repair(state):
     elif attempted:
         action, reason = "stop", "REPAIR_NO_PROGRESS"
     elif any(t["kind"] == "dispute" for t in targets):
-        action, reason = "stop", "DISPUTE_UNRESOLVED"
+        # 已有确认的实质问题时先返工修复；只有争议未决、没有可执行目标时才停止。
+        if any(is_confirmed_blocker(f) for f in findings):
+            action, reason = "rewrite", "CONFIRMED_TARGETS"
+        else:
+            action, reason = "stop", "DISPUTE_UNRESOLVED"
     elif needs_research(state) or any(t["kind"] == "evidence" for t in targets):
         action, reason = (
             ("stop", "RESEARCH_LIMIT")

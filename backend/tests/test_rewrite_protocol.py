@@ -120,6 +120,39 @@ def test_protocol_feedback_corrects_once_in_same_scope():
     assert request['protocol_feedback'] and request['mode']=='patch'
 
 
+def test_bound_full_binding_error_gets_one_targeted_retry():
+    evidence=[source(excerpt='市场规模10亿元。')]
+    body='# 报告\n\n市场规模99亿元[S1]。'
+    task=dict(task_id='t',topic='市场',report_pipeline_version=2,draft_content=body,evidence=evidence,
+              findings=[dict(finding_id='F1',rule='reviewer',severity='hard',scope='full',decision='confirmed',
+                             material=True,evidence={'kind':'report'},location={'paragraph':2,'sentence':1})])
+    key=next(iter(build_registry('t',evidence)))
+    invalid=dict(mode='full',content='# 报告\n\n新增声明99亿元[S1]。',reason='重写',
+                 results=[dict(finding_id='F1',status='fixed',reason='x')])
+    good=dict(mode='full',content=f'# 报告\n\n市场规模10亿元[{key}]。',reason='重写',
+              results=[dict(finding_id='F1',status='fixed',reason='x')])
+    out,model=execute(task,[invalid,good])
+    assert model.await_count==2 and '10亿元[S1]' in out['draft_content']
+    request=json.loads(model.call_args.args[0][-1]['content'])
+    feedback=request['protocol_feedback'][0]
+    assert feedback['message']=='新声明必须提供事实编号'
+    assert feedback['sentence']=='新增声明99亿元[S1]。'
+    assert '[F…]' in feedback['instruction']
+    assert request['mode']=='full'
+
+
+def test_bound_full_binding_error_twice_rolls_back():
+    evidence=[source(excerpt='市场规模10亿元。')]
+    body='# 报告\n\n市场规模99亿元[S1]。'
+    task=dict(task_id='t',topic='市场',report_pipeline_version=2,draft_content=body,evidence=evidence,
+              findings=[dict(finding_id='F1',rule='reviewer',severity='hard',scope='full',decision='confirmed',
+                             material=True,evidence={'kind':'report'},location={'paragraph':2,'sentence':1})])
+    invalid=dict(mode='full',content='# 报告\n\n新增声明99亿元[S1]。',reason='重写',results=[])
+    out,model=execute(task,[invalid,invalid,invalid])
+    assert model.await_count==3 and out['draft_content']==body
+    assert out['review_history'][-1]['stop_reason']=='REWRITE_FAILED'
+
+
 def test_unknown_top_field_is_not_discarded():
     task,payload=bound_task()
     payload['digest_typo']='not-a-version'
@@ -222,3 +255,22 @@ def test_protocol_trace_survives_real_repository_roundtrip():
     assert attempts[0]['errors'] and attempts[1]['normalization']
     assert attempts[0]['raw_response']=='{}'
     assert 'text' in json.loads(attempts[1]['raw_response'])['patches'][0]
+
+
+def test_patch_binding_rejection_gets_one_targeted_retry():
+    task, good = bound_task()
+    bad = copy.deepcopy(good)
+    bad['patches'][0]['text'] = '新声明市场规模10亿元[S1]。'
+    out, model = execute(task, [bad, good])
+    assert model.await_count == 2 and '10亿元[S1]' in out['draft_content']
+    request = json.loads(model.call_args.args[0][-1]['content'])
+    assert request['protocol_feedback']
+
+
+def test_patch_binding_rejection_twice_rolls_back():
+    task, good = bound_task()
+    bad = copy.deepcopy(good)
+    bad['patches'][0]['text'] = '新声明市场规模10亿元[S1]。'
+    out, model = execute(task, [bad, bad, bad])
+    assert model.await_count == 3 and out['draft_content'] == task['draft_content']
+    assert out['review_history'][-1]['stop_reason'] == 'REWRITE_FAILED'

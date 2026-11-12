@@ -648,7 +648,7 @@ def test_actual_v3_graph_rewrites_then_persists_revised_document(
     )
     def contradicted(messages):
         request=json.loads(messages[-1]['content'])
-        return json.dumps(dict(verdicts=[dict(target=t['target'],verdict='contradicted',
+        return json.dumps(dict(verdicts=[dict(target=t['target'],verdict='report_contradicted',
             report_quote=t['report_quote'],sources=[dict(source_id='S1',quote='市场规模10亿元。')],
             reason='规模不能证明因果关系') for t in request['targets']]),ensure_ascii=False)
     offline_services["reviewer"].outputs = [

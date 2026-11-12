@@ -223,6 +223,35 @@ def _quote_in_source(quote: str, source: dict) -> bool:
                                          for k in ('title', 'excerpt'))
 
 
+def _restates_program_precheck(item, deterministic, body):
+    """模型复述预检疑点却改挂到未引用该来源的句子：视为同一疑点，不新增 hard 意见。"""
+    problem = f"{item.get('problem') or ''} {item.get('expected') or ''}"
+    if '预检' not in problem:
+        return False
+    source_id = (item.get('evidence') or {}).get('source_id')
+    if not source_id:
+        return False
+    from services.citations import reference_ids, split_sentences
+    from services.rewrite_patches import paragraph_table
+
+    location = item.get('location') or {}
+    paragraph, sentence = location.get('paragraph'), location.get('sentence')
+    rows = paragraph_table(body) if body else []
+    if not (type(paragraph) is int and 1 <= paragraph <= len(rows)):
+        return False
+    sentences = split_sentences(rows[paragraph - 1]['text'])
+    if not (type(sentence) is int and 1 <= sentence <= len(sentences)):
+        return False
+    # 报告句确实引用了该来源时可能是正当核验，保留模型意见。
+    if source_id in reference_ids(sentences[sentence - 1]):
+        return False
+    return any(
+        (base.get('evidence') or {}).get('source_id') == source_id
+        and str(base.get('kind') or base.get('rule') or '') in problem
+        for base in deterministic
+    )
+
+
 def merge_findings(deterministic: list[dict], model_findings: list[dict],
                    sources, body="") -> tuple[list[dict], list[dict]]:
     """合并审核 agent 的 findings；代码重新校验证据，不信任模型引用的来源。"""
@@ -243,6 +272,8 @@ def merge_findings(deterministic: list[dict], model_findings: list[dict],
         source = known.get(evidence.get("source_id"))
         if not source or not _quote_in_source(evidence.get("quote", ""), source):
             rejected.append(item)
+            continue
+        if _restates_program_precheck(item, deterministic, body):
             continue
         # 同位置、同修改动作、同来源证据的重复描述保留代码编号。
         if any(base.get('location') == item.get('location')
@@ -272,13 +303,26 @@ def merge_findings(deterministic: list[dict], model_findings: list[dict],
             "scope": item.get('scope', 'paragraph'),
         }
     from services.review_rules import assess_issue, assess_model_finding
+    from services.citations import split_sentences
+    from services.rewrite_patches import paragraph_table
+    paragraphs = paragraph_table(body) if body else []
+
+    def _report_sentence(finding):
+        position = finding.get('location') or {}
+        n, sentence = position.get('paragraph'), position.get('sentence')
+        if type(n) is int and 1 <= n <= len(paragraphs) and type(sentence) is int:
+            sentences = split_sentences(paragraphs[n - 1]['text'])
+            if 1 <= sentence <= len(sentences):
+                return sentences[sentence - 1]
+        return ''
+
     program_ids = {f['finding_id'] for f in deterministic}
     result = []
     for key, finding in merged.items():
         if key in program_ids:
             result.append(finding if finding.get('origin') == 'program' else assess_issue(finding, sources))
         else:
-            result.append(assess_model_finding(finding))
+            result.append(assess_model_finding(finding, report_sentence=_report_sentence(finding)))
     return result, rejected
 
 

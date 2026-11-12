@@ -82,6 +82,29 @@ def test_reviewer_node_passed():
     assert history_view(out["review_history"]) == [{"round": 1, "passed": True, "comments": []}]
 
 
+def test_length_contradiction_comment_is_dropped_without_invalidating_review():
+    result = {'comments': ['字数不足：约600字。', '其他建议'], 'findings': [], 'passed': True}
+    violations = [{'code': 'LENGTH_CONTRADICTS_COUNT', 'text': '字数不足：约600字。'}]
+    dropped = reviewer._drop_length_contradictions(result, violations)
+    assert dropped == ['字数不足：约600字。']
+    assert result['comments'] == ['其他建议']
+
+
+def test_reviewer_blocks_glued_heading_even_when_model_passes():
+    draft = ('# 报告\n\n## 执行摘要\n\n摘要内容[S1]。\n\n'
+             '## 二、标题与正文粘连继续说明[S1]。\n\n'
+             '## 结论与建议\n\n建议内容[S1]。')
+    state = _state(draft=draft)
+    state["report_pipeline_version"] = 2
+    with patch.object(
+        reviewer, "chat", new=AsyncMock(return_value=FakeResp('{"passed": true, "comments": []}'))
+    ):
+        out = run(reviewer_node(state))
+    assert out["passed"] is False
+    assert out["quality_status"] == "rejected"
+    assert any(f.get("structure_kind") == "glued_heading" for f in out["findings"])
+
+
 def test_reviewer_node_rejected():
     with patch.object(
         reviewer, "chat",
@@ -172,3 +195,59 @@ def test_reviewer_prompt_accepts_internal_citation_ids_and_limited_sources():
     assert '不得要求改写' in captured['system']
     assert '可用来源编号：S1' in captured['user']
     assert '资料不足以支撑 1000 字' in captured['user']
+
+
+
+
+def test_isolate_soft_invalid_drops_only_soft_findings():
+    findings = [{'finding_id': 'H', 'severity': 'hard'}, {'finding_id': 'S', 'severity': 'soft'}]
+    kept = reviewer.isolate_soft_invalid(findings, [{'path': '/findings/1/evidence/quote'}])
+    assert [finding['finding_id'] for finding in kept] == ['H']
+
+
+def test_isolate_soft_invalid_keeps_round_when_hard_or_non_finding_invalid():
+    findings = [{'finding_id': 'H', 'severity': 'hard'}, {'finding_id': 'S', 'severity': 'soft'}]
+    assert reviewer.isolate_soft_invalid(findings, [{'path': '/findings/0/evidence/quote'}]) is None
+    assert reviewer.isolate_soft_invalid(findings, [{'path': '/content_checks'}]) is None
+
+
+def test_repair_advisory_quotes_uses_verbatim_sentence_and_drops_invalid_rows():
+    body = "# 标题\n\n## 执行摘要\n\n2024年安装量为54.2万台。[S1] 存量为466.4万台。[S2]"
+    result = {
+        'core_coverage': [{
+            'question': 'q', 'covered': True,
+            'quote': '## 执行摘要\n2024年安装量为54.2万台。[S1]', 'reason': 'r',
+        }],
+        'semantic_duplicates': [{
+            'first_quote': '报告中不存在', 'second_quote': '2024年安装量为54.2万台。[S1]',
+        }],
+    }
+    corrections = reviewer.repair_advisory_quotes(result, body)
+    assert result['core_coverage'][0]['quote'] == '2024年安装量为54.2万台。[S1]'
+    assert result['semantic_duplicates']
+    assert 'semantic_duplicates row invalid' in corrections
+
+
+def test_repair_source_finding_quotes_keeps_longest_verbatim_segment():
+    evidence = [source(source_id="S3", excerpt=(
+        "庭院设计与施工服务在2024年占据了约38%的市场份额，规模约为323亿元；"
+        "园林绿化植物供应紧随其后，占比达32%，约为272亿元。"))]
+    result = {"findings": [{
+        "finding_id": "MODEL-0002", "severity": "hard",
+        "evidence": {"kind": "source", "source_id": "S3",
+                     "quote": "庭院设计与施工服务在2024年占据了约38%的市场份额，规模约为323亿元... "
+                              "园艺植物供应紧随其后，占比达32%，约为272亿元"},
+    }]}
+    fixes = reviewer.repair_source_finding_quotes(result, evidence, "t")
+    assert fixes
+    quote = result["findings"][0]["evidence"]["quote"]
+    assert quote.startswith("庭院设计与施工服务")
+    assert "园艺植物供应" not in quote
+
+
+def test_fully_paraphrased_source_quote_is_not_repaired():
+    evidence = [source(source_id="S3", excerpt="庭院设计与施工服务在2024年占据了约38%的市场份额。")]
+    result = {"findings": [{"finding_id": "M1", "evidence": {
+        "kind": "source", "source_id": "S3", "quote": "完全改写且来源没有的句子"}}]}
+    assert reviewer.repair_source_finding_quotes(result, evidence, "t") == []
+    assert result["findings"][0]["evidence"]["quote"] == "完全改写且来源没有的句子"

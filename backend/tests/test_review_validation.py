@@ -4,7 +4,7 @@ import asyncio
 import json
 from unittest.mock import AsyncMock, patch
 import pytest
-from services.review_validation import finding_errors, repair_report_locations
+from services.review_validation import finding_errors, repair_report_locations, repair_source_finding_locations
 from agents import reviewer
 from tests.test_evidence import source
 from tests.test_rewriter import FakeResp
@@ -324,3 +324,82 @@ def test_response_trace_survives_real_sqlite_history_roundtrip():
         and saved[0]["raw_sha256"]
         and "伪造出处" in saved[0]["raw_response"]
     )
+
+
+def test_source_quote_whitespace_and_linebreak_are_normalized():
+    row = finding(evidence=dict(kind="source", source_id="S1", quote="市场规模\n\n10亿元。"))
+    assert finding_errors(
+        dict(findings=[row]), BODY, [source(excerpt="市场规模 10亿元。")]
+    ) == []
+
+
+def test_report_quote_with_wrong_citation_marker_adopts_actual_draft_sentence():
+    body = ("# 报告\n\n## 执行摘要\n总量收缩与结构重塑并行[S2]。"
+            "其中内销约1005万辆，同比下降约20%。[S21]\n\n## 结论与建议\n建议跟踪。")
+    row = finding(
+        evidence=dict(kind="report", quote="其中内销约1005万辆，同比下降约20%。[S2]"),
+        location=dict(paragraph=1, sentence=2),
+    )
+    corrections = repair_report_locations(dict(findings=[row]), body)
+    assert row["evidence"]["quote"] == "其中内销约1005万辆，同比下降约20%。[S21]"
+    assert row["location"] == dict(paragraph=2, sentence=2)
+    assert corrections[0]["quote_corrected"] is True
+    assert not finding_errors(dict(findings=[row]), body, [])
+
+
+def test_paraphrased_core_quote_is_omitted_on_second_attempt_instead_of_unavailable():
+    payload = dict(
+        passed=True,
+        comments=[],
+        findings=[],
+        core_coverage=[dict(question="市场", covered=True,
+                            quote="报告提到了市场规模。", reason="覆盖")],
+    )
+    out, model = execute([payload, payload])
+    assert model.await_count == 2 and out["quality_status"] == "passed"
+    checks = out["review_history"][-1]["content_checks"]
+    assert checks["core_status"] == "unknown" and checks["core_coverage"] == []
+
+
+def test_structure_finding_contradicting_program_check_is_invalid():
+    from services.review_validation import structure_finding_errors
+    body = "# 报告\n\n## 结论与建议\n\n建议跟踪。[S1]"
+    row = finding(evidence=dict(kind="report", quote="## 结论与建议"),
+                  problem="结论与建议章节为空，仅包含标题", location=dict(paragraph=2, sentence=1))
+    errors = structure_finding_errors(dict(findings=[row]), body)
+    assert errors and errors[0]["code"] == "STRUCTURE_FINDING_CONTRADICTED"
+    empty = "# 报告\n\n## 结论与建议"
+    assert not structure_finding_errors(dict(findings=[row]), empty)
+
+
+def test_contradicted_structure_finding_goes_back_for_retry():
+    bad = dict(
+        passed=False,
+        comments=["结构缺失"],
+        findings=[finding(
+            evidence=dict(kind="report", quote="## 结论与建议"),
+            problem="结论与建议章节为空，仅包含标题",
+            location=dict(paragraph=4, sentence=1),
+        )],
+    )
+    out, model = execute([bad, dict(passed=True, comments=[])])
+    assert model.await_count == 2 and out["quality_status"] == "passed"
+
+
+def test_source_finding_is_reanchored_to_sentence_citing_that_source():
+    body = ("# 报告\n\n## 正文\n出货量5061万台[S2]。渠道集中于数字化触点[S4]。\n\n"
+            "## 结论与建议\n建议跟踪。")
+    row = finding(
+        evidence=dict(kind="source", source_id="S4", quote="渠道数据"),
+        location=dict(paragraph=2, sentence=1))
+    corrections = repair_source_finding_locations(dict(findings=[row]), body)
+    assert row["location"] == dict(paragraph=2, sentence=2)
+    assert corrections and corrections[0]["finding_id"] == "M1"
+
+
+def test_source_finding_with_ambiguous_citation_stays_put():
+    body = "# 报告\n\n## 正文\n甲渠道[S4]。乙渠道[S4]。"
+    row = finding(evidence=dict(kind="source", source_id="S4", quote="渠道"),
+                  location=dict(paragraph=2, sentence=1))
+    assert not repair_source_finding_locations(dict(findings=[row]), body)
+    assert row["location"] == dict(paragraph=2, sentence=1)

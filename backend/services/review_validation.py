@@ -29,6 +29,10 @@ class ReviewResponseAttempt(Contract):
     message: str | None = None
 
 
+def _normalize_quote(text):
+    return re.sub(r'\s+', '', text or '')
+
+
 def finding_errors(review, body, evidence, *, task_id=None):
     paragraphs = paragraph_table(body)
     sources = {
@@ -86,7 +90,7 @@ def finding_errors(review, body, evidence, *, task_id=None):
             elif (
                 not isinstance(quote, str)
                 or not quote
-                or quote not in actual.get("excerpt", "")
+                or _normalize_quote(quote) not in _normalize_quote(actual.get("excerpt", ""))
             ):
                 error(
                     "SOURCE_QUOTE_INVALID", "/evidence/quote", "证据原句不在来源正文中"
@@ -94,8 +98,84 @@ def finding_errors(review, body, evidence, *, task_id=None):
     return errors
 
 
+def _ref_free(text):
+    return _normalize_quote(re.sub(r'\[S\d+\]', '', text or ''))
+
+
+def structure_finding_errors(review, body):
+    """model 的“必需章节缺失/为空”意见必须与程序结构检查一致。
+
+    标题与正文之间有空行时，审核模型容易只看标题所在段落而误判空章节；
+    程序按同级标题分段核对正文，矛盾的意见交回重试，不进入返工。
+    """
+    from services.report_quality import structure_gaps
+    gaps = {gap["kind"] for gap in structure_gaps(body)}
+    errors = []
+    for index, finding in enumerate(review.get("findings") or []):
+        if finding.get("severity") != "hard":
+            continue
+        problem = str(finding.get("problem") or "")
+        for kind, label in (("missing_conclusion", "结论与建议"), ("missing_summary", "执行摘要")):
+            if label in problem and re.search(r"缺少|缺失|为空|空章节|仅包含标题|无任何内容", problem):
+                blockers = {kind, kind.replace("missing_", "empty_")}
+                if not blockers & gaps:
+                    errors.append(dict(
+                        code="STRUCTURE_FINDING_CONTRADICTED",
+                        path=f"/findings/{index}/problem",
+                        message=f"程序结构检查显示{label}存在且有正文",
+                    ))
+    return errors
+
+
+def repair_source_finding_locations(review, body):
+    """来源型 finding 的定位应指向真正引用该来源的报告句子。
+
+    审核给出的位置可能与问题描述的不是同一句（例如问题讲 S4，位置却落在 S2 的句子），
+    会让裁决与返工对着错误句子工作。仅当唯一命中时确定性修正。
+    """
+    paragraphs = paragraph_table(body)
+    corrections = []
+    for finding in review.get("findings") or []:
+        source = finding.get("evidence") or {}
+        if source.get("kind", "source") != "source":
+            continue
+        cited = finding.get("cited") or []
+        source_id = source.get("source_id") or (cited[0] if cited else None)
+        if source_id is None:
+            continue
+        ref = f"[{source_id}]"
+        location = finding.get("location") or {}
+        n, s = location.get("paragraph", 0), location.get("sentence", 1)
+        if type(n) is int and 1 <= n <= len(paragraphs):
+            pieces = split_sentences(paragraphs[n - 1]["text"])
+            if type(s) is int and 1 <= s <= len(pieces) and ref in pieces[s - 1]:
+                continue
+        matches = [
+            (row["paragraph"], index)
+            for row in paragraphs
+            for index, piece in enumerate(split_sentences(row["text"]), 1)
+            if ref in piece
+        ]
+        if len(matches) != 1:
+            continue
+        before = dict(location)
+        finding["location"] = dict(paragraph=matches[0][0], sentence=matches[0][1])
+        corrections.append(
+            dict(
+                finding_id=finding.get("finding_id"),
+                before=before,
+                after=finding["location"],
+            )
+        )
+    return corrections
+
+
 def repair_report_locations(review, body):
-    """报告finding的quote若唯一存在，确定性修正段/句坐标；不改quote或判定。"""
+    """报告finding的quote若可唯一确定，确定性修正段/句坐标；不改判定。
+
+    quote 与正文只有引用标号/空白差异时，采用正文实际原句，避免审核抄错 [S#]
+    让整轮作废；正文用词不同的 quote 仍判无效。
+    """
     paragraphs = paragraph_table(body)
     corrections = []
     for finding in review.get("findings", []):
@@ -108,6 +188,29 @@ def repair_report_locations(review, body):
             for row in paragraphs
             if isinstance(quote, str) and quote and quote in row["text"]
         ]
+        if not located:
+            key = _ref_free(quote)
+            matches = [
+                (row["paragraph"], index, part)
+                for row in paragraphs
+                for index, part in enumerate(split_sentences(row["text"]), 1)
+                if key and _ref_free(part) == key
+            ]
+            if len(matches) != 1:
+                continue
+            paragraph, sentence, actual = matches[0]
+            before = dict(finding.get("location") or {})
+            source["quote"] = actual
+            finding["location"] = dict(paragraph=paragraph, sentence=sentence)
+            corrections.append(
+                dict(
+                    finding_id=finding.get("finding_id"),
+                    quote_corrected=True,
+                    before=before,
+                    after=finding["location"],
+                )
+            )
+            continue
         if len(located) != 1:
             continue
         paragraph, text = located[0]

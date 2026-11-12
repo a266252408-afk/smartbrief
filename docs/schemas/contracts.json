@@ -8759,8 +8759,8 @@
         },
         "verdict": {
           "enum": [
-            "supported",
-            "contradicted",
+            "report_supported",
+            "report_contradicted",
             "insufficient"
           ],
           "title": "Verdict",
@@ -8908,8 +8908,8 @@
         },
         "verdict": {
           "enum": [
-            "supported",
-            "contradicted",
+            "report_supported",
+            "report_contradicted",
             "insufficient"
           ],
           "title": "Verdict",

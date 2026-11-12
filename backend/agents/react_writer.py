@@ -56,6 +56,7 @@ SYSTEM_PROMPT = """你是市场调研报告撰写员。基于给定的研究数�
 - 不得补充资料未出现的机制、技术路线、部署方式、芯片或算法判断
 - 同一指标只在一个章节展开，其余章节交叉引用
 - 结构清晰，使用二级/三级标题组织；若子任务要求完整报告，包含标题、执行摘要、结论与建议
+- 标题必须单独成行：`##` 标题行不得与正文句子粘连，标题后另起一行写正文
 - 涉及专业指标时，准确使用参考术语定义中的表述（如 YoY、渗透率等）
 """ + FACTUAL_DISCIPLINE
 
@@ -139,7 +140,7 @@ async def _self_repair(content: str, findings: list[dict], messages: list) -> st
     """最多一次定点修复；只修正给定机械问题，输出完整修改稿。"""
     instruction = (
         "请只修正下列机械问题，保留其余内容原样，直接输出完整修改稿（Markdown），"
-        "不要输出代码块或解释：\n"
+        "不要输出代码块或解释；标题必须保持独立成行，不得与正文合并：\n"
         + "\n".join(_finding_line(item) for item in findings[:8])
         + f"\n\n当前草稿：\n{content}"
     )
@@ -161,6 +162,7 @@ async def _binding_repair(content: str, exc, messages: list) -> str | None:
         "请只修正问题句子并保留其余内容原样：能由引用协议中列出的事实编号支持时，在句末补上对应的[F…]，"
         "不得编造未列出的编号；不能支持的，删除该句，或改写为以「推断」开头的表述。"
         "正文每一句都必须带[F…]编号，或以「建议」「推断」「假设」「资料说明」「数据待补充」等开头。"
+        "标题必须保持独立成行，不得与正文合并。"
         "直接输出完整修改稿（Markdown），不要输出代码块或解释：\n\n"
         + content
     )
@@ -176,8 +178,16 @@ async def _binding_repair(content: str, exc, messages: list) -> str | None:
 
 def _salvage_binding(text: str, task_id: str, registry: dict, logs: list, step_id: int):
     """定向修复仍失败时，按事实协议删除无支持声明，保留可核验正文。"""
-    from services.fact_binding import salvage_bound_text
-    content, claims, dropped = salvage_bound_text(text, task_id, registry)
+    from services.fact_binding import salvage_bound_text, BindingError
+    try:
+        content, claims, dropped = salvage_bound_text(text, task_id, registry)
+    except BindingError as exc:
+        logs.append({
+            "type": "Observation",
+            "step_id": step_id,
+            "content": f"删除 {len(getattr(exc, 'dropped', []))} 条无支持声明后仍有未通过项：{exc.reason}；句子：{exc.sentence[:200]}",
+        })
+        raise
     if dropped:
         preview = "；".join(s.strip()[:80] for s in dropped[:8])
         logs.append({

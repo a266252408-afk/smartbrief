@@ -202,6 +202,60 @@ def split_sentences(text: str) -> list[str]:
     return result
 
 
+def repair_citation_groups(body: str, sources) -> tuple[str, int]:
+    """把句末成组引用按分句数字的唯一归属拆到各分句；只改引用位置，不改文字。
+
+    仅在成组引用含 2 个以上来源、每个含数字分句只匹配一个来源、
+    且每个来源都能归属到某个分句时生效；任一条件不满足就保留原句。
+    """
+    from services.numeric_claims import claim_token_matches
+
+    known = {s.get("source_id"): s for s in (sources or []) if s.get("source_id")}
+    if not known or not isinstance(body, str):
+        return body, 0
+    fixed = 0
+    parts = re.split(r"(\n\s*\n)", body)
+    for index in range(0, len(parts), 2):
+        paragraph = parts[index]
+        rebuilt_paragraph = paragraph
+        for sentence in split_sentences(paragraph):
+            group = re.search(r"((?:\[S\d+\]){2,})\s*$", sentence)
+            if not group:
+                continue
+            source_ids = list(dict.fromkeys(re.findall(r"\[(S\d+)\]", group.group(1))))
+            source_ids = [sid for sid in source_ids if sid in known]
+            if len(source_ids) < 2:
+                continue
+            core = sentence[:group.start()].rstrip()
+            clauses = re.split(r"(?<=[，,；;])", core)
+            if len(clauses) < 2:
+                continue
+            assigned, rebuilt, ok = set(), [], True
+            for clause in clauses:
+                tokens = quantitative_tokens(clause)
+                if not tokens:
+                    rebuilt.append(clause)
+                    continue
+                matches = [sid for sid in source_ids
+                           if all(claim_token_matches(token, clause, known[sid].get("excerpt", ""))
+                                  for token in tokens)]
+                if len(matches) != 1:
+                    ok = False
+                    break
+                sid = matches[0]
+                assigned.add(sid)
+                text = clause.rstrip("，,；;。")
+                rebuilt.append(f"{text}[{sid}]{clause[len(text):]}")
+            if not ok or assigned != set(source_ids):
+                continue
+            replacement = "".join(rebuilt)
+            if replacement != sentence:
+                rebuilt_paragraph = rebuilt_paragraph.replace(sentence, replacement, 1)
+                fixed += 1
+        parts[index] = rebuilt_paragraph
+    return "".join(parts), fixed
+
+
 def _claim_grams(text: str) -> set[str]:
     """两字片段，用于判断句子更像哪一条来源的原文；去数字与标点。"""
     text = re.sub(r"[0-9０-９]+", "", text or "")

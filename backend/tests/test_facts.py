@@ -107,6 +107,18 @@ def test_merged_range_allows_same_source_genuine_range():
     assert not merged_range_issues("高端增长10%至20%。", facts)
 
 
+def test_merged_range_allows_range_present_in_cited_source_sentence():
+    evidence = [
+        source(source_id="S1", excerpt="外卖佣金率15%。"),
+        source(source_id="S2", excerpt="外卖佣金率20%。"),
+        source(source_id="S3", excerpt="外卖佣金率15%-20%，而自提近乎零成本。"),
+    ]
+    two_sources = fact_table(evidence[:2])["facts"]
+    assert merged_range_issues("外卖佣金率15-20%，而自提近乎零成本。[S1]", two_sources)
+    facts = fact_table(evidence)["facts"]
+    assert not merged_range_issues("外卖佣金率15-20%，而自提近乎零成本。[S3]", facts)
+
+
 def test_check_citations_reports_merged_range():
     from services.citations import check_citations
     result = check_citations(
@@ -224,3 +236,43 @@ def test_rewriter_prompt_mentions_merged_range():
         asyncio.run(rewriter.rewriter_node(state))
     assert "被合并成区间" in captured["user"]
     assert "分别引用" in captured["user"]
+
+
+def test_english_thousands_separator_does_not_split_year_clause():
+    # 千分位逗号不是分句边界：数字后的 "in 2024" 必须优先于标题里的 2025。
+    facts = extract_facts([source(excerpt=(
+        "Frankfurt, Sep 25, 2025 — The new World Robotics 2025 statistics on industrial robots "
+        "showed 542,000 robots installed in 2024."))])
+    assert find_fact(facts, "542000")["year"] == 2024
+
+
+def test_english_units_and_rate_take_trailing_year_after_thousands_separator():
+    facts = extract_facts([source(excerpt=(
+        "Frankfurt, Sep 30, 2026 — Global shipments of professional service robots increased by 24% "
+        "to almost 250,000 units in 2025."))])
+    assert find_fact(facts, "250000")["year"] == 2025
+    assert find_fact(facts, "24")["year"] == 2025
+
+
+def test_bullet_table_rows_do_not_inherit_forecast_role_from_later_cagr():
+    facts = extract_facts([source(excerpt=(
+        "Worldwide annual installations of industrial robots:\n"
+        "• 2025: 603,307 units (+11%) • 2026: 655,000 units (+9%) "
+        "• 2029: 806,000 units (+7% CAGR from 2026 to 2029)"))])
+    assert find_fact(facts, "603307")["role"] != "forecast"
+
+
+def test_press_release_dateline_year_is_not_used_as_data_year():
+    facts = extract_facts([source(excerpt=(
+        "Frankfurt, Oct 08, 2024 — Sales of professional service robots increased by 30% worldwide."))])
+    assert find_fact(facts, "30")["year"] is None
+
+
+def test_multiline_press_release_does_not_borrow_report_year_for_growth():
+    facts = extract_facts([source(excerpt=(
+        "Sales of Service Robots up 30% Worldwide\n\n"
+        "World Robotics 2024 Service Robots report released\n\n"
+        "Frankfurt, Oct 08, 2024 — Sales of professional service robots increased by 30% worldwide. "
+        "More than 205,000 units were registered by IFR's statistics department in 2023."))])
+    assert find_fact(facts, "205000")["year"] == 2023
+    assert all(fact["year"] != 2024 for fact in facts if fact["value"] == "30")

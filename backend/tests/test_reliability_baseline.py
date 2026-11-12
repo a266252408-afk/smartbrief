@@ -12,7 +12,7 @@ FIXTURES = Path(__file__).parent / 'fixtures/review_reliability'
 
 
 def test_frozen_fixtures_have_unchanged_bytes():
-    manifest = json.loads((ROOT / 'docs/construction/reliability-fixture-manifest.json').read_text(encoding='utf-8'))
+    manifest = json.loads((FIXTURES / 'manifest.json').read_text(encoding='utf-8'))
     assert len(manifest['files']) == 10
     for name, expected in manifest['files'].items():
         assert hashlib.sha256((ROOT / name).read_bytes()).hexdigest() == expected, name
@@ -38,7 +38,7 @@ def test_ddb6_replay_uses_full_rewriter_registry_and_saved_responses():
     patch = parse_json(attempts[0]['raw_response'])
     assert all('text' in p and 'replacement' not in p for p in patch['patches'])
     full = parse_json(attempts[1]['raw_response'])
-    with pytest.raises(BindingError, match='声明与绑定事实不一致'):
+    with pytest.raises(BindingError, match='声明与绑定事实不一致|该数值对应的期间与声明不一致'):
         render_bound_text(full['content'], data['task_id'], registry, previous=data['draft_content'])
 
 

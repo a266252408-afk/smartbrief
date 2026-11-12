@@ -105,7 +105,8 @@ def test_v2_failed_binding_does_not_expand_patch_into_full_rewrite():
     with patch.object(rewriter, "chat", new=model):
         out = asyncio.run(rewriter.rewriter_node(s))
     assert out["draft_content"] == s["draft_content"]
-    assert model.await_count <= 2
+    # 绑定失败最多两次定向重试，始终停留在 patch，不升级为全文重写。
+    assert model.await_count <= 3
     assert all(
         a["mode"] == "patch" for a in out["review_history"][-1]["rewrite"]["attempts"]
     )
@@ -614,3 +615,16 @@ def test_research_budget_stop_ends_graph_without_entering_rewriter(offline_servi
 
     asyncio.run(scenario())
     assert not offline_services["rewriter"].calls
+
+
+def test_unresolved_soft_dispute_does_not_block_rewrite_of_confirmed_hard_target():
+    state = task(findings=[
+        issue(finding_id="H1", decision="confirmed", location=dict(paragraph=3, sentence=1)),
+        issue(finding_id="D1", decision="unresolved", severity="soft", material=True,
+              location=dict(paragraph=3, sentence=1)),
+    ])
+    plan = plan_repair(state)
+    assert plan["action"] == "rewrite" and plan["reason"] == "CONFIRMED_TARGETS"
+    only_soft = task(findings=[issue(finding_id="D1", decision="unresolved", severity="soft",
+                                     material=True, location=dict(paragraph=3, sentence=1))])
+    assert plan_repair(only_soft)["action"] == "stop"

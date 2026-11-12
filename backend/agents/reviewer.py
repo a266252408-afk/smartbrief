@@ -16,7 +16,8 @@ from services.event_logs import EventLogs
 from services.review_policy import report_metrics, policy_violations, freeze_policy, policy_text, decide_quality
 from services.review_rules import assess_issue, is_confirmed_blocker, material_pending
 from services.issue_identity import index_document, attach_identities, citation_issue
-from services.review_validation import finding_errors, repair_report_locations, response_audit
+from services.review_validation import (finding_errors, repair_report_locations, repair_source_finding_locations,
+                                        response_audit, structure_finding_errors)
 
 REVIEW_STEP_ID = 0
 
@@ -27,6 +28,22 @@ class ReviewResponseError(ValueError):
     def __init__(self, diagnostic):
         self.diagnostic = diagnostic
         super().__init__(diagnostic['message'])
+
+
+def _drop_length_contradictions(result, violations):
+    """字数意见与程序统计矛盾时只删除该条，不因此作废整轮审核。"""
+    dropped = []
+    comments = result.get('comments')
+    if not isinstance(comments, list):
+        return dropped
+    for violation in violations:
+        if violation.get('code') != 'LENGTH_CONTRADICTS_COUNT':
+            continue
+        text = violation.get('text')
+        if text in comments:
+            comments.remove(text)
+            dropped.append(text)
+    return dropped
 
 
 def _parse_response(resp):
@@ -63,15 +80,27 @@ def _parse_response(resp):
             base = dict(data, findings=[])
             parsed = parse_review(json.dumps(base, ensure_ascii=False))
             invalid = []
+            dropped = []
             valid = []
             for index, item in enumerate(data['findings']):
                 try:
                     checked = parse_review(json.dumps(dict(base, findings=[item]), ensure_ascii=False))
                     valid.extend(checked['findings'])
                 except (ValueError, TypeError) as finding_error:
-                    invalid.append({'index': index, 'message': str(finding_error)})
-            if not invalid:
+                    row = {'index': index, 'message': str(finding_error)}
+                    # 格式残缺的 soft 建议没有可执行内容，丢弃后不拖垮整轮；hard 仍整轮无效。
+                    if isinstance(item, dict) and item.get('severity') == 'soft':
+                        dropped.append(row)
+                    else:
+                        invalid.append(row)
+            if not invalid and not dropped:
                 raise ValueError('错误不在 finding 条目')
+            if not invalid:
+                if not (parsed['passed'] or any(f.get('severity') == 'hard' for f in valid)):
+                    raise ValueError('丢弃soft意见后没有有效拒绝依据')
+                parsed.update(findings=valid, dropped_findings=dropped)
+                parsed['comments'] = ['审核返回的部分soft意见格式不完整，已丢弃'] + parsed['comments']
+                return parsed
         except (ValueError, TypeError):
             raise ReviewResponseError(diagnostic) from exc
         diagnostic['code'] = 'REVIEW_FINDINGS_PARTIAL'
@@ -88,7 +117,7 @@ SYSTEM_PROMPT = """你是市场调研报告质量审核员。请对给定的报�
 4. 数字声明是否被所引来源摘要支持？若某来源被引用但摘要中找不到对应数字或归因，指出过度引用或无支持。
 5. 是否使用了可获得的最新实绩？若草稿使用旧预测而忽略更新实绩，指出。
 6. 同一指标前后是否矛盾？比较基数（环比/同比/较某期）是否与来源一致？
-7. 报告结构是否完整：是否有标题、执行摘要、结论与建议，章节编号是否一致？
+7. 报告结构是否完整：是否有标题、执行摘要、结论与建议，章节编号是否一致；标题必须独立成行，标题行不得包含正文句子（否则 Markdown 会把整段正文渲染为标题）。判断某章节是否缺失或为空时，必须查看该标题之后直到下一个同级或更高级标题的全部段落；标题与正文之间有空行不代表章节为空。程序结构检查已判定章节存在且有正文时，不得再报缺失或空章节。
 8. “最高/最低/第一/仅次于”等比较级是否与来源排序一致？来源没有给出排序时不得使用比较级。
 
 仅返回 JSON：
@@ -202,7 +231,7 @@ async def _review(draft: str, evidence: list, *, binding_issues=None, structure_
     if policy:
         system_prompt = system_prompt.replace(
             '不得推翻确定性 hard 结论，也不得删除给定 finding；若认为规则误判，写入 possible_rule_issue，但保留 finding 与 passed=false',
-            '不得豁免来源归属等confirmed完整性事实。suspected/unresolved为待核验疑点，不等同已确认错误；对照完整来源核验，不得仅因规则未知就拒绝。程序保留原记录，若有实质错误给出准确hard意见，普通文风用soft')
+            '不得豁免来源归属等confirmed完整性事实。suspected/unresolved为待核验疑点，不等同已确认错误；对照完整来源核验，不得仅因规则未知就拒绝。核验预检疑点时沿用其 finding_id 与报告位置；同一疑点不要新建 finding 改挂到其他句子。程序保留原记录，若有实质错误给出准确hard意见，普通文风用soft')
         finding_text = finding_text.replace('确定性规则 findings（finding_id 固定，不得删除或推翻 hard 结论）', '程序预检 findings（confirmed才为已确认；suspected/unresolved必须核验）')
     if policy:
         system_prompt += ('\n全稿逐项核对冻结核心问题与分析前提；可返回core_coverage[{question,covered,quote,reason}]，'
@@ -233,16 +262,47 @@ async def _review(draft: str, evidence: list, *, binding_issues=None, structure_
             location_corrections = repair_report_locations(result, original_draft) if policy else []
             if location_corrections:
                 result['location_corrections'] = location_corrections
+            if policy:
+                source_locations = repair_source_finding_locations(result, original_draft)
+                if source_locations:
+                    corrections.append({'repaired_source_locations': source_locations})
+            if policy:
+                quote_fixes = repair_source_finding_quotes(result, evidence, policy['task_id'])
+                if quote_fixes:
+                    corrections.append({'repaired_finding_quotes': quote_fixes})
             invalid=(finding_errors(result,original_draft,evidence,task_id=policy['task_id']) if policy else [])
             if policy:
+                invalid.extend(structure_finding_errors(result, original_draft))
+            if policy:
                 from services.content_integrity import validate_review_content
+                advisory = repair_advisory_quotes(result, original_draft)
+                if advisory:
+                    corrections.append({'repaired_advisory_quotes': advisory})
                 try:
                     result['content_checks']=validate_review_content(result,original_draft,policy['required_questions'])
                 except ValueError as exc:
-                    invalid.append(dict(code='CONTENT_REVIEW_INVALID',path='/content_checks',message=str(exc)))
+                    # 提示词约定“找不到逐字原句就整体省略 core_coverage”；
+                    # 二次响应仍未照做时按约定省略，记为 unknown，不判为覆盖。
+                    if attempt and result.get('core_coverage'):
+                        result['core_coverage'] = []
+                        try:
+                            result['content_checks']=validate_review_content(result,original_draft,policy['required_questions'])
+                            corrections.append({'dropped_invalid_core_coverage': True})
+                        except ValueError as second:
+                            invalid.append(dict(code='CONTENT_REVIEW_INVALID',path='/content_checks',message=str(second)))
+                    else:
+                        invalid.append(dict(code='CONTENT_REVIEW_INVALID',path='/content_checks',message=str(exc)))
             diagnostic=result.get('review_diagnostics') if policy else None
             if invalid:
-                diagnostic=dict(audit,code='REVIEW_FINDING_INVALID',message='审核意见原文、来源或位置无效',issues=invalid)
+                kept = isolate_soft_invalid(result.get('findings') or [], invalid)
+                if kept is None:
+                    diagnostic=dict(audit,code='REVIEW_FINDING_INVALID',message='审核意见原文、来源或位置无效',issues=invalid)
+                else:
+                    corrections.append({'dropped_soft_findings': invalid})
+                    result['findings'] = kept
+                    result.setdefault('comments', []).insert(
+                        0, '审核返回的部分soft意见原文/位置无效，已丢弃，本轮继续核验其余意见')
+                    diagnostic=result.get('review_diagnostics') if policy else None
             if diagnostic:
                 raise ReviewResponseError(diagnostic)
         except ReviewResponseError as exc:
@@ -260,6 +320,12 @@ async def _review(draft: str, evidence: list, *, binding_issues=None, structure_
                 + json.dumps(exc.diagnostic,ensure_ascii=False))]
             continue
         violations = policy_violations(result, original_draft, policy=policy, deterministic_findings=deterministic_findings or [], check_errors=check_errors or [])
+        if violations:
+            dropped = _drop_length_contradictions(result, violations)
+            if dropped:
+                corrections.append({'dropped_length_contradiction': dropped})
+                violations = policy_violations(result, original_draft, policy=policy,
+                    deterministic_findings=deterministic_findings or [], check_errors=check_errors or [])
         if not violations:
             audit['decision']='accepted'
             break
@@ -287,6 +353,92 @@ async def _review(draft: str, evidence: list, *, binding_issues=None, structure_
     if citation_retirements:
         result['citation_retirements'] = citation_retirements
     return result
+
+
+def repair_advisory_quotes(result, body):
+    """core_coverage/语义重复的 quote 必须是报告逐字原句；可修复为单句，否则省略该行。"""
+    from services.citations import split_sentences
+    corrections = []
+    rows = result.get('core_coverage')
+    if isinstance(rows, list):
+        kept = []
+        for row in rows:
+            quote = row.get('quote')
+            if isinstance(quote, str) and quote and quote in body:
+                kept.append(row)
+                continue
+            pieces = []
+            for chunk in re.split(r'\n+', quote or ''):
+                pieces.extend(p.strip() for p in split_sentences(chunk))
+            pieces = [p for p in pieces if p and p in body]
+            if pieces:
+                kept.append(dict(row, quote=max(pieces, key=len)))
+                corrections.append('core_coverage.quote repaired')
+            else:
+                kept.append(row)
+                corrections.append('core_coverage row invalid')
+        result['core_coverage'] = kept
+    duplicates = result.get('semantic_duplicates')
+    if isinstance(duplicates, list):
+        kept = []
+        for row in duplicates:
+            if row.get('first_quote') in body and row.get('second_quote') in body:
+                kept.append(row)
+            else:
+                kept.append(row)
+                corrections.append('semantic_duplicates row invalid')
+        result['semantic_duplicates'] = kept
+    return corrections
+
+
+def _normalize_quote(text):
+    return re.sub(r'\s+', '', text or '')
+
+
+def repair_source_finding_quotes(result, evidence, task_id):
+    """来源 quote 含换行/省略号拼接时，保留最长逐字片段，交给后续裁决核验。"""
+    known = {
+        item.get('source_id'): item for item in evidence or []
+        if item.get('task_id') == task_id and not item.get('source_deleted')
+    }
+    corrections = []
+    for finding in result.get('findings') or []:
+        item = finding.get('evidence') or {}
+        if item.get('kind', 'source') != 'source':
+            continue
+        source = known.get(item.get('source_id'))
+        quote = item.get('quote')
+        if not source or not isinstance(quote, str) or not quote:
+            continue
+        excerpt = _normalize_quote(source.get('excerpt', ''))
+        if _normalize_quote(quote) in excerpt:
+            continue
+        pieces = [piece.strip() for piece in re.split(r'(?:\.{3,}|…+|\n+)', quote) if piece.strip()]
+        matches = [
+            piece for piece in pieces
+            if len(_normalize_quote(piece)) >= 12 and _normalize_quote(piece) in excerpt
+        ]
+        if not matches:
+            continue
+        best = max(matches, key=lambda piece: len(_normalize_quote(piece)))
+        item['quote'] = best
+        corrections.append({'finding_id': finding.get('finding_id'), 'quote': best})
+    return corrections
+
+
+def isolate_soft_invalid(findings, invalid):
+    """只丢弃原文/位置无效的 soft 意见；hard 意见无效时仍需整轮重试或不可用。"""
+    indices = set()
+    for issue in invalid:
+        match = re.match(r'/findings/(\d+)/', str(issue.get('path') or ''))
+        if not match:
+            return None
+        indices.add(int(match.group(1)))
+    if any(index >= len(findings) for index in indices):
+        return None
+    if any(findings[index].get('severity') == 'hard' for index in indices):
+        return None
+    return [finding for index, finding in enumerate(findings) if index not in indices]
 
 
 @usage_scope("reviewer", state=True)
@@ -335,8 +487,20 @@ async def reviewer_node(state: dict) -> dict:
     deterministic_findings = build_findings(draft, evidence, binding) + reference_findings(draft, check)
     if state.get("report_pipeline_version", 1) >= 2:
         first_paragraph = paragraph_table(draft)[0]["text"]
-        for issue in structure:
+        for position, issue in enumerate(structure):
             if issue["kind"] == "duplicate_passage":
+                continue
+            if issue["kind"] == "glued_heading":
+                deterministic_findings.append({
+                    "finding_id": f"STRUCT-GLUED-{position:04d}", "rule": "required_structure",
+                    "kind": "required_structure", "severity": "hard",
+                    "problem": issue["message"], "structure_kind": "glued_heading",
+                    "has_section_headings": True,
+                    "expected": "只调整换行：把章标题拆到独立标题行，标题后换行写正文，不改写文字",
+                    "evidence": {"kind": "report", "quote": issue["heading"]},
+                    "location": {"paragraph": issue.get("paragraph") or 1, "sentence": 1},
+                    "scope": "paragraph",
+                })
                 continue
             deterministic_findings.append({
                 "finding_id": "STRUCT-REQUIRED-" + issue["kind"], "rule": "required_structure",

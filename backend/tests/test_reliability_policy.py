@@ -167,7 +167,7 @@ def test_dispute_request_inherits_frozen_policy():
         location=dict(paragraph=3,sentence=1))])
     def supported(messages):
         request = json.loads(messages[-1]['content'])
-        return json.dumps(dict(verdicts=[dict(target=t['target'],verdict='supported',
+        return json.dumps(dict(verdicts=[dict(target=t['target'],verdict='report_supported',
             report_quote=t['report_quote'],sources=[dict(source_id='S1',quote='市场规模10亿元，增长20%。')],
             reason='逐项来源核验通过') for t in request['targets']]),ensure_ascii=False)
     model = ScriptedLLM([json.dumps(initial, ensure_ascii=False), supported])
@@ -189,3 +189,13 @@ def test_passed_true_with_own_hard_finding_is_also_corrected_once():
     assert result['quality_status'] == 'rejected'
     assert len(model.calls) == 2
     assert result['review_history'][-1]['policy_corrections']
+
+
+def test_compliant_length_statement_is_not_a_contradiction():
+    from services.review_policy import policy_violations, report_metrics
+    body = "# 报告\n\n## 正文\n" + "市场规模数据持续增长。" * 300
+    assert report_metrics(body)["word_units"] >= 1000
+    ok = dict(passed=True, comments=["正文篇幅约1300字，已满足不低于1000字的要求"], findings=[])
+    assert not policy_violations(ok, body, policy=None)
+    bad = dict(passed=True, comments=["字数不足，未达到1000字目标"], findings=[])
+    assert any(v["code"] == "LENGTH_CONTRADICTS_COUNT" for v in policy_violations(bad, body, policy=None))

@@ -33,6 +33,12 @@ ACTUAL = re.compile(
     r"达到|達到|已达|已達|突破|为|為|实际|實際|实现|實現|recorded|reported|totaled|\bwas\b|\bwere\b|\bis\b", re.I)
 YEAR = re.compile(r"(?<!\d)((?:19|20)\d{2})(?!\d)")
 STANDARD = re.compile(r"(?i)(?:GB|IEC|ISO|EN|UL|CSA)\s*/?\s*T?\s*\d+(?:\.\d+)*(?:[-—:\s]\d{1,4})*")
+_DATELINE = re.compile(
+    r"(?:^|\n)\s*[A-Z][A-Za-z.\- ]{1,40},\s*"
+    r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|"
+    r"Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+\d{1,2},\s*"
+    r"((?:19|20)\d{2})(?=\s*[—–-])"
+)
 _NUMBER = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?"
 _RANGE = re.compile(
     rf"(?<!\d)(?P<start>{_NUMBER})\s*"
@@ -49,13 +55,27 @@ RATE_METRICS = {"增长率", "渗透率", "份额"}
 
 
 def _sentences(text: str) -> list[str]:
-    parts = re.split(r"(?<=[。；！？!?])|(?<=[.!?])\s+", text or "")
+    parts = re.split(r"(?<=[。；！？!?])|(?<=[.!?])\s+|\n+", text or "")
     return [re.sub(r"^\s*#{1,6}\s*", "", part).strip() for part in parts if part.strip()]
+
+
+def _is_thousands_separator(sentence: str, index: int) -> bool:
+    """英文千分位逗号（542,000）不是分句边界。"""
+    return (
+        sentence[index] == ','
+        and index > 0
+        and sentence[index - 1].isdigit()
+        and sentence[index + 1:index + 4].isdigit()
+        and len(sentence[index + 1:index + 4]) == 3
+        and (index + 4 == len(sentence) or not sentence[index + 4].isdigit())
+    )
 
 
 def _clause_span(sentence: str, position: int) -> tuple[int, int]:
     start = 0
-    for match in re.finditer(r"[，,；;]", sentence):
+    for match in re.finditer(r"[，,；;•·|\n\t]", sentence):
+        if _is_thousands_separator(sentence, match.start()):
+            continue
         if position < match.start():
             return start, match.start()
         start = match.end()
@@ -69,9 +89,13 @@ def _clause_at(sentence: str, position: int) -> str:
 
 def _year_positions(sentence: str) -> list[tuple[int, int]]:
     standard_spans = [(match.start(), match.end()) for match in STANDARD.finditer(sentence)]
+    dateline_spans = [(match.start(1), match.end(1)) for match in _DATELINE.finditer(sentence)]
     years = []
     for match in YEAR.finditer(sentence):
         if any(start <= match.start() < end for start, end in standard_spans):
+            continue
+        # 新闻电头日期是发布时间，不是数据期间。
+        if any(start <= match.start() < end for start, end in dateline_spans):
             continue
         years.append((match.start(), int(match.group(1))))
     return years
@@ -204,7 +228,7 @@ def extract_facts(sources) -> list[dict]:
         if not source_id or not excerpt.strip():
             continue
         from services.claim_semantics import period_context, source_text, object_context
-        source_period = period_context(source_text(source))
+        source_period = period_context(_DATELINE.sub(" ", source_text(source)))
         title_period = period_context(str(source.get('title') or ''))
         regions = [label for label in ('中国', '全球', '北美', '欧洲') if label in source_text(source)]
         for sentence in _sentences(excerpt):
@@ -365,6 +389,10 @@ def _range_value(number: str, unit: str) -> tuple[float, str] | None:
     return (values[0][0], values[0][1]) if values else None
 
 
+def _bound_in_text(bound: str, text: str) -> bool:
+    return re.search(r'(?<![\d.])' + re.escape(bound) + r'(?![\d])', text or '') is not None
+
+
 def _fact_matches(fact: dict, normalized: float, kind: str) -> bool:
     if kind == "percent":
         return fact["unit_kind"] == "percent" and numbers_match(
@@ -397,6 +425,15 @@ def merged_range_issues(body: str, facts: list[dict]) -> list[dict]:
             start_value = _range_value(start, unit)
             end_value = _range_value(end, unit)
             if not start_value or not end_value:
+                continue
+            cited = set(re.findall(r"\[(S\d+)\]", paragraph))
+            if any(
+                fact["source_id"] in cited
+                and _bound_in_text(start, fact.get("text", ""))
+                and _bound_in_text(end, fact.get("text", ""))
+                for fact in facts
+            ):
+                # 被引来源同一原句同时包含上下界时，这是来源自身的区间，不是合并两个事实。
                 continue
             start_facts = [fact for fact in facts
                            if _fact_matches(fact, start_value[0], start_value[1])]

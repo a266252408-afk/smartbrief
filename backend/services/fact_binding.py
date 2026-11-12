@@ -9,7 +9,33 @@ from services.claim_semantics import object_context, period_context, geography_c
 from services.facts import fact_table, FORECAST
 from services.numbers import token_matches_text
 
-FACT_REF = re.compile(r"\[(F[A-Za-z0-9]+)\]")
+FACT_REF = re.compile(r"\[\s*(F[A-Za-z0-9]+)\s*\]")
+# 模型可能写错字母或截断的事实编号；可解析到注册表则纠正，否则移除，绝不留在正文。
+FACT_LIKE = re.compile(r"\[\s*([A-Za-z])([0-9a-fA-F]{16,24})\s*\]")
+# 改句只允许限定词插入/句子拆分；否定词变化必须重新绑定事实，不能沿用原引用。
+_NEGATION = re.compile(r'并非|不是|不等于|未能|并未|没有|否认|尚未|未(?!来)|不(?!断|仅|但|过|久|少|同|妨)')
+
+
+def _negation_terms(text: str) -> set[str]:
+    return set(_NEGATION.findall(text or ''))
+
+
+def _clean_fact_refs(sentence: str, registry: dict) -> str:
+    def replace(match):
+        if match.group(1).upper() == "S":
+            return match.group(0)
+        key = "F" + match.group(2).lower()
+        if len(match.group(2)) == 24 and key in registry:
+            return f"[{key}]"
+        return ""
+    return FACT_LIKE.sub(replace, sentence)
+
+
+def _title_like(line: str) -> bool:
+    """短、无句读与引用标记的行视为章节标题，不当作声明删除。"""
+    value = (line or "").strip()
+    return (bool(value) and len(value) <= 40 and not value.startswith("#")
+            and not re.search(r"[。！？；，,]|\[\s*S\d+\s*\]", value))
 
 
 def _normalize_fact_sentence(sentence: str) -> str:
@@ -127,28 +153,50 @@ def render_bound_text(body, task_id, registry, *, previous=""):
     claims = []
     def prose(text):
         return re.sub(r"(?m)^#{1,6}[^\n]*(?:\n|$)", "", text).strip()
-    previous_claims = {prose(s) for p in re.split(r"\n\s*\n", previous) for s in split_sentences(p)}
+    previous_entries = {}
+    for paragraph in re.split(r"\n\s*\n", previous):
+        for sentence in split_sentences(paragraph):
+            statement = prose(sentence)
+            if statement:
+                previous_entries[statement] = set(re.findall(r"\[(S\d+)\]", sentence))
+    previous_claims = set(previous_entries)
     parts = re.split(r"(\n\s*\n)", body)
     for index in range(0, len(parts), 2):
         paragraph = parts[index]
         rendered = []
-        for sentence in split_sentences(paragraph):
+        for raw_sentence in split_sentences(paragraph):
+            # 错误信息保留原文句子，兜底删句才能在正文中定位。
+            sentence = _clean_fact_refs(raw_sentence, registry)
             ids = FACT_REF.findall(sentence)
             if not ids:
                 statement = prose(sentence)
                 preserved = bool(statement and statement in previous_claims)
+                if not preserved and statement:
+                    # 限定词插入或句子拆分：原句仍逐字保留、数字只减不增、引用不新增时按原声明处理。
+                    refs = set(re.findall(r"\[(S\d+)\]", sentence))
+                    numbers = set(quantitative_tokens(statement))
+                    preserved = bool(refs) and any(
+                        (statement in old or old in statement)
+                        and numbers.issubset(set(quantitative_tokens(old)))
+                        and _negation_terms(statement) == _negation_terms(old)
+                        and refs.issubset(old_refs)
+                        for old, old_refs in previous_entries.items()
+                    )
                 if re.search(r"\[S\d+\]", sentence) and not preserved:
-                    raise BindingError("新声明必须提供事实编号", sentence)
+                    raise BindingError("新声明必须提供事实编号", raw_sentence)
                 if _organizational_transition(statement):
                     rendered.append(sentence)
                     continue
                 if _embedded_fact(statement) and not preserved:
-                    raise BindingError("排序事实声明缺少事实编号", sentence)
+                    raise BindingError("排序事实声明缺少事实编号", raw_sentence)
                 if quantitative_tokens(statement) and not preserved:
-                    raise BindingError("定量声明缺少事实编号", sentence)
+                    raise BindingError("定量声明缺少事实编号", raw_sentence)
                 if statement and not preserved and not re.match(
-                        r"^(?:建议|推断|假设|资料说明|资料用于|数据待补充|以下为|本报告仅|未取得)", statement):
-                    raise BindingError("定性声明缺少事实编号或明确的建议/推断标识", sentence)
+                        r"^[\[【(（]?\s*(?:建议|推断|假设|资料说明|资料用于|数据待补充|以下为|本报告仅|未取得"
+                        r"|记者调研发现|调研发现|调查发现|记者发现"
+                        r"|综合(?:各项)?(?:研究)?数据(?:可以)?看出|其一|其二|其三|其四|首先|其次|最后|再次"
+                        r"|本(?:报告|调研|文|研究|分析)(?:基于|围绕|依据|结合|聚焦|覆盖|旨在|通过|采用))", statement):
+                    raise BindingError("定性声明缺少事实编号或明确的建议/推断标识", raw_sentence)
                 rendered.append(sentence)
                 continue
             facts = []
@@ -161,7 +209,7 @@ def render_bound_text(body, task_id, registry, *, previous=""):
                 resolved[key] = matched
                 fact = registry.get(matched)
                 if fact is None or fact["task_id"] != task_id:
-                    raise BindingError("事实编号不存在或归属错误", sentence)
+                    raise BindingError("事实编号不存在或归属错误", raw_sentence)
                 facts.append(fact)
             sources = {}
             for fact in facts:
@@ -176,32 +224,32 @@ def render_bound_text(body, task_id, registry, *, previous=""):
             context = "\n".join(f["quote"] + "\n" + f["source"].get("title", "") for f in facts)
             claim_period, known_period = period_context(claim_text), period_context(context)
             if any(set(claim_period[field]) - set(known_period[field]) for field in ("years", "periods")):
-                raise BindingError("声明与绑定事实期间不一致或补造未知期间", sentence)
+                raise BindingError("声明与绑定事实期间不一致或补造未知期间", raw_sentence)
             if set(geography_context(claim_text)) - set(geography_context(context)):
-                raise BindingError("声明与绑定事实地区不一致或补造未知地区", sentence)
+                raise BindingError("声明与绑定事实地区不一致或补造未知地区", raw_sentence)
             for token in quantitative_tokens(claim_text):
                 records = [m for fact in facts for m in fact["measurements"]
                            if token_matches_text(token, str(m["value"]) + m["unit"])]
                 if records and claim_period["years"] and all(
                         m["year"] is not None and m["year"] not in claim_period["years"] for m in records):
-                    raise BindingError("该数值对应的期间与声明不一致", sentence)
+                    raise BindingError("该数值对应的期间与声明不一致", raw_sentence)
                 if records and all(m["role"] == "forecast" for m in records) and not (
                         FORECAST.search(claim_text) or "有望" in claim_text):
-                    raise BindingError("预测事实必须保留预测或预计标签", sentence)
+                    raise BindingError("预测事实必须保留预测或预计标签", raw_sentence)
             measurements = [m for fact in facts for m in fact["measurements"]
                             if token_matches_text(str(m["value"]) + m["unit"], claim_text)
                             and (not claim_period["years"] or m["year"] in claim_period["years"])]
             roles = {m["role"] for m in measurements}
             if roles == {"forecast"} and not (FORECAST.search(claim_text) or "有望" in claim_text):
-                raise BindingError("预测事实必须保留预测或预计标签", sentence)
+                raise BindingError("预测事实必须保留预测或预计标签", raw_sentence)
             check = check_citations(task_id, clean, list(sources.values()))
             from services.review_rules import is_confirmed_blocker
             if check["errors"] or any(is_confirmed_blocker(i) or (i.get("kind") in {"unbound_number", "merged_fact_range"} and i.get("severity") == "hard") for i in check["binding_issues"]):
-                raise BindingError("声明与绑定事实不一致", sentence)
+                raise BindingError("声明与绑定事实不一致", raw_sentence)
             objects = set().union(*(set(object_context(f["quote"]) or object_context(f["source"].get("title", "")))
                                     for f in facts))
             if set(object_context(claim_text)) - objects:
-                raise BindingError("声明改变或补造了绑定事实的统计对象", sentence)
+                raise BindingError("声明改变或补造了绑定事实的统计对象", raw_sentence)
             claim = dict(paragraph=index // 2 + 1, text=prose(clean),
                          fact_ids=[resolved.get(key, key) for key in ids], source_ids=sorted(sources))
             if corrections:
@@ -212,11 +260,12 @@ def render_bound_text(body, task_id, registry, *, previous=""):
     return "".join(parts), claims
 
 
-def salvage_bound_text(body, task_id, registry, *, previous="", max_drops=12):
+def salvage_bound_text(body, task_id, registry, *, previous="", max_drops=40):
     """逐句删除无法绑定的事实性声明后重新渲染，返回 (正文, claims, 已删除原句)。
 
     只在模型定向修复仍不通过时使用：协议要求“没有对应事实时省略断言”，
-    但删除有上限，避免把正文删成空壳后仍当作成功稿。
+    但删除有上限，避免把正文删成空壳后仍当作成功稿。整篇装配稿句数较多，
+    上限需覆盖一篇报告的量级；命中上限仍判失败，不静默截断。
     """
     dropped = []
     text = body
@@ -226,14 +275,32 @@ def salvage_bound_text(body, task_id, registry, *, previous="", max_drops=12):
             return rendered, claims, dropped
         except BindingError as exc:
             if not exc.sentence or len(dropped) >= max_drops:
+                exc.dropped = dropped
                 raise
             index = text.find(exc.sentence)
             if index < 0:
+                exc.dropped = dropped
                 raise
             # 标题行是结构，不是声明；删句时必须保留，避免把整节标题一起删掉。
-            headings = [line for line in exc.sentence.splitlines()
-                        if re.match(r"^\s*#{1,6}\s+\S", line)]
-            text = text[:index] + "\n".join(headings) + text[index + len(exc.sentence):]
+            lines = exc.sentence.splitlines()
+            keep = [line.strip() for line in lines if re.match(r"^\s*#{1,6}\s+\S", line)]
+            titles = [line.strip() for line in lines
+                      if line.strip() and not re.match(r"^\s*#{1,6}\s+\S", line)]
+            if keep and len(titles) == 1 and _title_like(titles[0]):
+                # 标题与正文被同一句吞并时保留标题文字，避免留下只有编号的空标题。
+                if re.match(r"^#{1,6}\s+[0-9]+(?:\.[0-9]+)*$", keep[-1]):
+                    keep[-1] = keep[-1] + " " + titles[0]
+                titles = []
+            if not keep and titles and _title_like(titles[0]):
+                before = text[:index].rstrip("\n")
+                last = before.splitlines()[-1].strip() if before else ""
+                if re.match(r"^#{1,6}\s+[0-9]+(?:\.[0-9]+)*$", last):
+                    start = before.rfind(last)
+                    text = (text[:start] + last + " " + titles[0]
+                            + text[index + len(exc.sentence):])
+                    dropped.append(exc.sentence)
+                    continue
+            text = text[:index] + "\n".join(keep) + text[index + len(exc.sentence):]
             dropped.append(exc.sentence)
 
 

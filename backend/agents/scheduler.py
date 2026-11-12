@@ -243,6 +243,11 @@ async def scheduler_node(state: dict, *, single_step: bool = False) -> dict:
     if repaired["rebound"]:
         _append_log(logs, 0, "Observation", f"写作后确定性重挂引用 {repaired['rebound']} 处")
     draft_content = repair_structure(repaired["body"], state.get("topic"))
+    if state.get('report_pipeline_version') != 3:
+        from services.citations import repair_citation_groups
+        draft_content, grouping_fixed = repair_citation_groups(draft_content, evidence_items)
+        if grouping_fixed:
+            _append_log(logs, 0, "Observation", f"引用分组确定性修正 {grouping_fixed} 处")
     if state.get('report_pipeline_version') == 3 and document:
         from services.report_document import render_document
         draft_content=render_document(document)

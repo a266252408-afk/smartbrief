@@ -108,3 +108,42 @@ def test_merge_rejects_model_quote_not_in_source():
     merged, rejected = merge_findings([], model, sources)
     assert merged == []
     assert rejected and rejected[0]["finding_id"] == "BIND-0009"
+
+
+def _precheck_restatement_case(location_sentence):
+    sources = [
+        source(source_id="S1", url="https://example.invalid/a",
+               excerpt="Factories installed more than 600,000 new units in 2025."),
+        source(source_id="S20", url="https://example.invalid/b",
+               excerpt="The report recorded 553,052 units in 2022. "
+                       "In 2023 the market is expected to grow by 7% to more than 590,000 units worldwide."),
+    ]
+    body = "2025年新增超过60万台[S1]。关于2023年的预测将增长7%至59万台以上[S20]。"
+    deterministic = [{
+        "finding_id": "WORD-0001", "rule": "unsupported_wording", "kind": "unsupported_wording",
+        "severity": "soft", "problem": "表述未在所引来源出现", "expected": "删除表述 59万台以上",
+        "evidence": {"source_id": "S20",
+                     "quote": "In 2023 the market is expected to grow by 7% to more than 590,000 units worldwide."},
+        "location": {"paragraph": 1, "sentence": 2},
+    }]
+    model = [{
+        "finding_id": "MODEL-0001", "rule": "reviewer", "kind": "reviewer", "severity": "hard",
+        "problem": "数字声明[S20]中的“59万台以上”未被直接证实，预检已标记 unsupported_wording",
+        "expected": "核实该数字", "evidence": {"source_id": "S20", "quote": "The report recorded 553,052 units in 2022."},
+        "location": {"paragraph": 1, "sentence": location_sentence},
+    }]
+    return deterministic, model, sources, body
+
+
+def test_model_restatement_of_precheck_attached_to_other_sentence_is_dropped():
+    deterministic, model, sources, body = _precheck_restatement_case(1)
+    merged, rejected = merge_findings(deterministic, model, sources, body)
+    assert rejected == []
+    assert [finding["finding_id"] for finding in merged] == ["WORD-0001"]
+
+
+def test_model_verification_on_the_precheck_sentence_is_kept():
+    deterministic, model, sources, body = _precheck_restatement_case(2)
+    merged, rejected = merge_findings(deterministic, model, sources, body)
+    assert rejected == []
+    assert {finding["finding_id"] for finding in merged} == {"WORD-0001", "MODEL-0001"}

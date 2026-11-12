@@ -123,6 +123,168 @@ def ensure_title(draft, topic: str | None) -> str:
 
 _SUMMARY_HEADING = re.compile(r"(?:执行)?摘要")
 _CONCLUSION_HEADING = re.compile(r"结论|总结|建议")
+# 合法引用只有 [S#]；字母+16~24位十六进制的残号（写错字母或截断的 F 编号）不得进入成品。
+_INVALID_REF = re.compile(r"\[\s*(?![Ss])[A-Za-z][0-9a-fA-F]{16,24}\s*\]")
+# 只有编号、没有标题文字的小节标题；标题文字已被删除时不再留下悬空编号。
+_ORPHAN_HEADING = re.compile(r"^\s*#{2,6}\s+[0-9]+(?:\.[0-9]+)*\s*$")
+
+
+def strip_invalid_refs(text: str) -> str:
+    if not isinstance(text, str) or not text:
+        return text
+    return _INVALID_REF.sub("", text)
+
+
+def strip_orphan_headings(text: str) -> str:
+    if not isinstance(text, str) or not text:
+        return text
+    return "\n".join(line for line in text.splitlines() if not _ORPHAN_HEADING.match(line))
+
+# 已知章节名，用于把“标题+正文粘在同一行”的标题拆回独立行。
+_KNOWN_HEADINGS = ('结论与建议', '执行摘要', '核心摘要', '主要结论', '核心结论',
+                   '研究结论', '摘要', '结论', '总结')
+_NUMBER_PREFIX = re.compile(r'^([一二三四五六七八九十0-9]+[、.．]\s*)')
+# 标题行出现句末标点或来源编号时，可判定正文被吞进了标题；正常标题不会包含这些标记。
+_GLUED_MARK = re.compile(r'。|\[\s*S\d+\s*\]')
+# 章标题常见结尾，只在已判定粘连时用于定位“标题在哪里结束”。
+_HEADING_TAILS = (
+    '态势', '重构', '生态', '困境', '治理', '规模', '趋势', '格局', '现状', '瓶颈',
+    '挑战', '机遇', '政策', '监管', '用户', '需求', '竞争', '产业链', '技术', '模式',
+    '盈利', '风险', '建议', '结论', '摘要', '展望', '前景', '特征', '分析', '研究',
+    '市场', '行业', '品类', '内容', '供给', '流量', '变现', '成本', '效率', '发展',
+    '增长', '结构', '变迁', '演进', '对比', '差异', '问题', '对策', '影响', '环境',
+    '能力', '路径', '空间', '价值', '策略', '布局', '亮点', '变化', '情况', '水平',
+    '质量', '安全', '合规', '创新', '应用', '落地', '升级', '转型', '融合', '协同',
+    '边界', '逻辑', '动态', '预期', '轨迹', '洗牌', '进程', '建设', '实证',
+)
+# 正文起始提示词；强提示词可直接定界，弱提示词要求标题至少 6 字，避免把“当前/追溯”等词误当成正文开头。
+_BODY_CUE = re.compile(
+    r'(?P<strong>(?<![数据证])据|《|(?:报告|数据|统计|研究)(?:显示|表明|指出|发布|披露))'
+    r'|(?P<weak>追溯|当前|目前|截至|今年|近年|随着|伴随|进入|具体|首先|同时|然而|不过|因此|整体|总体)'
+)
+_SUBJECT_GAP = re.compile(
+    r'^(?:[A-Za-z][A-Za-z0-9.&\- ]{1,30}'
+    r'|[一-鿿]{2,8}(?:证券|研究院|研究中心|咨询|机构|公司|银行|基金|协会|统计局|政府|部门))$'
+)
+
+
+def looks_glued_heading(title: str) -> bool:
+    """标题文字中出现句末标点或 [S#]，即可判定标题行吞并了正文。"""
+    return bool(_GLUED_MARK.search(title or ''))
+
+
+def _split_known_glued_heading(title: str):
+    """已知章节名允许带“一、”编号；返回 (标题, 正文) 或 None。"""
+    prefix, rest = '', title
+    match = _NUMBER_PREFIX.match(title)
+    if match:
+        prefix, rest = match.group(1), title[match.end():]
+    for name in _KNOWN_HEADINGS:
+        if rest.startswith(name) and len(rest) > len(name):
+            tail = rest[len(name):]
+            if tail[0] in '：:':
+                return None          # 冒号后可能是副标题，不擅自拆
+            if tail[0] not in '，,、。；;（(—-' and re.search(r'[。！？；，,]|\[\s*S\d+\s*\]', tail):
+                return prefix + name, tail.strip()
+    return None
+
+
+def _title_end_before(text: str, cue_start: int, min_end: int = 4):
+    """在正文提示词之前，找最长的、以常见章标题结尾词收尾的标题边界。"""
+    limit = min(cue_start, 24)
+    for end in range(limit, min_end - 1, -1):
+        candidate = text[:end].strip()
+        if len(candidate) > 24 or re.search(r'[。！？；，,：:]', candidate):
+            continue
+        if not any(candidate.endswith(tail) for tail in _HEADING_TAILS):
+            continue
+        gap = text[end:cue_start].strip()
+        if gap and not _SUBJECT_GAP.fullmatch(gap):
+            continue
+        return end
+    return None
+
+
+def _title_end_without_cue(text: str):
+    """没有正文提示词时，仅在标题长度 8–12 字且以常见结尾词收尾时兜底定界。"""
+    limit = min(len(text), 12)
+    for end in range(limit, 7, -1):
+        candidate = text[:end].strip()
+        if not candidate or re.search(r'[。！？；，,：:]', candidate):
+            continue
+        if not any(candidate.endswith(tail) for tail in _HEADING_TAILS):
+            continue
+        body = text[end:].strip()
+        if not body or body[0] in '，,。；;：:、':
+            continue
+        if not re.search(r'\[\s*S\d+\s*\]', body) and len(body) < 20:
+            continue
+        return end
+    return None
+
+
+def _split_chapter_glued_heading(title: str):
+    """拆分“章标题正文……”（可带“二、”编号）：只调整换行，边界要求有明确结尾词与正文提示词。"""
+    if not looks_glued_heading(title):
+        return None
+    match = _NUMBER_PREFIX.match(title)
+    prefix, rest = (match.group(1), title[match.end():]) if match else ('', title)
+    cue = _BODY_CUE.search(rest)
+    end = (_title_end_before(rest, cue.start(), 6 if cue.group('weak') else 4)
+           if cue else None)
+    if not end:
+        end = _title_end_without_cue(rest)
+    if not end:
+        return None
+    return (prefix + rest[:end]).strip(), rest[end:].strip()
+
+
+def _split_glued_heading(title: str):
+    """返回 (标题, 正文) 或 None；只在边界足够明确时拆分，保留原样优先。"""
+    known = _split_known_glued_heading(title)
+    if known:
+        return known
+    chapter = _split_chapter_glued_heading(title)
+    if chapter:
+        return chapter
+    space = title.find(' ')
+    if space > 0:
+        head, rest = title[:space].strip(), title[space + 1:].strip()
+        # 编号后的空格不是标题边界，交给章标题规则处理。
+        if re.fullmatch(r'[一二三四五六七八九十0-9]+[、.．]', head):
+            return None
+        if (head and rest and not re.search(r'[。！？；，,：:、]', head)
+                and re.search(r'[。！？；，,]|\[\s*S\d+\s*\]', rest)):
+            return head, rest
+    return None
+
+
+def _move_leading_citations(body: str) -> str:
+    """标题行末尾的引用被拆到正文开头时，移到首句句末，保持常规引用位置。"""
+    match = re.match(r'^((?:\[S\d+\])+)\s*', body)
+    if not match:
+        return body
+    refs, rest = match.group(1), body[match.end():]
+    end = re.search(r'[。；！？]', rest)
+    if not end:
+        return rest + refs
+    return rest[:end.end()] + refs + rest[end.end():]
+
+
+def normalize_headings(text: str) -> str:
+    """把与正文字句粘连的 Markdown 标题拆回“标题行 + 正文”，只调整换行。"""
+    if not isinstance(text, str) or not text:
+        return text
+    output = []
+    for line in text.splitlines():
+        match = re.match(r'^(#{1,6}\s+)(.+)$', line)
+        split = _split_glued_heading(match[2]) if match else None
+        if not split:
+            output.append(line)
+            continue
+        head, body = split
+        output.extend([f'{match[1]}{head}', '', _move_leading_citations(body)])
+    return '\n'.join(output)
 
 
 def _trim_blank(lines: list[str]) -> list[str]:
@@ -138,12 +300,14 @@ def repair_structure(draft, topic: str | None = None) -> str:
     """
     if not usable_draft(draft):
         return draft
-    text = ensure_title(draft, topic)
+    text = strip_orphan_headings(strip_invalid_refs(normalize_headings(ensure_title(draft, topic))))
     lines = text.splitlines()
 
+    report_title = None
     h1 = [index for index, line in enumerate(lines) if re.match(r"^#\s+\S", line)]
     if h1:
         first_title = re.sub(r"^#\s+", "", lines[h1[0]]).strip()
+        report_title = first_title
         drop = set()
         for index in h1[1:]:
             title = re.sub(r"^#\s+", "", lines[index]).strip()
@@ -152,6 +316,16 @@ def repair_structure(draft, topic: str | None = None) -> str:
             else:
                 lines[index] = f"## {title}"
         lines = [line for index, line in enumerate(lines) if index not in drop]
+
+    def _report_title_like(title):
+        normalized = re.sub(r"^[一二三四五六七八九十0-9]+[、.．]\s*", "", title).strip()
+        return (report_title is not None and normalized == report_title) or bool(
+            re.search(r"市场调研报告|市场研究报告", normalized))
+
+    # 嵌入正文的第二份报告标题只删标题行，保留其下正文；否则审核会判重复装配。
+    lines = [line for line in lines
+             if not (re.match(r"^#{2,6}\s+", line)
+                     and _report_title_like(re.sub(r"^#{2,6}\s+", "", line).strip()))]
 
     h2 = [index for index, line in enumerate(lines) if re.match(r"^##\s+\S", line)]
     if not h2:
@@ -229,6 +403,15 @@ def structure_gaps(draft) -> list[dict]:
     from services.candidate_acceptance import has_rewrite_protocol
     if has_rewrite_protocol(draft):
         issues.append({"kind": "rewrite_protocol", "message": "报告正文包含返工协议或报告副本"})
+    for number, paragraph in enumerate(re.split(r"\n\s*\n", draft), 1):
+        for line in paragraph.splitlines():
+            match = re.match(r"^(#{1,6})\s+(.+)$", line)
+            if match and looks_glued_heading(match[2]):
+                issues.append({
+                    "kind": "glued_heading", "paragraph": number,
+                    "heading": line.strip(),
+                    "message": "章节标题与正文粘在同一行，Markdown 会把正文渲染为标题；请把标题拆到独立行",
+                })
     return issues
 
 
