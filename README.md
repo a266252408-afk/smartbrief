@@ -159,4 +159,4 @@ npm run test:e2e
 
 ### 结构化报告 v3（显式选择）
 
-默认新任务使用v2；创建API显式传入`report_pipeline_version: 3`可使用严格文档模型、程序引用渲染与按块返工。文档在schema5的可空`report_document`列保存，v1/v2旧任务继续按原版本读取/恢复。使用新代码前按[数据回滚手册](docs/runbooks/git-and-data-rollback.md)完成停写备份；本轮只验收隔离迁移，没有操作真实运行库。字段与模型职责见[v3契约对照](docs/construction/v3-model-contracts.md)。离线通过不代表主模型在线效果已验收。
+默认新任务使用v2；创建API显式传入`report_pipeline_version: 3`可使用严格文档模型、程序引用渲染与按块返工。文档在schema5的可空`report_document`列保存，v1/v2旧任务继续按原版本读取/恢复。使用新代码前按[数据回滚手册](docs/runbooks/git-and-data-rollback.md)完成停写备份；本轮只验收隔离迁移，没有操作真实运行库。字段与模型职责见[v3契约对照](docs/v3-model-contracts.md)。离线通过不代表主模型在线效果已验收。
