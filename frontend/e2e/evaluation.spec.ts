@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 // 浏览器使用明确HTTP夹具；20例真实后端结果单独集成验证。
-const source = JSON.parse(readFileSync(fileURLToPath(new URL('../../docs/verification/T09-offline-report.json', import.meta.url)), 'utf8'))
+const source = JSON.parse(readFileSync(fileURLToPath(new URL('./fixtures/T09-offline-report.json', import.meta.url)), 'utf8'))
 
 for (const role of ['admin', 'readonly'] as const) {
   test(`评测离线标识、未知值、单变量对照和${role}权限`, async ({ page }) => {

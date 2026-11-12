@@ -2,7 +2,7 @@
 
 SmartBrief 将研究主题转化为结构化报告，覆盖研究规划、网络资料检索、内容撰写、审核返工与结果导出。用户可以查看执行计划、工具调用记录、审核意见和历史报告。
 
-当前版本：**0.2.0**，已完成本地范围最终验收；Docker 与在线效果未验收，详见 [T13 交接](docs/HANDOFF.md)。
+当前版本：**0.2.0**，已完成本地范围最终验收；Docker 与在线效果未验收。
 
 ## 核心能力
 
@@ -131,7 +131,7 @@ npm run test:e2e
 
 首次浏览器测试前按 [环境说明](docs/environment.md) 安装匹配的 Chromium。
 
-构建包含 TypeScript 类型检查。开发约定见 [CLAUDE.md](CLAUDE.md)。
+构建包含 TypeScript 类型检查。
 
 ## 当前限制
 
@@ -146,10 +146,6 @@ npm run test:e2e
 - 本地数据支持绝对路径 `DATA_DIR`（默认保留backend旧布局），统一业务库、检查点、向量、上传、配置和自定义技能。停写备份与全新目录恢复见[备份恢复手册](docs/runbooks/data-backup-restore.md)；Docker相关工作由用户延后，未将本地验收当作容器成绩。
 
 代码来源与适配记录见 [来源说明](docs/ATTRIBUTION.md)。
-
-## 后续施工与跨会话接手
-
-T01～T12 已形成顺序验证快照，T13 负责 0.2.0 的最终本地验收。先读 [项目宪法](PROJECT_CONSTITUTION.md)、[AGENTS.md](AGENTS.md) 与 [交接记录](docs/HANDOFF.md)；真实门禁与延期范围见 [状态文件](docs/construction/state.json)、[施工清单](docs/tasks/implementation.md) 和 [施工日志](docs/dev-log.md)。Docker 验收继续依用户决定延后，远程、部署和付费在线评测未获授权。
 
 ## 主备模型、Agent级恢复与缓存用量
 

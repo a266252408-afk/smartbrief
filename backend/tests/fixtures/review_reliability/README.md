@@ -1,6 +1,6 @@
 # R00 历史公开样本冻结（2026-11-08）
 
-来源为本地SQLite只读查询；不是重新运行，不修改历史质量。仅公开web资料；运行令牌、记忆及响应追踪ID已排除。所有文件SHA256见 docs/construction/reliability-fixture-manifest.json。
+来源为本地SQLite只读查询；不是重新运行，不修改历史质量。仅公开web资料；运行令牌、记忆及响应追踪ID已排除。所有文件SHA256见同目录 manifest.json。
 
 | 样本 | 实际保存范围 | 缺失与限制 |
 | --- | --- | --- |

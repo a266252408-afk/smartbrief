@@ -43,6 +43,13 @@ probe_out.txt
 # 项目内安装缓存与隔离验证副本
 .npm-cache/
 .validation/
+.test-tmp/
+.ruff_cache/
+
+# 本地过程留档（验证输出与真实运行记录）
+docs/verification/
+docs/evaluation-runs/
+docs/construction/state.json
 
 # 浏览器测试生成物
 .browser-cache/
