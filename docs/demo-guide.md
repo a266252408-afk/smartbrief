@@ -59,6 +59,5 @@ npm run dev -- --host 127.0.0.1 --port 5174
 
 ## 相关文档
 
-- [T11 模块 SDD](module-sdd/T11.md)
 - [测试策略](testing-strategy.md)
 - [本地备份与恢复](runbooks/data-backup-restore.md)

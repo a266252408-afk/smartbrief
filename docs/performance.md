@@ -43,7 +43,7 @@ Vite/Rollup 的 kB 使用十进制（1000 字节）；脚本同时输出字节�
 
 - 构建产物只有一个入口 JS：3,320.79 kB（gzip 1,060.69 kB），所有页面与 ECharts、html2pdf 均进入首屏公共包。
 - 页面就绪中位数 735 ms；DOMContentLoaded 中位数 549 ms；load 中位数 550 ms。
-- 证据：[T12-01-baseline-build.txt](verification/T12-01-baseline-build.txt)、[T12-01-baseline-page-ready.json](verification/T12-01-baseline-page-ready.json)。
+- 证据：T12-01 构建输出与页面就绪测量记录（本地留档）。
 
 ## 4. T12-01 结果（路由懒加载后）
 
@@ -63,7 +63,7 @@ Vite/Rollup 的 kB 使用十进制（1000 字节）；脚本同时输出字节�
 - 页面就绪中位数 735 → 294 ms；DOMContentLoaded 549 → 124 ms；load 550 → 153 ms。
 - 懒加载块失败时显示“页面加载失败：<路径>，请刷新重试”，避免路由空白；浏览器断言见 `frontend/e2e/routing.spec.ts`。
 - 评测页 ECharts 与 html2pdf 已移出首屏；T12-01 时它们仍随评测、任务详情/报告路由的静态块加载，T12-02 进一步改为交互时按需加载。
-- 证据：[T12-01-initial-assets.json](verification/T12-01-initial-assets.json)、[T12-01-page-ready.json](verification/T12-01-page-ready.json)、[T12-01-frontend-build.txt](verification/T12-01-frontend-build.txt)。
+- 证据：T12-01 初始资源、页面就绪与前端构建测量记录（本地留档）。
 
 ## 5. T12-02 图表与导出按需加载
 
@@ -95,7 +95,7 @@ Vite/Rollup 的 kB 使用十进制（1000 字节）；脚本同时输出字节�
 
 ### 5.4 T12-02 证据
 
-[T12-02-baseline-route-assets.json](verification/T12-02-baseline-route-assets.json)、[T12-02-route-assets.json](verification/T12-02-route-assets.json)、[T12-02-initial-assets.json](verification/T12-02-initial-assets.json)、[T12-02-page-ready.json](verification/T12-02-page-ready.json)。
+证据：T12-02 路由资源、初始资源与页面就绪测量记录（本地留档）。
 
 ## 6. 复现命令
 

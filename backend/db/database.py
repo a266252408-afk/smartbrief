@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS evaluation_reports (
 # 列的迁移：CREATE TABLE IF NOT EXISTS 不会给已存在的旧表加列，
 # 这里用 ALTER TABLE ADD COLUMN 逐列补齐（列已存在时抛 OperationalError → 跳过，幂等）。
 # 注意：加列必须同步修改 _SCHEMA、task_repository 的 _JSON_FIELDS/_ALLOWED_UPDATE、
-# workflow.run_task 落库与前端类型，五处缺一不可（见 CLAUDE.md 约定 12）。
+# workflow.run_task 落库与前端类型，五处缺一不可。
 _MIGRATIONS = [
     "ALTER TABLE tasks ADD COLUMN report_document TEXT",
     "ALTER TABLE evaluation_reports ADD COLUMN metadata TEXT",

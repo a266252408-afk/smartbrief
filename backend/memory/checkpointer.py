@@ -1,6 +1,6 @@
 """短期记忆：LangGraph Checkpointer 封装（backend/checkpoints.db）。
 
-职责边界（与业务库分工，见 CLAUDE.md）：
+职责边界（与业务库分工）：
 - `backend/data.db`        由 task_repository 显式写入**任务业务数据**；
 - `backend/checkpoints.db` 由 LangGraph 框架在每次图节点执行后**自动写入图运行
   时状态快照**，task_id 同时作为 checkpoint 的 thread_id，二者一一对应。
