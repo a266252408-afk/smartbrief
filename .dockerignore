@@ -2,31 +2,51 @@
 # Docker 构建上下文 = 仓库根目录（compose 中 build.context = ..），
 # .dockerignore 必须放在上下文根目录（本文件），对 backend/frontend 两个镜像同时生效。
 
-# --- 通用缓存 / 版本控制 ---
+# --- 版本控制 / 缓存 ---
 .git
 .gitignore
 **/__pycache__
 **/*.pyc
 **/.pytest_cache
+**/.ruff_cache
 **/.coverage
+**/.coverage.*
+**/.test-tmp
+**/.validation
+**/.npm-cache
+**/.browser-cache
+**/test-results
+**/playwright-report
+
+# --- Python 虚拟环境（不得进入构建上下文） ---
+.venv
+**/.venv
+**/venv
 
 # --- 前端 ---
 **/node_modules
 **/dist
 
-# --- 密钥与本地配置（容器配置一律走 compose 传环境变量）---
+# --- 密钥与本地配置（容器配置一律走 compose 传环境变量） ---
 **/.env
-**/.env.example   # 示例文件不入镜像（deploy 目录自带一份）
+**/.env.example
+deploy/volumes
 
-# --- 后端运行期数据（容器内由卷承载，不入镜像）---
+# --- 后端运行期数据与个性化配置（容器内由卷与环境变量承载） ---
 backend/data/chroma_db
 backend/data/uploads
 backend/data.db
 backend/checkpoints.db
+backend/*.db-wal
+backend/*.db-shm
+backend/tool_config.json
+backend/mcp_config.json
+backend/skill_config.json
 
-# --- 后端测试与部署目录自身 ---
+# --- 测试、过程留档与临时产物 ---
 backend/tests
-deploy
+docs/verification
+docs/evaluation-runs
 *.ipynb
 **/*.log
 **/*-output.txt

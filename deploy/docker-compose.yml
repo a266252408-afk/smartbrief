@@ -31,7 +31,8 @@ services:
       - "8002:8002"          # 后端直连端口（前端统一走 nginx 8080 反代）
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8002/api/v1/health', timeout=3)\""]
+      # 匿名探针 /healthz 不需要令牌；/api/v1/health 需要 Bearer，不能用于容器健康检查
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8002/healthz', timeout=3)\""]
       interval: 30s
       timeout: 5s
       retries: 3
