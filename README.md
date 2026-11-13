@@ -98,7 +98,19 @@ npm run dev
 
 前端地址：`http://localhost:5174`；API 文档：`http://localhost:8002/docs`；匿名探针：`http://localhost:8002/healthz`；完整健康检查 `/api/v1/health` 与 API 文档均需 Bearer 令牌。
 
-容器化与服务器部署见 [部署说明](deploy/README.md)。
+### Docker 启动（可选）
+
+安装 Docker 后可在容器中运行，本机无需安装 Python 与 Node：
+
+```bash
+cd deploy
+cp .env.example .env        # 填写模型 Key，并生成两个互不相同的访问令牌
+docker compose up -d --build
+```
+
+前端地址：`http://localhost:8080`，输入 `.env` 中的管理员或只读令牌登录；匿名探针：`http://localhost:8002/healthz`。
+
+令牌生成、数据持久化与运维命令见 [部署说明](deploy/README.md)。
 
 ## 使用流程
 

@@ -51,6 +51,7 @@ deploy/
 
 - Docker Engine ≥ 24 与 Docker Compose v2（`docker compose version` 可验证）
 - 真实可用的 LLM API Key（容器内无法使用本地 `backend/.env`，一律走 `deploy/.env`）
+- 两个互不相同的访问令牌：管理员令牌必填，只读令牌可选但建议配置
 
 ### 2. 配置环境变量
 
@@ -59,6 +60,15 @@ cd deploy
 cp .env.example .env
 # 编辑 .env，填入 OPENAI_API_KEY（必填）与 EMBEDDING_API_KEY（RAG 用，可选）
 ```
+
+生成并填写访问令牌（至少 32 位随机串，两个值不能相同）：
+
+```bash
+python -c "import secrets;print('SMARTBRIEF_ADMIN_TOKEN='+secrets.token_hex(24))"
+python -c "import secrets;print('SMARTBRIEF_READONLY_TOKEN='+secrets.token_hex(24))"
+```
+
+未配置管理员令牌时，除匿名探针 `/healthz` 外所有接口返回 503。浏览器打开前端后输入管理员或只读令牌登录；令牌只保存在页面内存中，刷新后需重新输入。管理员可读写，只读令牌仅能查询。
 
 ### 3. 一键启动
 
@@ -76,9 +86,10 @@ start.bat
 
 | 入口 | 地址 | 说明 |
 |------|------|------|
-| 前端 | <http://localhost:8080> | 全部页面（任务提交/列表/报告中心/评测中心/知识库/对话/工具/技能） |
-| 后端健康检查 | <http://localhost:8002/api/v1/health> | 返回 `{"status":"ok",...}` 即正常 |
-| 后端 API 直连 | <http://localhost:8002/api/v1> | 可跳过 nginx 直接调试 |
+| 前端 | <http://localhost:8080> | 全部页面（任务提交/列表/报告中心/评测中心/知识库/对话/工具/技能），需输入访问令牌 |
+| 匿名探针 | <http://localhost:8002/healthz> | 不需要令牌，返回 `{"status":"ok"}` 即正常（容器健康检查使用） |
+| 后端健康检查 | <http://localhost:8002/api/v1/health> | 需要 Bearer 令牌；不带令牌返回 401 |
+| 后端 API 直连 | <http://localhost:8002/api/v1> | 可跳过 nginx 直接调试，同样需要令牌 |
 
 ## 四、常用运维命令（在 deploy/ 目录）
 
